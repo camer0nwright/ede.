@@ -22,6 +22,7 @@ Run, strength (lifting) and rest only. No swimming or cross-training.
 3. Plan checker: the app validates the AI's output against fixed rules and asks the AI to regenerate if a rule is broken
 4. Session check-in: completed or skipped, effort (1-10), notes, plus logging (see Logging)
 5. Skip workout: the user picks a reason (injury, illness, holiday, work/life, fatigue, other) and the AI recalculates the plan around it
+7. Coach chat: the user can ask the AI coach questions at any time (see AI coach chat)
 6. Weekly summary: what was done, what changed and why, what's next
 
 ## Weekly availability grid
@@ -99,6 +100,22 @@ Planned gym sessions work like the running plan (each session laid out in advanc
 - **A workout in progress is saved as it goes,** so closing the page does not lose logged sets.
 - **Units:** kg or lb, with sensible weight steps (for example 2.5 kg / 5 lb on barbells).
 - Later: supersets, warm-up set calculator, plate calculator (v2); personal records and charts (v3, as in Logging).
+
+## How plans are made and adapted
+- **Plan outline (code):** the plan's shape: phases, recovery weeks, taper, weekly run minutes, and which session types and levels rotate in. Built after onboarding, and rebuilt from where the user actually is after big changes (injury, missed weeks, a new race date).
+- **Weekly plan (AI):** each week's actual sessions (days, steps, exercises, notes), fitted to that week, written when the week is due.
+- **Plan checker (code):** validates every AI-written or AI-changed week against the fixed rules, and asks the AI to fix anything broken.
+- **Adapting (AI, kept in check by code):** changes after skips, illness, injury, holidays and check-ins, always passing the checker.
+
+## AI coach chat
+A "Coach" screen where users can ask the AI anything about their training.
+- **Context:** the user's goal, race date, plan outline and weeks, recent check-ins, logged lifts and runs, and injuries, so answers are about their own training.
+- **Suggests changes, never makes them silently:** the coach proposes a change (for example moving a long run), the user confirms with a tap, and the change goes through the plan checker like any other.
+- **Safety:** the same rules as the rest of ede.: words like chest pain or dizziness trigger cautious advice and a suggestion to see a doctor; the "not medical advice" notice applies.
+- **Server-side only:** all AI calls run on the server; API keys never reach the browser.
+- **Cost control:** a sensible daily message limit per user.
+- **Chat history** is saved per user.
+- v1: questions with full context, plus suggested changes the user confirms. Later: a short message after each workout (as in Logging v2).
 
 ## Session data model
 A day holds one or two sessions. Each session has: type (run or strength), duration, intensity, planned vs actual, effort rating, and optional structured steps (warm-up, intervals, cool-down for runs; exercises, sets and reps for strength).
@@ -185,3 +202,4 @@ Places where the v4 additions or the plan-engine prompt disagreed with the earli
 17. **Easy running is counted by step.** For the 80% rule, time at RPE 4 or less counts as easy, even inside an interval or fast-finish session. Runs without steps count by their intensity.
 18. **Variety rule.** A week's set of quality session types must differ from the previous week's, and a session type never returns at a lower level except in recovery and taper weeks. The plan engine may echo each run's session_kind and level (optional fields) so the checker can see them.
 19. **Plan outline scope.** The outline sets each week's phase, run minutes and sessions (kind, level, minutes, and strength focus and effort), fitted to the user's longest available days. The AI places sessions on specific days. Its numbers live in OUTLINE_CONFIG, and its tests check every plan against the plan checker's limits.
+20. **AI coach chat in v1.** Users can ask the AI coach questions with full context of their training; the coach can suggest plan changes, which the user confirms and the plan checker validates.
