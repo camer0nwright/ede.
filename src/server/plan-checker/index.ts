@@ -2,6 +2,7 @@
 // ede.'s fixed training rules. Runs on the server only.
 import "server-only";
 import { WeekPlan } from "@/lib/domain";
+import { parseEngineResponse, toWeekPlan } from "@/lib/plan-engine";
 import { ALL_RULES, type CheckContext, type Violation } from "./rules";
 
 export type { CheckContext, PastWeek, RuleId, Violation } from "./rules";
@@ -31,6 +32,25 @@ export function checkWeekPlan(raw: unknown, ctx: CheckContext): CheckResult {
   return violations.length === 0
     ? { ok: true, week, violations: [] }
     : { ok: false, week, violations };
+}
+
+/**
+ * Checks the plan engine's raw text reply: reads the JSON, converts it into
+ * dated sessions starting on `weekStart` (a Monday), then runs every rule.
+ */
+export function checkEngineResponse(
+  text: string,
+  weekStart: string,
+  ctx: CheckContext,
+): CheckResult {
+  const parsed = parseEngineResponse(text);
+  if (!parsed.ok) {
+    return {
+      ok: false,
+      violations: parsed.errors.map((message) => ({ rule: "week-structure", message })),
+    };
+  }
+  return checkWeekPlan(toWeekPlan(parsed.week, weekStart), ctx);
 }
 
 /** Formats violations as a short list to send back to the AI for a retry. */

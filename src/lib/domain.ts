@@ -32,22 +32,30 @@ export const IsoDate = z.iso.date();
 
 // ---------- Session steps ----------
 
+export const BODY_FOCUSES = ["upper", "lower", "full"] as const;
+export const BodyFocus = z.enum(BODY_FOCUSES);
+export type BodyFocus = z.infer<typeof BodyFocus>;
+
+export const PHASES = ["base", "build", "peak", "taper", "recovery"] as const;
+export const Phase = z.enum(PHASES);
+export type Phase = z.infer<typeof Phase>;
+
+/** One part of a run: warm-up, main set or cool-down. */
 export const RunStep = z.object({
-  kind: z.enum(["warmup", "steady", "interval", "recovery", "cooldown"]),
-  description: z.string().min(1),
-  minutes: z.number().positive().optional(),
-  distanceKm: z.number().positive().optional(),
-  repeat: z.number().int().min(1).optional(),
+  name: z.string().min(1),
+  minutes: z.number().positive(),
+  targetRpe: z.number().min(1).max(10),
 });
 export type RunStep = z.infer<typeof RunStep>;
 
+/** One exercise in a strength session. Warm-up sets are not working sets. */
 export const StrengthExercise = z.object({
   name: z.string().min(1),
-  sets: z.number().int().min(1),
+  warmupSets: z.number().int().min(0),
+  workingSets: z.number().int().min(1),
   reps: z.string().min(1), // "5", "8-10", "30s"
-  load: z.string().optional(), // "RPE 7", "60 kg"
-  isLegs: z.boolean().default(false),
-  notes: z.string().optional(),
+  targetRpe: z.number().min(1).max(10),
+  failureAllowed: z.boolean(),
 });
 export type StrengthExercise = z.infer<typeof StrengthExercise>;
 
@@ -59,23 +67,24 @@ const sessionBase = {
   title: z.string().min(1),
   intensity: Intensity,
   plannedMinutes: z.number().int().positive(),
+  /** The AI's own "key session" marker. */
+  isKeySession: z.boolean().default(false),
 };
 
 export const RunSession = z.object({
   ...sessionBase,
   type: z.literal("run"),
-  isKeyRun: z.boolean().default(false),
   steps: z.array(RunStep).default([]),
 });
 
 export const StrengthSession = z.object({
   ...sessionBase,
   type: z.literal("strength"),
-  isHeavyLegs: z.boolean().default(false),
-  steps: z.array(StrengthExercise).default([]),
+  bodyFocus: BodyFocus,
+  exercises: z.array(StrengthExercise).default([]),
 });
 
-/** One planned session, in the format the AI must return. */
+/** One planned session, as the app stores and checks it. */
 export const PlannedSession = z.discriminatedUnion("type", [
   RunSession,
   StrengthSession,
@@ -85,9 +94,12 @@ export type PlannedSession = z.infer<typeof PlannedSession>;
 /** A week of sessions. Days with no sessions are rest days. */
 export const WeekPlan = z.object({
   weekStart: IsoDate, // a Monday
-  isRecoveryWeek: z.boolean().default(false),
-  isTaperWeek: z.boolean().default(false),
+  weekNumber: z.number().int().min(1).default(1),
+  phase: Phase.default("base"),
   sessions: z.array(PlannedSession),
+  /** Notes per day, keyed by date. */
+  dayNotes: z.record(IsoDate, z.string()).default({}),
+  coachNote: z.string().default(""),
 });
 export type WeekPlan = z.infer<typeof WeekPlan>;
 
@@ -144,4 +156,20 @@ export function summariseAvailability(week: Availability) {
   const trainingDays = week.filter((d) => d.minutes !== null).length;
   const doubleDays = week.filter((d) => d.isDouble).length;
   return { trainingDays, doubleDays, restDays: 7 - trainingDays };
+}
+
+// ---------- Session classification ----------
+
+/** RPE at or above which lower-body work counts as heavy (SPEC decision 4). */
+export const HEAVY_LOWER_RPE = 8;
+
+/**
+ * Heavy lower-body: a lower-focus session, or a full-body session with an
+ * exercise at RPE 8+. Until the exercise library exists, every exercise in a
+ * full-body session is treated as possibly lower-body.
+ */
+export function isHeavyLowerBody(s: PlannedSession): boolean {
+  if (s.type !== "strength") return false;
+  if (s.bodyFocus === "lower") return true;
+  return s.bodyFocus === "full" && s.exercises.some((e) => e.targetRpe >= HEAVY_LOWER_RPE);
 }

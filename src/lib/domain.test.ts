@@ -18,23 +18,37 @@ describe("PlannedSession", () => {
       title: "Intervals",
       intensity: "hard",
       plannedMinutes: 45,
-      isKeyRun: true,
-      steps: [{ kind: "interval", minutes: 4, repeat: 4, description: "Hard" }],
+      isKeySession: true,
+      steps: [{ name: "4 x 4 min hard", minutes: 24, targetRpe: 8 }],
     });
     expect(s.type).toBe("run");
     expect(s.slot).toBe(1);
   });
 
-  it("accepts a strength session and defaults isLegs to false", () => {
+  it("accepts a strength session with exercises", () => {
     const s = PlannedSession.parse({
       date: "2026-10-13",
       type: "strength",
       title: "Upper body",
-      intensity: "moderate",
-      plannedMinutes: 45,
-      steps: [{ name: "Bench press", sets: 4, reps: "6" }],
+      intensity: "hard",
+      plannedMinutes: 40,
+      bodyFocus: "upper",
+      exercises: [
+        { name: "Bench press", warmupSets: 2, workingSets: 2, reps: "6", targetRpe: 9, failureAllowed: false },
+      ],
     });
-    expect(s.type === "strength" && s.steps[0].isLegs).toBe(false);
+    expect(s.type === "strength" && s.exercises[0].workingSets).toBe(2);
+  });
+
+  it("requires a body focus for strength sessions", () => {
+    const result = PlannedSession.safeParse({
+      date: "2026-10-13",
+      type: "strength",
+      title: "Lift",
+      intensity: "hard",
+      plannedMinutes: 40,
+    });
+    expect(result.success).toBe(false);
   });
 
   it("rejects session types other than run and strength", () => {
@@ -62,10 +76,11 @@ describe("PlannedSession", () => {
 });
 
 describe("WeekPlan", () => {
-  it("allows an empty week (all rest)", () => {
-    expect(WeekPlan.parse({ weekStart: "2026-10-12", sessions: [] }).sessions).toEqual(
-      [],
-    );
+  it("allows an empty week (all rest) and defaults to week 1, base phase", () => {
+    const w = WeekPlan.parse({ weekStart: "2026-10-12", sessions: [] });
+    expect(w.sessions).toEqual([]);
+    expect(w.weekNumber).toBe(1);
+    expect(w.phase).toBe("base");
   });
 });
 

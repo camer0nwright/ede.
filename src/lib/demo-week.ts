@@ -1,96 +1,131 @@
-// The demo athlete's availability and first week. Used by the seed script and
-// as the known-good plan in the plan checker tests.
-import { Availability, WeekPlan } from "./domain";
+// The demo athlete's availability and first week, written exactly as the plan
+// engine would return it. Used by the seed script and as the known-good plan
+// in the plan checker tests.
+import { Availability } from "./domain";
+import { EngineWeek, toWeekPlan } from "./plan-engine";
 
-// Monday to Sunday. Tuesday, Wednesday and Sunday are double days
-// (an easy run plus a lift); Monday and Friday are full rest days.
+// Monday to Sunday. Tuesday and Friday are double days (an easy run, then a
+// lift); Monday and Sunday are full rest days.
 export const demoAvailability = Availability.parse([
   { minutes: null },
-  { minutes: 30, isDouble: true, secondMinutes: 60 },
-  { minutes: 45, isDouble: true, secondMinutes: 45 },
+  { minutes: 30, isDouble: true, secondMinutes: 45 },
   { minutes: 45 },
-  { minutes: null },
+  { minutes: 45 },
+  { minutes: 30, isDouble: true, secondMinutes: 45 },
   { minutes: 90 },
-  { minutes: 30, isDouble: true, secondMinutes: 60 },
+  { minutes: null },
 ]);
 
-const easyRun = (date: string, minutes: number, title = "Easy run") => ({
-  date,
-  slot: 1,
+const rest = (day: string) => ({ day, sessions: [], notes: "Rest day." });
+
+const easyRun = (minutes: number, title = "Easy run") => ({
   type: "run",
   title,
+  duration_minutes: minutes,
   intensity: "easy",
-  plannedMinutes: minutes,
-  steps: [{ kind: "steady", minutes, description: "Conversational pace" }],
+  is_key_session: false,
+  body_focus: null,
+  steps: [{ name: "Easy running, conversational pace", duration_minutes: minutes, target_effort_rpe: 3 }],
+  exercises: [],
 });
 
-// Most running is easy: 4 easy runs and 1 hard session (about 80% easy by time).
-export const demoWeek = WeekPlan.parse({
-  weekStart: "2026-10-12",
-  sessions: [
-    easyRun("2026-10-13", 30),
+// Low strength volume: 3-5 exercises, exactly 2 working sets, RPE 8.5-9.5.
+// Failure only on machine, cable or isolation exercises.
+// Running: 185 of 230 min easy (80%). Strength: 80 min. Total: 310 min.
+export const demoEngineWeek = EngineWeek.parse({
+  week_number: 1,
+  phase: "base",
+  total_minutes: 310,
+  run_minutes: 230,
+  strength_minutes: 80,
+  days: [
+    rest("Monday"),
     {
-      date: "2026-10-13",
-      slot: 2,
-      type: "strength",
-      title: "Lower body strength",
-      intensity: "hard",
-      plannedMinutes: 60,
-      isHeavyLegs: true,
-      steps: [
-        { name: "Back squat", sets: 4, reps: "5", load: "RPE 8", isLegs: true },
-        { name: "Romanian deadlift", sets: 3, reps: "8", load: "RPE 7", isLegs: true },
-        { name: "Plank", sets: 3, reps: "45s" },
+      day: "Tuesday",
+      sessions: [
+        easyRun(30),
+        {
+          type: "strength",
+          title: "Lower body strength",
+          duration_minutes: 40,
+          intensity: "hard",
+          is_key_session: false,
+          body_focus: "lower",
+          steps: [],
+          exercises: [
+            { name: "Back squat", warmup_sets: 2, working_sets: 2, reps: "5", target_rpe: 9, failure_allowed: false },
+            { name: "Romanian deadlift", warmup_sets: 1, working_sets: 2, reps: "8", target_rpe: 8.5, failure_allowed: false },
+            { name: "Seated leg curl (machine)", warmup_sets: 0, working_sets: 2, reps: "10-12", target_rpe: 9.5, failure_allowed: true },
+            { name: "Standing calf raise (machine)", warmup_sets: 0, working_sets: 2, reps: "12", target_rpe: 9.5, failure_allowed: true },
+          ],
+        },
       ],
+      notes: "Easy run first, lift later in the day.",
     },
-    easyRun("2026-10-14", 40),
+    { day: "Wednesday", sessions: [easyRun(40)], notes: "" },
     {
-      date: "2026-10-14",
-      slot: 2,
-      type: "strength",
-      title: "Upper body strength",
-      intensity: "moderate",
-      plannedMinutes: 45,
-      steps: [
-        { name: "Bench press", sets: 4, reps: "6", load: "RPE 7" },
-        { name: "Pull-ups", sets: 4, reps: "6-8" },
+      day: "Thursday",
+      sessions: [
+        {
+          type: "run",
+          title: "Intervals",
+          duration_minutes: 45,
+          intensity: "hard",
+          is_key_session: true,
+          body_focus: null,
+          steps: [
+            { name: "Warm-up: easy jog plus 4 strides", duration_minutes: 12, target_effort_rpe: 3 },
+            { name: "4 x 4 min hard (about 10k pace), 2 min easy jog between", duration_minutes: 24, target_effort_rpe: 8 },
+            { name: "Cool-down: easy jog", duration_minutes: 9, target_effort_rpe: 3 },
+          ],
+          exercises: [],
+        },
       ],
+      notes: "Key session of the week.",
     },
     {
-      date: "2026-10-15",
-      type: "run",
-      title: "Intervals",
-      intensity: "hard",
-      plannedMinutes: 45,
-      isKeyRun: true,
-      steps: [
-        { kind: "warmup", minutes: 12, description: "Easy jog plus 4 strides" },
-        { kind: "interval", minutes: 4, repeat: 4, description: "Hard, about 10k pace" },
-        { kind: "recovery", minutes: 2, repeat: 4, description: "Walk or very easy jog" },
-        { kind: "cooldown", minutes: 9, description: "Easy jog" },
+      day: "Friday",
+      sessions: [
+        easyRun(30, "Recovery run"),
+        {
+          type: "strength",
+          title: "Upper body strength",
+          duration_minutes: 40,
+          intensity: "hard",
+          is_key_session: false,
+          body_focus: "upper",
+          steps: [],
+          exercises: [
+            { name: "Bench press", warmup_sets: 2, working_sets: 2, reps: "6", target_rpe: 9, failure_allowed: false },
+            { name: "Pull-ups", warmup_sets: 0, working_sets: 2, reps: "6-8", target_rpe: 9, failure_allowed: false },
+            { name: "Seated cable row", warmup_sets: 0, working_sets: 2, reps: "10", target_rpe: 9.5, failure_allowed: true },
+            { name: "Dumbbell lateral raise", warmup_sets: 0, working_sets: 2, reps: "12-15", target_rpe: 9.5, failure_allowed: true },
+          ],
+        },
       ],
+      notes: "Upper body only after yesterday's intervals, to keep legs fresh for Saturday.",
     },
     {
-      date: "2026-10-17",
-      type: "run",
-      title: "Long easy run",
-      intensity: "easy",
-      plannedMinutes: 85,
-      isKeyRun: true,
-      steps: [{ kind: "steady", minutes: 85, description: "Easy, conversational pace throughout" }],
-    },
-    easyRun("2026-10-18", 30, "Recovery run"),
-    {
-      date: "2026-10-18",
-      slot: 2,
-      type: "strength",
-      title: "Full body, light legs",
-      intensity: "moderate",
-      plannedMinutes: 50,
-      steps: [
-        { name: "Overhead press", sets: 3, reps: "8" },
-        { name: "Goblet squat", sets: 3, reps: "10", load: "Light", isLegs: true },
+      day: "Saturday",
+      sessions: [
+        {
+          type: "run",
+          title: "Long easy run",
+          duration_minutes: 85,
+          intensity: "easy",
+          is_key_session: true,
+          body_focus: null,
+          steps: [{ name: "Easy, conversational pace throughout", duration_minutes: 85, target_effort_rpe: 4 }],
+          exercises: [],
+        },
       ],
+      notes: "Longest run of the week.",
     },
+    rest("Sunday"),
   ],
+  coach_note:
+    "A steady base week: mostly easy running with one interval session, and two short, hard lifting sessions kept away from your key runs.",
 });
+
+/** The same week as dated sessions, starting Monday 12 October 2026. */
+export const demoWeek = toWeekPlan(demoEngineWeek, "2026-10-12");

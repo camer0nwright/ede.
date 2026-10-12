@@ -1,9 +1,9 @@
 // Each rule takes the proposed week plus context and returns the problems it
 // finds. Messages are written so they can be sent back to the AI as-is.
-import type { Availability, PlannedSession, WeekPlan } from "@/lib/domain";
-import { DAY_NAMES } from "@/lib/domain";
+import type { Availability, Phase, PlannedSession, WeekPlan } from "@/lib/domain";
+import { DAY_NAMES, isHeavyLowerBody } from "@/lib/domain";
 import { CHECKER_CONFIG as C } from "./config";
-import { addDays, dayOfWeek, daysBetween } from "./dates";
+import { addDays, dayOfWeek, daysBetween } from "@/lib/dates";
 
 export type RuleId =
   | "week-structure"
@@ -22,8 +22,7 @@ export type Violation = { rule: RuleId; message: string; date?: string };
 /** A past week, oldest first, for progression and recovery rules. */
 export type PastWeek = {
   totalMinutes: number;
-  isRecoveryWeek: boolean;
-  isTaperWeek: boolean;
+  phase: Phase;
 };
 
 export type CheckContext = {
@@ -53,19 +52,23 @@ function sessionsByDate(week: WeekPlan) {
   return map;
 }
 
-const isKeyRun = (s: PlannedSession) => s.type === "run" && s.isKeyRun;
-const isHeavyLegs = (s: PlannedSession) => s.type === "strength" && s.isHeavyLegs;
+// Step 3c redefines a key run as a hard or long run (SPEC decision 5).
+const isKeyRun = (s: PlannedSession) => s.type === "run" && s.isKeySession;
+const isHeavyLegs = isHeavyLowerBody;
+
+const isRecovery = (w: { phase: Phase }) => w.phase === "recovery";
+const isTaper = (w: { phase: Phase }) => w.phase === "taper";
 
 /** The most recent full build week: not recovery, not taper. */
 function lastBuildWeek(history: PastWeek[]) {
-  return history.findLast((w) => !w.isRecoveryWeek && !w.isTaperWeek);
+  return history.findLast((w) => !isRecovery(w) && !isTaper(w));
 }
 
 /** Build weeks in a row immediately before this one. */
 function buildStreak(history: PastWeek[]) {
   let streak = 0;
   for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i].isRecoveryWeek || history[i].isTaperWeek) break;
+    if (isRecovery(history[i]) || isTaper(history[i])) break;
     streak++;
   }
   return streak;
@@ -190,7 +193,7 @@ export const easyRunning: Rule = (week) => {
 
 /** Build weeks grow gradually from the last build week. */
 export const loadProgression: Rule = (week, { history, targetDate }) => {
-  if (week.isRecoveryWeek || week.isTaperWeek || taperWeeksOut(week, targetDate) !== null) return [];
+  if (isRecovery(week) || isTaper(week) || taperWeeksOut(week, targetDate) !== null) return [];
   const ref = lastBuildWeek(history);
   if (!ref) return [];
   const limit = ref.totalMinutes + Math.max(ref.totalMinutes * C.maxLoadIncreaseShare, C.minLoadIncreaseMinutes);
@@ -202,13 +205,13 @@ export const loadProgression: Rule = (week, { history, targetDate }) => {
 
 /** A recovery week every 3-4 weeks, and recovery weeks are actually lighter. */
 export const recoveryWeek: Rule = (week, { history, targetDate }) => {
-  if (week.isTaperWeek || taperWeeksOut(week, targetDate) !== null) return [];
+  if (isTaper(week) || taperWeeksOut(week, targetDate) !== null) return [];
   const out: Violation[] = [];
   const streak = buildStreak(history);
-  if (!week.isRecoveryWeek && streak >= C.maxBuildWeeksInRow) {
+  if (!isRecovery(week) && streak >= C.maxBuildWeeksInRow) {
     out.push({ rule: "recovery-week", message: `After ${streak} build weeks in a row, this must be a recovery week.` });
   }
-  if (week.isRecoveryWeek) {
+  if (isRecovery(week)) {
     if (streak < C.minBuildWeeksBeforeRecovery) {
       out.push({ rule: "recovery-week", message: `A recovery week is too soon after ${streak} build week(s); it should come every 3-4 weeks.` });
     }
@@ -228,12 +231,12 @@ export const recoveryWeek: Rule = (week, { history, targetDate }) => {
 export const taper: Rule = (week, { history, targetDate }) => {
   const weeksOut = taperWeeksOut(week, targetDate);
   if (weeksOut === null) {
-    return week.isTaperWeek
-      ? [{ rule: "taper", message: "This is marked as a taper week but it is not in the two weeks before the target date." }]
+    return isTaper(week)
+      ? [{ rule: "taper", message: "This is marked as a taper week (phase \"taper\") but it is not in the two weeks before the target date." }]
       : [];
   }
   const out: Violation[] = [];
-  if (!week.isTaperWeek) {
+  if (!isTaper(week)) {
     out.push({ rule: "taper", message: `The target date is ${targetDate}, so this week must be a taper week.` });
   }
   const ref = lastBuildWeek(history);

@@ -4,6 +4,7 @@ import "dotenv/config";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { demoAvailability as availability, demoWeek as week } from "../src/lib/demo-week";
+import { isHeavyLowerBody } from "../src/lib/domain";
 
 const db = new PrismaClient({
   adapter: new PrismaLibSql({ url: process.env.DATABASE_URL! }),
@@ -25,8 +26,11 @@ async function main() {
       },
       weeks: {
         create: {
+          // Phase, day notes and the coach note get their own columns in step 3d.
           weekStart: new Date(week.weekStart),
-          weekNumber: 1,
+          weekNumber: week.weekNumber,
+          isRecoveryWeek: week.phase === "recovery",
+          isTaperWeek: week.phase === "taper",
           sessions: {
             create: week.sessions.map((s) => ({
               date: new Date(s.date),
@@ -35,9 +39,9 @@ async function main() {
               title: s.title,
               intensity: s.intensity,
               plannedMinutes: s.plannedMinutes,
-              isKeyRun: s.type === "run" && s.isKeyRun,
-              isHeavyLegs: s.type === "strength" && s.isHeavyLegs,
-              steps: JSON.stringify(s.steps),
+              isKeyRun: s.type === "run" && s.isKeySession,
+              isHeavyLegs: isHeavyLowerBody(s),
+              steps: JSON.stringify(s.type === "run" ? s.steps : s.exercises),
             })),
           },
         },
