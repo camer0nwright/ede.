@@ -20,19 +20,25 @@ import {
   type StrengthVolume,
   type Terrain,
 } from "@/lib/domain";
-import { formatDate, formatDayMinutes } from "@/lib/format";
+import { formatDate, formatDayMinutes, formatDuration, plural } from "@/lib/format";
 import {
   cautionFor,
+  desiredTimeNote,
   EQUIPMENT_OPTIONS,
   LAST_WEEK_RUN_OPTIONS,
   OnboardingAnswers,
   planStartDate,
+  quickWeekToAvailability,
+  recommendedVolume,
   strengthVolumeNote,
   targetDateProblem,
   ULTRA_PRESETS,
+  weekFitProblem,
+  type QuickWeek,
 } from "@/lib/onboarding";
-import { AvailabilityGrid } from "./availability-grid";
+import { recommendedSessions } from "@/lib/plan-outline";
 import { Chip, Field, Note, OptionCard } from "./choices";
+import { WeekPlanner } from "./week-planner";
 
 type Draft = {
   name: string;
@@ -42,11 +48,18 @@ type Draft = {
   terrain: Terrain;
   elevationGainM?: number;
   targetDate: string;
+  /** Desired time as typed: hours (or minutes for 5K/10K) and the next unit down. */
+  timeBig: string;
+  timeSmall: string;
+  justFinish: boolean;
   goalDetail: string;
   experienceLevel?: ExperienceLevel;
   lastWeekRunMinutes?: number;
-  currentTraining: string;
-  strengthVolume: StrengthVolume;
+  /** Unset until chosen; the recommended value is used meanwhile. */
+  runsPerWeek?: number;
+  liftsPerWeek?: number;
+  strengthVolume?: StrengthVolume;
+  quick: QuickWeek;
   equipment: (typeof EQUIPMENT_OPTIONS)[number][];
   hasInjury?: boolean;
   injury: Injury & { notes: string };
@@ -56,19 +69,21 @@ type Draft = {
   distanceUnit: "km" | "mi";
 };
 
-const day = (minutes: number | null) => ({ minutes, isDouble: false, secondMinutes: null });
+const START_WEEK: QuickWeek = { days: [1, 2, 3, 5, 6], weekdayMinutes: 45, weekendMinutes: 90 };
 
 const START: Draft = {
   name: "",
   terrain: "road",
   targetDate: "",
+  timeBig: "",
+  timeSmall: "",
+  justFinish: false,
   goalDetail: "",
-  currentTraining: "",
-  strengthVolume: "low", // pre-selected for hybrid athletes (SPEC)
   equipment: [],
   injury: { area: "knee", painLevel: 2, painWhen: "running", notes: "" },
   injuryHistory: "",
-  availability: [day(null), day(45), day(45), day(45), day(null), day(90), day(60)],
+  quick: START_WEEK,
+  availability: quickWeekToAvailability(START_WEEK),
   weightUnit: "kg",
   distanceUnit: "km",
 };
@@ -93,6 +108,29 @@ const PAIN_WHEN: { value: PainWhen; label: string }[] = [
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+/** 5K and 10K times are minutes:seconds; longer races are hours:minutes. */
+const shortRace = (d: Draft) => d.raceDistance === "5k" || d.raceDistance === "10k";
+
+function targetSeconds(d: Draft): number | undefined {
+  const big = Number(d.timeBig || 0);
+  const small = Number(d.timeSmall || 0);
+  const seconds = shortRace(d) ? big * 60 + small : big * 3600 + small * 60;
+  return seconds > 0 ? seconds : undefined;
+}
+
+/** Choices the user hasn't made yet fall back to the recommendation. */
+function effective(d: Draft) {
+  const rec = recommendedSessions({
+    goalType: d.goalType ?? "general",
+    raceDistance: d.raceDistance,
+    experienceLevel: d.experienceLevel ?? "intermediate",
+    strengthVolume: d.strengthVolume ?? "moderate",
+  });
+  const runs = d.runsPerWeek ?? rec.runs;
+  const recVolume = recommendedVolume({ experienceLevel: d.experienceLevel, raceDistance: d.raceDistance, runsPerWeek: runs });
+  return { runs, lifts: d.liftsPerWeek ?? rec.lifts, rec, recVolume, volume: d.strengthVolume ?? recVolume };
+}
+
 /** The draft as the answers the server expects (validation happens there too). */
 function toAnswers(d: Draft) {
   const race = d.goalType === "race";
@@ -102,11 +140,13 @@ function toAnswers(d: Draft) {
     ...(race && { raceDistance: d.raceDistance }),
     ...(race && d.raceDistance === "ultra" && { ultraDistanceKm: d.ultraDistanceKm, terrain: d.terrain, ...(d.elevationGainM !== undefined && { elevationGainM: d.elevationGainM }) }),
     ...(race && d.targetDate && { targetDate: d.targetDate }),
-    ...(d.goalDetail.trim() && { goalDetail: d.goalDetail.trim() }),
+    ...(race && (d.justFinish ? { justFinish: true } : { targetTimeSeconds: targetSeconds(d) })),
+    ...(!race && d.goalDetail.trim() && { goalDetail: d.goalDetail.trim() }),
     experienceLevel: d.experienceLevel,
     lastWeekRunMinutes: d.lastWeekRunMinutes,
-    ...(d.currentTraining.trim() && { currentTraining: d.currentTraining.trim() }),
-    strengthVolume: d.strengthVolume,
+    runsPerWeek: effective(d).runs,
+    liftsPerWeek: effective(d).lifts,
+    strengthVolume: effective(d).volume,
     equipment: d.equipment,
     ...(d.hasInjury && { injury: { ...d.injury, notes: d.injury.notes.trim() || undefined } }),
     ...(d.injuryHistory.trim() && { injuryHistory: d.injuryHistory.trim() }),
@@ -124,7 +164,10 @@ function stepProblem(step: Step, d: Draft): string | null {
       if (d.goalType === "race") {
         if (!d.raceDistance) return "Choose a race distance";
         if (d.raceDistance === "ultra" && !d.ultraDistanceKm) return "Enter the ultra's distance";
-        if (d.targetDate) return targetDateProblem(d.targetDate, today());
+        if (!d.targetDate) return "Enter your race date";
+        const dateProblem = targetDateProblem(d.targetDate, today());
+        if (dateProblem) return dateProblem;
+        if (!d.justFinish && !targetSeconds(d)) return "Enter a desired time, or choose just finish";
       }
       return null;
     case "experience":
@@ -139,7 +182,7 @@ function stepProblem(step: Step, d: Draft): string | null {
       const days = d.availability.filter((x) => x.minutes !== null).length;
       if (days < 2) return "Choose at least 2 training days";
       if (days > 6) return "Keep at least 1 full rest day";
-      return null;
+      return weekFitProblem(d.availability, effective(d).runs, effective(d).lifts) ? "Make room for your sessions to continue" : null;
     }
     default:
       return null;
@@ -162,7 +205,9 @@ export function OnboardingFlow() {
   }, [stepIndex]);
 
   const answers = useMemo(() => toAnswers(draft), [draft]);
-  const volumeNote = strengthVolumeNote({ ...draft, raceDistance: draft.raceDistance, experienceLevel: draft.experienceLevel ?? "intermediate" });
+  const eff = effective(draft);
+  const volumeNote = strengthVolumeNote({ strengthVolume: eff.volume, raceDistance: draft.raceDistance, experienceLevel: draft.experienceLevel, runsPerWeek: eff.runs });
+  const timeNote = draft.justFinish ? null : desiredTimeNote(draft.raceDistance, targetSeconds(draft), draft.experienceLevel);
   const caution = cautionFor({ injury: draft.hasInjury ? draft.injury : undefined, injuryHistory: draft.injuryHistory });
 
   const next = () => setStepIndex((i) => Math.min(i + 1, STEPS.length - 1));
@@ -276,14 +321,51 @@ export function OnboardingFlow() {
                     </Field>
                   </>
                 )}
-                <Field label="Race date" hint="Optional, but it lets ede. build to a peak and taper.">
+                <Field label="Race date">
                   <Input type="date" value={draft.targetDate} min={planStartDate(today())} onChange={(e) => update({ targetDate: e.target.value })} className="w-48" />
                 </Field>
+                {draft.raceDistance && (
+                  <Field label="Desired time" hint="ede. uses this to set the right sessions and efforts.">
+                    <div className={`flex items-center gap-2 ${draft.justFinish ? "opacity-40" : ""}`}>
+                      <Input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        className="w-20 text-center"
+                        value={draft.timeBig}
+                        disabled={draft.justFinish}
+                        onChange={(e) => update({ timeBig: e.target.value })}
+                        aria-label={shortRace(draft) ? "Minutes" : "Hours"}
+                        placeholder={shortRace(draft) ? "mm" : "h"}
+                      />
+                      <span className="font-display text-2xl">:</span>
+                      <Input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        max={59}
+                        className="w-20 text-center"
+                        value={draft.timeSmall}
+                        disabled={draft.justFinish}
+                        onChange={(e) => update({ timeSmall: e.target.value })}
+                        aria-label={shortRace(draft) ? "Seconds" : "Minutes"}
+                        placeholder={shortRace(draft) ? "ss" : "mm"}
+                      />
+                      <span className="text-sm text-muted-foreground">{shortRace(draft) ? "min : sec" : "hours : min"}</span>
+                    </div>
+                    <div>
+                      <Chip selected={draft.justFinish} onClick={() => update({ justFinish: !draft.justFinish })}>
+                        Just finish
+                      </Chip>
+                    </div>
+                    {timeNote && <Note>{timeNote}</Note>}
+                  </Field>
+                )}
               </>
             )}
-            {draft.goalType && (
+            {draft.goalType && draft.goalType !== "race" && (
               <Field label="Anything specific? (optional)">
-                <Input value={draft.goalDetail} onChange={(e) => update({ goalDetail: e.target.value })} placeholder={draft.goalType === "race" ? "e.g. Under 1:50" : "e.g. Squat 100 kg"} maxLength={120} />
+                <Input value={draft.goalDetail} onChange={(e) => update({ goalDetail: e.target.value })} placeholder={draft.goalType === "strength" ? "Squat 100 kg" : "Feel fitter and stronger"} maxLength={120} />
               </Field>
             )}
           </>
@@ -306,8 +388,11 @@ export function OnboardingFlow() {
                 ))}
               </div>
             </Field>
-            <Field label="Your current training (optional)">
-              <Textarea value={draft.currentTraining} onChange={(e) => update({ currentTraining: e.target.value })} placeholder="e.g. 3 runs and 2 gym sessions a week" maxLength={500} />
+            <Field label="Runs a week in your plan" hint={`Recommended for your goal: ${eff.rec.runs}`}>
+              <NumberRow min={1} max={6} value={eff.runs} recommended={eff.rec.runs} onChange={(n) => update({ runsPerWeek: n })} label="runs" />
+            </Field>
+            <Field label="Gym sessions a week" hint={`Recommended for your goal: ${eff.rec.lifts}`}>
+              <NumberRow min={1} max={5} value={eff.lifts} recommended={eff.rec.lifts} onChange={(n) => update({ liftsPerWeek: n })} label="gym sessions" />
             </Field>
           </>
         )}
@@ -316,9 +401,9 @@ export function OnboardingFlow() {
           <>
             <Heading title="How much lifting?" sub="You can change this later in your profile." />
             <div className="flex flex-col gap-2">
-              <OptionCard selected={draft.strengthVolume === "low"} onClick={() => update({ strengthVolume: "low" })} title="Low" badge="Recommended" description="3-5 exercises, 2 hard working sets each, 30-45 min. Keeps your legs fresh for running." />
-              <OptionCard selected={draft.strengthVolume === "moderate"} onClick={() => update({ strengthVolume: "moderate" })} title="Moderate" description="4-6 exercises, 3 working sets each, 45-60 min." />
-              <OptionCard selected={draft.strengthVolume === "high"} onClick={() => update({ strengthVolume: "high" })} title="Higher" description="5-7 exercises, 3-4 working sets each, 60-75 min." />
+              <OptionCard selected={eff.volume === "low"} onClick={() => update({ strengthVolume: "low" })} title="Low" badge={eff.recVolume === "low" ? "Recommended" : undefined} description="3-5 exercises, 2 hard working sets each, 30-45 min. Keeps your legs fresh for running." />
+              <OptionCard selected={eff.volume === "moderate"} onClick={() => update({ strengthVolume: "moderate" })} title="Moderate" badge={eff.recVolume === "moderate" ? "Recommended" : undefined} description="4-6 exercises, 3 working sets each, 45-60 min. A solid balance of strength and running." />
+              <OptionCard selected={eff.volume === "high"} onClick={() => update({ strengthVolume: "high" })} title="Higher" description="5-7 exercises, 3-4 working sets each, 60-75 min." />
             </div>
             {volumeNote && <Note>{volumeNote}</Note>}
             <Field label="What equipment can you use?">
@@ -400,8 +485,16 @@ export function OnboardingFlow() {
 
         {step === "week" && (
           <>
-            <Heading title="Your week" sub="Set how much time you have each day. Weekends can be longer." />
-            <AvailabilityGrid value={draft.availability} onChange={(availability) => update({ availability })} ultra={ultra} />
+            <Heading title="Your week" sub="Tell us roughly when you can train, then fine-tune any day." />
+            <WeekPlanner
+              quick={draft.quick}
+              onQuickChange={(quick) => update({ quick })}
+              value={draft.availability}
+              onChange={(availability) => update({ availability })}
+              ultra={ultra}
+              runs={eff.runs}
+              lifts={eff.lifts}
+            />
           </>
         )}
 
@@ -480,10 +573,13 @@ function Review({ draft, caution }: { draft: Draft; caution: string | null }) {
     .map((d, i) => (d.minutes === null ? null : `${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i]} ${formatDayMinutes(d.minutes, draft.raceDistance === "ultra")}${d.isDouble ? " ×2" : ""}`))
     .filter(Boolean)
     .join(" · ");
+  const eff = effective(draft);
+  const time = draft.justFinish ? "Just finish" : targetSeconds(draft) ? formatDuration(targetSeconds(draft)!) : "";
   const rows: [string, string][] = [
-    ["Goal", goal + (draft.goalDetail ? ` · ${draft.goalDetail}` : "")],
+    ["Goal", [goal, draft.goalType === "race" ? time : draft.goalDetail].filter(Boolean).join(" · ")],
+    ["Each week", `${plural(eff.runs, "run")} · ${plural(eff.lifts, "gym session")}`],
     ["Experience", `${{ beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced" }[draft.experienceLevel ?? "intermediate"]} · ${LAST_WEEK_RUN_OPTIONS.find((o) => o.minutes === draft.lastWeekRunMinutes)?.label ?? ""} running last week`],
-    ["Lifting", `${{ low: "Low", moderate: "Moderate", high: "Higher" }[draft.strengthVolume]} · ${draft.equipment.join(", ")}`],
+    ["Lifting", `${{ low: "Low", moderate: "Moderate", high: "Higher" }[eff.volume]} · ${draft.equipment.join(", ")}`],
     ["Injury", draft.hasInjury ? `${draft.injury.area}, ${draft.injury.painLevel}/10` : "None"],
     ["Your week", week],
   ];
@@ -501,5 +597,42 @@ function Review({ draft, caution }: { draft: Draft; caution: string | null }) {
       {caution && <Note tone="caution">{caution}</Note>}
       <MedicalNotice />
     </>
+  );
+}
+
+/** A row of number buttons: one tap to choose, all options visible. */
+function NumberRow({
+  min,
+  max,
+  value,
+  recommended,
+  onChange,
+  label,
+}: {
+  min: number;
+  max: number;
+  value: number;
+  recommended: number;
+  onChange: (n: number) => void;
+  label: string;
+}) {
+  return (
+    <div className="flex gap-2" role="group" aria-label={label}>
+      {Array.from({ length: max - min + 1 }, (_, k) => min + k).map((n) => (
+        <button
+          key={n}
+          type="button"
+          aria-pressed={value === n}
+          aria-label={`${n} ${label}${n === recommended ? ", recommended" : ""}`}
+          onClick={() => onChange(n)}
+          className={`relative h-12 flex-1 rounded-xl border font-display text-xl transition-colors active:scale-[0.95] ${
+            value === n ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-accent"
+          }`}
+        >
+          {n}
+          {n === recommended && value !== n && <span className="absolute top-1 right-1 size-1.5 rounded-full bg-primary" aria-hidden />}
+        </button>
+      ))}
+    </div>
   );
 }

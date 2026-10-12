@@ -33,6 +33,9 @@ export type OutlineInput = {
   availability: Availability;
   /** Run minutes in the week before the plan starts, if known. */
   lastWeekRunMinutes?: number;
+  /** Runs and lifts a week the athlete chose. The plan gives exactly these every week (SPEC decision 29). */
+  runsPerWeek?: number;
+  liftsPerWeek?: number;
 };
 
 export type OutlineRun = {
@@ -99,8 +102,10 @@ export const OUTLINE_CONFIG = {
   easyShare: { default: 0.8, ultra: 0.9 },
   minEasyRunMinutes: 20,
   strengthMinutes: { low: 40, moderate: 55, high: 70 },
-  /** Light lifting sessions in recovery and taper weeks are shorter. */
+  /** Light lifting sessions in recovery and taper weeks are shorter... */
   lightStrengthMinutes: 30,
+  /** ...and can be trimmed to this to fit a recovery or taper week's load cap. */
+  minLightStrengthMinutes: 20,
   /** Keep at least this many lifts a week when there's room... */
   minLifts: 2,
   /** ...dropping runs down to this many before dropping lifts. */
@@ -227,7 +232,15 @@ const FOCUS_PATTERNS: Record<number, BodyFocus[]> = {
   2: ["lower", "upper"],
   3: ["lower", "upper", "full"],
   4: ["lower", "upper", "lower", "upper"],
+  5: ["lower", "upper", "full", "lower", "upper"],
 };
+
+/** Recommended runs and lifts a week, offered as the default in onboarding. */
+export function recommendedSessions(
+  input: Pick<OutlineInput, "goalType" | "raceDistance" | "experienceLevel" | "strengthVolume">,
+): { runs: number; lifts: number } {
+  return { runs: desiredRuns(input as OutlineInput), lifts: desiredStrength(input as OutlineInput) };
+}
 
 // ---------- availability ----------
 
@@ -348,6 +361,7 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
   let lastBuild: { run: number; total: number } | undefined;
   let block = 1;
   let limitedByTime = false;
+  const fewerRunsWeeks: number[] = [];
   const weeks: OutlineWeek[] = [];
 
   const phases = planPhases(n, input, taper);
@@ -362,7 +376,8 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
       target = lastBuild.run * O.recoveryRunShare;
     } else if (phase === "taper" && lastBuild) {
       target = lastBuild.run * O.taperShares[weeksOut!];
-    } else if (prevRun === undefined) {
+    } else if (prevRun === undefined || (i === 0 && prevRun < O.startingBelow)) {
+      // Starting load (SPEC): under 60 run minutes last week, or unknown, starts at 40-60 / 60-90.
       target = beginner ? O.startingRunMinutes.beginner : O.startingRunMinutes.other;
     } else {
       const ref = lastBuild?.run ?? prevRun;
@@ -376,11 +391,16 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
     target = round5(Math.min(target, peakCap));
 
     // ----- how many runs and lifts -----
-    let runs = Math.min(desiredRuns(input), avail.trainingDays);
+    // The athlete's chosen counts are kept every week, recovery and taper
+    // included (those weeks are lighter, not shorter on sessions). Starting
+    // weeks may have fewer runs: the starting load is split across 2-3 runs.
+    const chosen = input.runsPerWeek !== undefined;
+    let runs = Math.min(input.runsPerWeek ?? desiredRuns(input), avail.trainingDays);
     if (starting && phase !== "recovery" && phase !== "taper") runs = Math.min(Math.max(runs, 2), 3);
     runs = Math.max(1, Math.min(runs, Math.floor(target / O.minEasyRunMinutes)));
-    let lifts = desiredStrength(input);
-    if (phase === "recovery" || phase === "taper") lifts = Math.max(1, lifts - 1);
+    if (chosen && runs < input.runsPerWeek!) fewerRunsWeeks.push(i + 1);
+    let lifts = input.liftsPerWeek ?? desiredStrength(input);
+    if (input.liftsPerWeek === undefined && (phase === "recovery" || phase === "taper")) lifts = Math.max(1, lifts - 1);
     // ede. is a hybrid coach: keep at least 2 lifts, dropping runs (down to 3)
     // before lifts when there aren't enough slots in the week.
     const slots = avail.trainingDays + avail.doubleDays;
@@ -541,11 +561,14 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
       weekRuns = allocate(qualityKinds, long);
     }
 
+    if (chosen && weekRuns.length < input.runsPerWeek! && !fewerRunsWeeks.includes(i + 1)) fewerRunsWeeks.push(i + 1);
+
     // ----- strength -----
+    // Race week: every lift is upper body, to keep legs fresh.
     const focuses =
       phase === "taper" && weeksOut === 0
-        ? (["upper"] as BodyFocus[])
-        : FOCUS_PATTERNS[Math.min(lifts, 4)] ?? [];
+        ? (Array(input.liftsPerWeek ? lifts : 1).fill("upper") as BodyFocus[])
+        : FOCUS_PATTERNS[Math.min(lifts, 5)] ?? [];
     const effort: StrengthEffort =
       phase === "recovery" || phase === "taper" ? "light" : beginner && i < 4 ? "technique" : "hard";
     const liftMinutes = effort === "light" ? O.lightStrengthMinutes : strengthMin;
@@ -573,7 +596,14 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
       if (longMinutes) weekRuns = weekRuns.map((r) => (r.role === "long" ? r : { ...r, minutes: Math.min(r.minutes, longMinutes) }));
       runMinutes = sum(weekRuns);
     }
-    while (runMinutes + sum(strength) > totalCap && strength.length > 0) strength = strength.slice(0, -1);
+    if (input.liftsPerWeek !== undefined) {
+      // Chosen lift counts are kept: shorten the light lifts instead of dropping them.
+      while (runMinutes + sum(strength) > totalCap && strength.some((x) => x.minutes > O.minLightStrengthMinutes)) {
+        strength = strength.map((x) => ({ ...x, minutes: Math.max(O.minLightStrengthMinutes, x.minutes - 5) }));
+      }
+    } else {
+      while (runMinutes + sum(strength) > totalCap && strength.length > 0) strength = strength.slice(0, -1);
+    }
     const strengthMinutes = sum(strength);
 
     // ----- bookkeeping for rotation and progression -----
@@ -604,6 +634,9 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
   const biggest = Math.max(...weeks.map((w) => w.runMinutes));
   if (limitedByTime && input.goalType === "race" && biggest < peakCap * 0.8) {
     notes.push(`Your available time limits running to about ${biggest} minutes a week, below the usual peak of about ${peakCap} for this goal. Adding time on more days would help.`);
+  }
+  if (fewerRunsWeeks.length > 0) {
+    notes.push(`While your running builds up, ${fewerRunsWeeks.length === 1 ? `week ${fewerRunsWeeks[0]} has` : `${fewerRunsWeeks.length} weeks have`} fewer than the ${input.runsPerWeek} runs you chose, so each run is long enough to be worthwhile.`);
   }
   return { weeks, taperWeeks: taper, notes };
 }

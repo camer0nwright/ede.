@@ -22,6 +22,15 @@ export function formatDayMinutes(minutes: number, ultra = false): string {
   return minutes >= openEndedMinutes(ultra) ? `${formatMinutesShort(openEndedMinutes(ultra))}+` : formatMinutesShort(minutes);
 }
 
+/** A race time: 1350 → "22:30", 6600 → "1:50:00". */
+export function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const sec = Math.round(seconds % 60);
+  const two = (n: number) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${m}:${two(sec)}`;
+}
+
 /** "1 double day", "2 double days". */
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 

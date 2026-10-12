@@ -55,10 +55,15 @@ export const OnboardingAnswers = z
     terrain: Terrain.optional(),
     elevationGainM: z.number().int().min(0).max(20000).optional(),
     targetDate: IsoDate.optional(),
+    /** Desired finish time in seconds, or justFinish for "just finish" (races). */
+    targetTimeSeconds: z.number().int().positive().max(60 * 60 * 72).optional(),
+    justFinish: z.boolean().optional(),
     goalDetail: z.string().trim().max(120).optional(),
     experienceLevel: ExperienceLevel,
     lastWeekRunMinutes: z.number().int().min(0).max(1500),
     currentTraining: z.string().trim().max(500).optional(),
+    runsPerWeek: z.number().int().min(1).max(6),
+    liftsPerWeek: z.number().int().min(1).max(5),
     strengthVolume: StrengthVolume,
     equipment: z.array(z.enum(EQUIPMENT_OPTIONS)).min(1, "Pick at least one"),
     injury: Injury.extend({ notes: z.string().trim().max(500).optional() }).optional(),
@@ -74,9 +79,17 @@ export const OnboardingAnswers = z
     if (a.raceDistance === "ultra" && !a.ultraDistanceKm) {
       ctx.addIssue({ code: "custom", path: ["ultraDistanceKm"], message: "Enter the ultra's distance" });
     }
+    if (a.goalType === "race" && !a.targetDate) {
+      ctx.addIssue({ code: "custom", path: ["targetDate"], message: "Enter your race date" });
+    }
+    if (a.goalType === "race" && !a.targetTimeSeconds && !a.justFinish) {
+      ctx.addIssue({ code: "custom", path: ["targetTimeSeconds"], message: "Enter a desired time, or choose just finish" });
+    }
     const days = a.availability.filter((d) => d.minutes !== null).length;
     if (days < 2) ctx.addIssue({ code: "custom", path: ["availability"], message: "Choose at least 2 training days" });
     if (days > 6) ctx.addIssue({ code: "custom", path: ["availability"], message: "Keep at least 1 full rest day" });
+    const fit = weekFitProblem(a.availability, a.runsPerWeek, a.liftsPerWeek);
+    if (fit) ctx.addIssue({ code: "custom", path: ["availability"], message: fit });
   });
 export type OnboardingAnswers = z.infer<typeof OnboardingAnswers>;
 
@@ -106,18 +119,93 @@ export function toOutlineInput(a: OnboardingAnswers, today: string): OutlineInpu
     strengthVolume: a.strengthVolume,
     availability: a.availability,
     lastWeekRunMinutes: a.lastWeekRunMinutes,
+    runsPerWeek: a.runsPerWeek,
+    liftsPerWeek: a.liftsPerWeek,
   };
 }
 
 /**
- * Strength volume advice (SPEC: Strength volume setting). Low is the default
- * for hybrid athletes; Higher with a lot of running gets a gentle note.
+ * Whether the chosen runs and lifts fit the week: each needs its own day,
+ * except on double days, which hold one run and one lift.
  */
-export function strengthVolumeNote(a: Pick<OnboardingAnswers, "strengthVolume" | "availability" | "raceDistance" | "experienceLevel">): string | null {
-  const runDays = a.availability.filter((d) => d.minutes !== null).length;
-  const lotsOfRunning = runDays >= 4 || a.raceDistance === "marathon" || a.raceDistance === "ultra";
-  if (a.strengthVolume === "high" && lotsOfRunning) return "This may affect your running recovery. Low or Moderate usually suits a running-focused week.";
+export function weekFitProblem(availability: Availability, runs: number, lifts: number): string | null {
+  const days = availability.filter((d) => d.minutes !== null).length;
+  const doubles = availability.filter((d) => d.minutes !== null && d.isDouble).length;
+  if (runs > days) return `${runs} runs need ${runs} training days; you've chosen ${days}. Add a day, or go back and choose fewer runs.`;
+  if (lifts > days) return `${lifts} gym sessions need ${lifts} training days; you've chosen ${days}.`;
+  const short = runs + lifts - (days + doubles);
+  if (short > 0) {
+    return `${runs} runs and ${lifts} gym sessions need ${runs + lifts} slots, but your week has ${days + doubles}. Add ${short === 1 ? "a training day or a double day" : `${short} more training or double days`}.`;
+  }
+  return null;
+}
+
+/**
+ * Lifting recommendation (SPEC decision 30): Moderate, except Low for
+ * beginners, ultras and people running 5+ times a week.
+ */
+export function recommendedVolume(a: { experienceLevel?: ExperienceLevel; raceDistance?: RaceDistance; runsPerWeek?: number }): StrengthVolume {
+  if (a.experienceLevel === "beginner" || a.raceDistance === "ultra" || (a.runsPerWeek ?? 0) >= 5) return "low";
+  return "moderate";
+}
+
+/** Rough desired times that look ambitious (in minutes) by distance and experience. */
+const AMBITIOUS: Record<Exclude<RaceDistance, "ultra">, Record<ExperienceLevel, number>> = {
+  "5k": { beginner: 25, intermediate: 19, advanced: 14 },
+  "10k": { beginner: 52, intermediate: 40, advanced: 29 },
+  half: { beginner: 115, intermediate: 90, advanced: 64 },
+  marathon: { beginner: 240, intermediate: 190, advanced: 135 },
+};
+
+/** A gentle note when a desired time looks very ambitious, or null. */
+export function desiredTimeNote(distance: RaceDistance | undefined, seconds: number | undefined, experience: ExperienceLevel | undefined): string | null {
+  if (!distance || distance === "ultra" || !seconds || !experience) return null;
+  const minutes = seconds / 60;
+  if (minutes < AMBITIOUS[distance][experience]) {
+    return "That's an ambitious time for your experience. ede. will build towards it, and the weekly check-ins will show whether to adjust.";
+  }
+  return null;
+}
+
+export type QuickWeek = {
+  /** 0 = Monday ... 6 = Sunday. */
+  days: number[];
+  weekdayMinutes: number;
+  weekendMinutes: number;
+};
+
+/**
+ * Fills the availability grid from the quick questions: chosen days get the
+ * weekday or weekend time, the rest are rest days. Double days are kept
+ * where a day stays a training day.
+ */
+export function quickWeekToAvailability(q: QuickWeek, previous?: Availability): Availability {
+  return Array.from({ length: 7 }, (_, i) => {
+    if (!q.days.includes(i)) return { minutes: null, isDouble: false, secondMinutes: null };
+    const before = previous?.[i];
+    const keepDouble = before?.isDouble && before.minutes !== null;
+    return {
+      minutes: i >= 5 ? q.weekendMinutes : q.weekdayMinutes,
+      isDouble: keepDouble ?? false,
+      secondMinutes: keepDouble ? before!.secondMinutes : null,
+    };
+  });
+}
+
+/**
+ * Strength volume advice (SPEC: Strength volume setting): a gentle note when
+ * the choice is above what's recommended. Never blocks.
+ */
+export function strengthVolumeNote(a: {
+  strengthVolume: StrengthVolume;
+  raceDistance?: RaceDistance;
+  experienceLevel?: ExperienceLevel;
+  runsPerWeek?: number;
+}): string | null {
+  const lotsOfRunning = (a.runsPerWeek ?? 0) >= 4 || a.raceDistance === "marathon" || a.raceDistance === "ultra";
   if (a.strengthVolume !== "low" && a.experienceLevel === "beginner") return "As a beginner, Low is the best place to start: you'll learn the lifts without tiring your legs for running.";
+  if (a.strengthVolume === "high" && lotsOfRunning) return "This may affect your running recovery. Low or Moderate usually suits a running-focused week.";
+  if (a.strengthVolume !== "low" && recommendedVolume(a) === "low") return "With this much running, Low keeps your legs fresher. You can still choose more.";
   return null;
 }
 

@@ -42,12 +42,19 @@ export function SessionList({ items }: { items: SessionItem[] }) {
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{item.title}</span>
                 <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-                  <span className={cn("font-semibold", INTENSITY_COLOR[item.intensity])}>
-                    {item.type === "strength" && item.effort !== "hard" ? capital(item.effort) : INTENSITY_LABEL[item.intensity]}
-                  </span>
-                  {item.type === "run" && <span>{ROLE_LABEL[item.role]}</span>}
-                  {item.type === "run" && item.level && <span>Level {item.level}</span>}
-                  {item.type === "strength" && <span>Accessories {item.variant}</span>}
+                  {/* Effort labels are for runs only; lifts show their focus and accessory set. */}
+                  {item.type === "run" ? (
+                    <>
+                      <span className={cn("font-semibold", INTENSITY_COLOR[item.intensity])}>{INTENSITY_LABEL[item.intensity]}</span>
+                      <span>{ROLE_LABEL[item.role]}</span>
+                      {item.level && <span>Level {item.level}</span>}
+                    </>
+                  ) : (
+                    <>
+                      <span>Accessories {item.variant}</span>
+                      {item.effort !== "hard" && <span className="font-semibold">{STRENGTH_EFFORT_LABEL[item.effort]}</span>}
+                    </>
+                  )}
                 </span>
               </span>
               <span className="self-center font-display text-xl">{formatMinutes(item.minutes)}</span>
@@ -98,4 +105,4 @@ export function SessionList({ items }: { items: SessionItem[] }) {
   );
 }
 
-const capital = (s: string) => s[0].toUpperCase() + s.slice(1);
+const STRENGTH_EFFORT_LABEL = { light: "Lighter week", technique: "Technique focus" } as const;

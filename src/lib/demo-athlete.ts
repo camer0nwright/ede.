@@ -30,6 +30,8 @@ export const demoOutlineInput: OutlineInput = {
   strengthVolume: "low",
   availability: demoAthleteAvailability,
   lastWeekRunMinutes: 220,
+  runsPerWeek: 4,
+  liftsPerWeek: 2,
 };
 
 export const demoOutline = buildPlanOutline(demoOutlineInput);

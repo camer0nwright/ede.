@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, formatMinutes, formatDayMinutes, formatMinutesShort, formatWeekRange, plural } from "./format";
+import { formatDate, formatMinutes, formatDayMinutes, formatDuration, formatMinutesShort, formatWeekRange, plural } from "./format";
 
 describe("format", () => {
   it("formats minutes", () => {
@@ -24,5 +24,10 @@ describe("format", () => {
     expect([120, 300, 360].map((m) => formatDayMinutes(m, true))).toEqual(["2h", "5h", "6h+"]);
     expect(plural(1, "double day")).toBe("1 double day");
     expect(plural(2, "rest day")).toBe("2 rest days");
+  });
+
+  it("formats race times", () => {
+    expect(formatDuration(1350)).toBe("22:30");
+    expect(formatDuration(6600)).toBe("1:50:00");
   });
 });

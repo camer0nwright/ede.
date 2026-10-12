@@ -26,6 +26,10 @@ model Athlete {
   strengthVolume     String    @default("low") // "low" | "moderate" | "high"
   currentTraining    String? // free text: what they do now each week
   lastWeekRunMinutes Int? // from onboarding, for the starting load
+  targetTimeSeconds  Int? // desired race time; null with justFinish = "just finish"
+  justFinish         Boolean   @default(false)
+  runsPerWeek        Int? // chosen in onboarding; the plan gives exactly these
+  liftsPerWeek       Int?
   recent5kMinutes    Float? // for pace targets (v2)
   equipment          String? // free text: gym, home weights, etc.
   injuryHistory      String?

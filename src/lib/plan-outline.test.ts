@@ -41,6 +41,9 @@ const PROFILES: Record<string, OutlineInput> = {
   "100K trail ultra, short weekdays": { ...base, goalType: "race", raceDistance: "ultra", ultraDistanceKm: 100, terrain: "trail", targetDate: "2027-05-16", experienceLevel: "advanced", availability: shortWeekdays, lastWeekRunMinutes: 300 },
   "50K road ultra": { ...base, goalType: "race", raceDistance: "ultra", ultraDistanceKm: 50, terrain: "road", targetDate: "2027-02-14", availability: ultraWeek, lastWeekRunMinutes: 240 },
   "general fitness, no date": { ...base, lastWeekRunMinutes: 100 },
+  "half marathon, chosen 4 runs and 3 lifts": { ...base, goalType: "race", raceDistance: "half", targetDate: "2027-02-28", lastWeekRunMinutes: 150, runsPerWeek: 4, liftsPerWeek: 3, availability: Availability.parse([day(null), day(60, 45), day(45, 45), day(60), day(45), day(120), day(null)]) },
+  "ultra, chosen 5 runs and 2 lifts": { ...base, goalType: "race", raceDistance: "ultra", ultraDistanceKm: 80.5, terrain: "trail", targetDate: "2027-04-18", experienceLevel: "advanced", lastWeekRunMinutes: 300, runsPerWeek: 5, liftsPerWeek: 2, availability: ultraWeek },
+  "beginner, chosen 4 runs from almost nothing": { ...base, goalType: "race", raceDistance: "5k", targetDate: "2027-01-10", experienceLevel: "beginner", lastWeekRunMinutes: 0, runsPerWeek: 4, liftsPerWeek: 2 },
   "strength goal, moderate volume": { ...base, goalType: "strength", strengthVolume: "moderate", lastWeekRunMinutes: 80 },
 };
 
@@ -170,6 +173,7 @@ describe.each(outlines)("plan outline: %s", (_name, input, outline) => {
   });
 
   it("plans hard strength sessions in build weeks, light ones in recovery and taper", () => {
+    // (Chosen lift counts are covered by the "exactly the chosen" test.)
     weeks.forEach((w, i) => {
       for (const s of w.strength) {
         if (!isFull(w)) expect(s.effort).toBe("light");
@@ -204,6 +208,18 @@ describe.each(outlines)("plan outline: %s", (_name, input, outline) => {
       const long = w.runs.find((r) => r.role === "long");
       if (!long) continue;
       for (const q of w.runs.filter((r) => r.role === "quality")) expect(q.minutes, `week ${w.weekNumber}`).toBeLessThanOrEqual(long.minutes);
+    }
+  });
+
+  it("gives exactly the chosen runs and lifts every week (fewer runs only in noted build-up weeks)", () => {
+    if (input.runsPerWeek === undefined) return;
+    const noted = outline.notes.find((n) => /fewer than the \d+ runs you chose/.test(n));
+    for (const w of weeks) {
+      expect(w.strength.length, `lifts in week ${w.weekNumber}`).toBe(input.liftsPerWeek);
+      if (w.runs.length !== input.runsPerWeek) {
+        expect(noted, `week ${w.weekNumber} has ${w.runs.length} runs with no note`).toBeDefined();
+        expect(w.runs.length).toBeLessThan(input.runsPerWeek);
+      }
     }
   });
 

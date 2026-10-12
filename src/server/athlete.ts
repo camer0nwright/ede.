@@ -7,6 +7,7 @@ import { connection } from "next/server";
 import { db } from "@/lib/db";
 import { DEMO_ATHLETE, DEMO_TODAY, demoOutline, demoOutlineInput } from "@/lib/demo-athlete";
 import type { StrengthVolume } from "@/lib/domain";
+import { formatDuration } from "@/lib/format";
 import type { OutlineInput, PlanOutline } from "@/lib/plan-outline";
 
 export const ATHLETE_COOKIE = "ede_athlete";
@@ -70,7 +71,14 @@ export async function getPlanContext(): Promise<PlanContext> {
   return {
     isDemo: false,
     name: athlete.name || "You",
-    goal: athlete.goalDetail || (athlete.goalType === "race" ? "Build to race day" : "Train consistently"),
+    goal:
+      athlete.goalType === "race"
+        ? athlete.targetTimeSeconds
+          ? `Target ${formatDuration(athlete.targetTimeSeconds)}`
+          : athlete.justFinish
+            ? "Just finish"
+            : (athlete.goalDetail ?? "Build to race day")
+        : (athlete.goalDetail ?? "Train consistently"),
     title,
     input,
     outline: JSON.parse(current.outline) as PlanOutline,

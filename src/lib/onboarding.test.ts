@@ -2,12 +2,16 @@ import { describe, expect, it } from "vitest";
 import { demoAthleteAvailability } from "./demo-athlete";
 import {
   cautionFor,
+  desiredTimeNote,
   OnboardingAnswers,
   planStartDate,
+  quickWeekToAvailability,
+  recommendedVolume,
   strengthVolumeNote,
   targetDateProblem,
   toOutlineInput,
   warningWords,
+  weekFitProblem,
 } from "./onboarding";
 import { buildPlanOutline } from "./plan-outline";
 
@@ -15,9 +19,12 @@ const answers: OnboardingAnswers = {
   goalType: "race",
   raceDistance: "half",
   targetDate: "2027-03-14",
+  targetTimeSeconds: 6600,
   experienceLevel: "intermediate",
   lastWeekRunMinutes: 150,
-  strengthVolume: "low",
+  runsPerWeek: 4,
+  liftsPerWeek: 2,
+  strengthVolume: "moderate",
   equipment: ["Full gym"],
   availability: demoAthleteAvailability,
   weightUnit: "kg",
@@ -46,6 +53,17 @@ describe("onboarding answers", () => {
     expect(issues({ ...answers, availability: Array(7).fill(train) })).toContain("Keep at least 1 full rest day");
   });
 
+  it("needs a race date and a desired time (or just finish) for a race", () => {
+    expect(issues({ ...answers, targetDate: undefined })).toContain("Enter your race date");
+    expect(issues({ ...answers, targetTimeSeconds: undefined })).toContain("Enter a desired time, or choose just finish");
+    expect(issues({ ...answers, targetTimeSeconds: undefined, justFinish: true })).toEqual([]);
+    expect(issues({ ...answers, goalType: "general", targetDate: undefined, targetTimeSeconds: undefined })).toEqual([]);
+  });
+
+  it("needs the chosen runs and lifts to fit the week", () => {
+    expect(issues({ ...answers, runsPerWeek: 6 })).toEqual([expect.stringMatching(/6 runs need 6 training days/)]);
+  });
+
   it("needs at least one kind of equipment", () => {
     expect(issues({ ...answers, equipment: [] })).toContain("Pick at least one");
   });
@@ -68,7 +86,7 @@ describe("plan start and target date", () => {
 describe("toOutlineInput", () => {
   it("builds a plan outline from the answers", () => {
     const input = toOutlineInput(answers, "2026-10-14");
-    expect(input).toMatchObject({ startDate: "2026-10-19", raceDistance: "half", targetDate: "2027-03-14", lastWeekRunMinutes: 150 });
+    expect(input).toMatchObject({ startDate: "2026-10-19", raceDistance: "half", targetDate: "2027-03-14", lastWeekRunMinutes: 150, runsPerWeek: 4, liftsPerWeek: 2 });
     expect(buildPlanOutline(input).weeks.at(-1)!.phase).toBe("taper");
   });
 
@@ -85,8 +103,15 @@ describe("toOutlineInput", () => {
   });
 });
 
-describe("strength volume note", () => {
-  it("says nothing for Low", () => {
+describe("lifting recommendation", () => {
+  it("recommends Moderate, or Low for beginners, ultras and 5+ runs a week", () => {
+    expect(recommendedVolume({ experienceLevel: "intermediate", raceDistance: "half", runsPerWeek: 4 })).toBe("moderate");
+    expect(recommendedVolume({ experienceLevel: "beginner" })).toBe("low");
+    expect(recommendedVolume({ experienceLevel: "advanced", raceDistance: "ultra" })).toBe("low");
+    expect(recommendedVolume({ experienceLevel: "advanced", runsPerWeek: 5 })).toBe("low");
+  });
+
+  it("says nothing when the choice matches the recommendation", () => {
     expect(strengthVolumeNote(answers)).toBeNull();
   });
 
@@ -95,7 +120,46 @@ describe("strength volume note", () => {
   });
 
   it("steers beginners to Low", () => {
-    expect(strengthVolumeNote({ ...answers, strengthVolume: "moderate", experienceLevel: "beginner" })).toMatch(/beginner/);
+    expect(strengthVolumeNote({ ...answers, experienceLevel: "beginner" })).toMatch(/beginner/);
+  });
+
+  it("notes Low for an ultra choosing Moderate", () => {
+    expect(strengthVolumeNote({ ...answers, raceDistance: "ultra", runsPerWeek: 3 })).toMatch(/Low keeps your legs fresher/);
+  });
+});
+
+describe("week fit", () => {
+  const rest = { minutes: null, isDouble: false, secondMinutes: null };
+  const train = { minutes: 45, isDouble: false, secondMinutes: null };
+  const double = { minutes: 45, isDouble: true, secondMinutes: 45 };
+
+  it("fits runs and lifts on separate days, or a run and a lift on a double day", () => {
+    expect(weekFitProblem([train, train, train, rest, train, train, rest], 3, 2)).toBeNull();
+    expect(weekFitProblem([double, train, double, rest, train, rest, rest], 3, 2)).toBeNull();
+  });
+
+  it("says what to add when the week is too small", () => {
+    expect(weekFitProblem([train, train, train, rest, rest, rest, rest], 3, 2)).toMatch(/need 5 slots, but your week has 3. Add 2 more/);
+    expect(weekFitProblem([train, train, train, train, rest, rest, rest], 3, 2)).toMatch(/Add a training day or a double day/);
+  });
+});
+
+describe("desired time", () => {
+  it("notes an ambitious time for the experience level", () => {
+    expect(desiredTimeNote("half", 85 * 60, "intermediate")).toMatch(/ambitious/);
+    expect(desiredTimeNote("half", 110 * 60, "intermediate")).toBeNull();
+    expect(desiredTimeNote("ultra", 600, "beginner")).toBeNull();
+  });
+});
+
+describe("quick week setup", () => {
+  it("fills chosen days with weekday or weekend time and keeps double days", () => {
+    const before = quickWeekToAvailability({ days: [1, 3, 5], weekdayMinutes: 45, weekendMinutes: 120 });
+    expect(before.map((d) => d.minutes)).toEqual([null, 45, null, 45, null, 120, null]);
+    before[1] = { minutes: 45, isDouble: true, secondMinutes: 30 };
+    const after = quickWeekToAvailability({ days: [1, 3, 5, 6], weekdayMinutes: 60, weekendMinutes: 90 }, before);
+    expect(after.map((d) => d.minutes)).toEqual([null, 60, null, 60, null, 90, 90]);
+    expect(after[1]).toEqual({ minutes: 60, isDouble: true, secondMinutes: 30 });
   });
 });
 
