@@ -190,6 +190,14 @@ describe("fits-availability", () => {
     expect(fitsAvailability(w, ctx)[0].message).toMatch(/only double days/);
   });
 
+  it("for ultras, treats 2h as a real limit and only 6h+ as open-ended", () => {
+    const availability: Availability = demoAvailability.map((d, i) => (i === 5 ? { ...d, minutes: 120 } : d));
+    const ultra = { ...ctx, availability, ultraDistanceKm: 100 };
+    expect(fitsAvailability(edit("2026-10-17", 1, { plannedMinutes: 150 }), ultra)[0].message).toMatch(/150 min but only 120 min/);
+    const sixPlus = { ...ultra, availability: demoAvailability.map((d, i) => (i === 5 ? { ...d, minutes: 360 } : d)) };
+    expect(fitsAvailability(edit("2026-10-17", 1, { plannedMinutes: 420 }), sixPlus)).toEqual([]);
+  });
+
   it("treats 120 minutes as 120+ with no upper limit", () => {
     const availability: Availability = demoAvailability.map((d, i) =>
       i === 5 ? { ...d, minutes: 120 } : d,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, formatMinutes, formatMinutesShort, formatWeekRange, plural } from "./format";
+import { formatDate, formatMinutes, formatDayMinutes, formatMinutesShort, formatWeekRange, plural } from "./format";
 
 describe("format", () => {
   it("formats minutes", () => {
@@ -19,7 +19,9 @@ describe("format", () => {
   });
 
   it("formats short minutes and plurals", () => {
-    expect([45, 60, 90, 120, 180].map(formatMinutesShort)).toEqual(["45m", "1h", "1h30", "2h+", "2h+"]);
+    expect([45, 60, 90, 120, 180].map(formatMinutesShort)).toEqual(["45m", "1h", "1h30", "2h", "3h"]);
+    expect([90, 120, 180].map((m) => formatDayMinutes(m))).toEqual(["1h30", "2h+", "2h+"]);
+    expect([120, 300, 360].map((m) => formatDayMinutes(m, true))).toEqual(["2h", "5h", "6h+"]);
     expect(plural(1, "double day")).toBe("1 double day");
     expect(plural(2, "rest day")).toBe("2 rest days");
   });

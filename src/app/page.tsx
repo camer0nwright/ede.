@@ -1,28 +1,44 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { MedicalNotice } from "@/components/medical-notice";
 import { SessionList } from "@/components/plan/session-list";
 import { daysBetween } from "@/lib/dates";
-import { DEMO_TODAY, demoOutline, demoOutlineInput } from "@/lib/demo-athlete";
+import { DemoBanner } from "@/components/demo-banner";
+import { PageSkeleton } from "@/components/page-skeleton";
+import { getPlanContext } from "@/server/athlete";
 import { formatMinutes, formatWeekRange, PHASE_LABEL } from "@/lib/format";
 import { sessionItems } from "@/lib/outline-view";
 
 export default function TodayPage() {
-  const currentWeek = Math.floor(daysBetween(demoOutlineInput.startDate, DEMO_TODAY) / 7) + 1;
-  const week = demoOutline.weeks[currentWeek - 1];
-  const items = sessionItems(week, demoOutlineInput.strengthVolume);
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <Today />
+    </Suspense>
+  );
+}
+
+async function Today() {
+  const ctx = await getPlanContext();
+  const { weeks } = ctx.outline;
+  const index = Math.floor(daysBetween(ctx.input.startDate, ctx.today) / 7);
+  const notStarted = index < 0;
+  const week = weeks[Math.min(Math.max(index, 0), weeks.length - 1)];
+  const items = sessionItems(week, ctx.strengthVolume);
   const key = items.find((i) => i.type === "run" && i.role === "quality") ?? items[0];
 
   return (
     <main className="flex flex-col gap-6 pt-8">
       <header>
         <Logo />
-        <h1 className="mt-4 font-display text-5xl leading-none uppercase">This week</h1>
+        <h1 className="mt-4 font-display text-5xl leading-none uppercase">{notStarted ? "Your first week" : "This week"}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Week {week.weekNumber} · {PHASE_LABEL[week.phase]} · {formatWeekRange(week.weekStart)}
         </p>
       </header>
+
+      {ctx.isDemo && <DemoBanner />}
 
       <section className="rounded-3xl bg-primary p-5 text-primary-foreground" aria-label="Key session">
         <p className="text-xs font-semibold tracking-widest uppercase opacity-70">Key session</p>

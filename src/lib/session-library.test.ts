@@ -25,16 +25,15 @@ describe("session library", () => {
     }
   });
 
-  it("wraps quality sessions in an easy warm-up and cool-down", () => {
+  it("wraps quality sessions in an easy warm-up and cool-down, with recoveries as easy steps", () => {
     const steps = buildRunSteps("intervals_short", 2, 45);
-    expect(steps.map((s) => s.name)).toEqual([
-      "Warm-up: easy jog",
-      "8 × 1 min hard, 1 min easy jog between",
-      "Cool-down: easy jog",
+    expect(steps.map((s) => [s.name, s.minutes])).toEqual([
+      ["Warm-up: easy jog", 12],
+      ["8 × 1 min hard", 8],
+      ["1 min easy jog after each rep", 8],
+      ["Cool-down: easy jog", 17],
     ]);
-    expect(steps[0].targetRpe).toBeLessThanOrEqual(EASY_MAX_RPE);
-    expect(steps[2].targetRpe).toBeLessThanOrEqual(EASY_MAX_RPE);
-    expect(steps[1].targetRpe).toBe(9);
+    expect(steps.map((s) => s.targetRpe <= EASY_MAX_RPE)).toEqual([true, false, true, true]);
   });
 
   it("keeps easy, run/walk and long easy runs entirely at easy effort", () => {

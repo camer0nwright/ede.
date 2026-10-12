@@ -204,6 +204,13 @@ export const DAY_NAMES = [
 /** Time options offered in the grid. 120 means "120+". */
 export const MINUTE_OPTIONS = [30, 45, 60, 90, 120] as const;
 
+/**
+ * The top time option means "this much or more", so it has no upper limit:
+ * 120 (2h+) normally, 360 (6h+) for ultra athletes, who get longer options.
+ */
+export const openEndedMinutes = (ultra: boolean) => (ultra ? 360 : 120);
+export const dayCap = (minutes: number, ultra: boolean) => (minutes >= openEndedMinutes(ultra) ? Infinity : minutes);
+
 export const AvailabilityDay = z
   .object({
     minutes: z.number().int().positive().nullable(), // null = rest day

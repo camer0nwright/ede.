@@ -1,6 +1,7 @@
+import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { Barlow_Condensed, Geist } from "next/font/google";
-import { BottomNav } from "@/components/bottom-nav";
+import { BottomNav, NavBar } from "@/components/bottom-nav";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -36,7 +37,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={`${geistSans.variable} ${display.variable} h-full`}>
       <body className="min-h-full">
         <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-24">{children}</div>
-        <BottomNav />
+        <Suspense fallback={<NavBar active={null} />}>
+          <BottomNav />
+        </Suspense>
         <Toaster position="top-center" />
       </body>
     </html>

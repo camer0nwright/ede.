@@ -11,8 +11,12 @@ type KindSpec = {
   label: string;
   role: RunRole;
   intensity: Intensity;
-  /** Main-set description, minutes, and minutes of actual hard work, for each level (index 0 = level 1). */
-  levels: { main: string; minutes: number; work: number; rpe: number }[];
+  /**
+   * For each level (index 0 = level 1): the main set's description, total
+   * minutes, minutes of actual hard work, and for reps the easy recovery
+   * between them (shown as its own step, so it counts as easy running).
+   */
+  levels: { main: string; minutes: number; work: number; rpe: number; recovery?: string }[];
   /** Easy warm-up and cool-down around the main set (quality sessions). */
   warmup?: number;
   cooldown?: number;
@@ -20,7 +24,8 @@ type KindSpec = {
 
 const reps = (r: Reps[], effort: string, restLabel: string, rpe: number) =>
   r.map(({ reps, work, rest }) => ({
-    main: `${reps} × ${fmt(work)} ${effort}, ${fmt(rest)} ${restLabel} between`,
+    main: `${reps} × ${fmt(work)} ${effort}`,
+    recovery: `${fmt(rest)} ${restLabel} after each rep`,
     minutes: reps * (work + rest),
     work: reps * work,
     rpe,
@@ -258,12 +263,20 @@ export function buildRunSteps(kind: RunKind, level: number, minutes: number): Ru
   const spec = RUN_LIBRARY[kind];
   const l = spec.levels[clampLevel(kind, level) - 1];
 
+  // The main set: hard work, plus (for reps) the easy recovery between reps as its own step.
+  const main: RunStep[] = l.recovery
+    ? [
+        { name: l.main, minutes: l.work, targetRpe: l.rpe },
+        { name: l.recovery, minutes: l.minutes - l.work, targetRpe: 2 },
+      ]
+    : [{ name: l.main, minutes: l.minutes, targetRpe: l.rpe }];
+
   if (spec.role === "quality") {
     const warmup = spec.warmup ?? 10;
     const cooldown = Math.max(minutes - warmup - l.minutes, 0);
     return [
       { name: "Warm-up: easy jog", minutes: warmup, targetRpe: 3 },
-      { name: l.main, minutes: l.minutes, targetRpe: l.rpe },
+      ...main,
       ...(cooldown > 0 ? [{ name: "Cool-down: easy jog", minutes: cooldown, targetRpe: 3 }] : []),
     ];
   }
@@ -274,7 +287,7 @@ export function buildRunSteps(kind: RunKind, level: number, minutes: number): Ru
   const easy = Math.max(minutes - l.minutes, 0);
   return [
     { name: spec.role === "long" ? "Easy, conversational pace" : "Easy running", minutes: easy, targetRpe: spec.role === "long" ? 4 : 3 },
-    { name: l.main, minutes: l.minutes, targetRpe: l.rpe },
+    ...main,
   ];
 }
 

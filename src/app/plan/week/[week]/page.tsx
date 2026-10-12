@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { SessionList } from "@/components/plan/session-list";
 import { Badge } from "@/components/ui/badge";
-import { demoOutline, demoOutlineInput } from "@/lib/demo-athlete";
+import { getPlanContext } from "@/server/athlete";
 import { formatMinutes, formatWeekRange, PHASE_COLOR, PHASE_LABEL } from "@/lib/format";
 import { sessionItems } from "@/lib/outline-view";
 import type { Phase } from "@/lib/domain";
@@ -19,17 +19,13 @@ const PHASE_NOTE: Record<Phase, string> = {
   taper: "Cutting volume and keeping a little intensity so you arrive fresh.",
 };
 
-export function generateStaticParams() {
-  return demoOutline.weeks.map((w) => ({ week: String(w.weekNumber) }));
-}
-
 export async function generateMetadata({ params }: PageProps<"/plan/week/[week]">): Promise<Metadata> {
   const { week } = await params;
   return { title: `Week ${week} · ede.` };
 }
 
-// The week number comes from the URL, so the week's content streams in behind
-// a skeleton while the page frame shows instantly. Links prefetch it ahead of the tap.
+// The week number comes from the URL and the plan from the athlete's cookie,
+// so the content streams in behind a skeleton while the frame shows instantly.
 export default function WeekPage({ params }: PageProps<"/plan/week/[week]">) {
   return (
     <main className="flex flex-col gap-6 pt-6">
@@ -59,12 +55,13 @@ function WeekSkeleton() {
 
 async function WeekContent({ params }: { params: PageProps<"/plan/week/[week]">["params"] }) {
   const { week: param } = await params;
-  const week = demoOutline.weeks.find((w) => String(w.weekNumber) === param);
+  const ctx = await getPlanContext();
+  const week = ctx.outline.weeks.find((w) => String(w.weekNumber) === param);
   if (!week) notFound();
 
-  const items = sessionItems(week, demoOutlineInput.strengthVolume);
+  const items = sessionItems(week, ctx.strengthVolume);
   const prev = week.weekNumber > 1 ? week.weekNumber - 1 : null;
-  const next = week.weekNumber < demoOutline.weeks.length ? week.weekNumber + 1 : null;
+  const next = week.weekNumber < ctx.outline.weeks.length ? week.weekNumber + 1 : null;
 
   return (
     <>

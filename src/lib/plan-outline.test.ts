@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CHECKER_CONFIG as C } from "@/server/plan-checker";
 import { addDays } from "./dates";
-import { Availability, type AvailabilityDay } from "./domain";
+import { Availability, dayCap, type AvailabilityDay } from "./domain";
 import {
   buildPlanOutline,
   easyShareOf,
@@ -21,6 +21,8 @@ const day = (minutes: number | null, second?: number): AvailabilityDay =>
 const typical = Availability.parse([day(60), day(45, 45), day(60), day(45), day(null), day(120), day(90)]);
 const tight = Availability.parse([day(null), day(45), day(null), day(45), day(null), day(60), day(null)]);
 const ultraWeek = Availability.parse([day(60), day(60, 45), day(75), day(60), day(null), day(360), day(240)]);
+// Short weekdays and a big weekend: the shape that exposed stalls and lost sessions.
+const shortWeekdays = Availability.parse([day(null), day(45, 45), day(45), day(60), day(null), day(300), day(180)]);
 
 const base: OutlineInput = {
   startDate: "2026-10-12",
@@ -36,6 +38,7 @@ const PROFILES: Record<string, OutlineInput> = {
   "marathon, advanced": { ...base, goalType: "race", raceDistance: "marathon", targetDate: "2027-03-07", experienceLevel: "advanced", lastWeekRunMinutes: 240 },
   "10K on tight availability": { ...base, goalType: "race", raceDistance: "10k", targetDate: "2026-12-13", availability: tight, lastWeekRunMinutes: 90 },
   "100-mile mountain ultra": { ...base, goalType: "race", raceDistance: "ultra", ultraDistanceKm: 161, terrain: "mountain", targetDate: "2027-04-04", experienceLevel: "advanced", availability: ultraWeek, lastWeekRunMinutes: 360 },
+  "100K trail ultra, short weekdays": { ...base, goalType: "race", raceDistance: "ultra", ultraDistanceKm: 100, terrain: "trail", targetDate: "2027-05-16", experienceLevel: "advanced", availability: shortWeekdays, lastWeekRunMinutes: 300 },
   "50K road ultra": { ...base, goalType: "race", raceDistance: "ultra", ultraDistanceKm: 50, terrain: "road", targetDate: "2027-02-14", availability: ultraWeek, lastWeekRunMinutes: 240 },
   "general fitness, no date": { ...base, lastWeekRunMinutes: 100 },
   "strength goal, moderate volume": { ...base, goalType: "strength", strengthVolume: "moderate", lastWeekRunMinutes: 80 },
@@ -145,7 +148,7 @@ describe.each(outlines)("plan outline: %s", (_name, input, outline) => {
   it("fits every run on an available day, with the long run the longest", () => {
     const caps = input.availability
       .filter((d) => d.minutes !== null)
-      .map((d) => (d.minutes! >= 120 ? Infinity : d.minutes!))
+      .map((d) => dayCap(d.minutes!, ultra))
       .sort((a, b) => b - a);
     for (const w of weeks) {
       const minutes = w.runs.map((r) => r.minutes).sort((a, b) => b - a);
@@ -180,6 +183,30 @@ describe.each(outlines)("plan outline: %s", (_name, input, outline) => {
     }
   });
 
+  it("keeps at least 2 lifts in build weeks, and a light lift in recovery weeks", () => {
+    const slots = input.availability.filter((d) => d.minutes !== null).length + input.availability.filter((d) => d.isDouble).length;
+    for (const w of weeks) {
+      if (isFull(w) && slots >= 5) expect(w.strength.length, `week ${w.weekNumber}`).toBeGreaterThanOrEqual(2);
+      if (w.phase === "recovery") expect(w.strength.length, `week ${w.weekNumber}`).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("keeps quality sessions coming through the plan (non-beginners)", () => {
+    if (beginner) return;
+    const build = weeks.filter((w) => w.phase === "build" || w.phase === "peak");
+    if (build.length < 4) return;
+    const withQuality = build.filter((w) => qualityOf(w).length > 0).length;
+    expect(withQuality / build.length).toBeGreaterThanOrEqual(0.7);
+  });
+
+  it("never makes a quality session longer than the long run (it doesn't take the long day)", () => {
+    for (const w of weeks) {
+      const long = w.runs.find((r) => r.role === "long");
+      if (!long) continue;
+      for (const q of w.runs.filter((r) => r.role === "quality")) expect(q.minutes, `week ${w.weekNumber}`).toBeLessThanOrEqual(long.minutes);
+    }
+  });
+
   it("is the same every time for the same answers", () => {
     expect(buildPlanOutline(input)).toEqual(outline);
   });
@@ -202,6 +229,13 @@ describe("plan outline details", () => {
     const levels = get("beginner 5K").weeks.map((w) => Math.max(...w.runs.map((r) => r.level)));
     expect(get("beginner 5K").weeks.every((w) => w.runs.every((r) => r.kind === "run_walk"))).toBe(true);
     expect(levels.at(-3)!).toBeGreaterThan(levels[0]);
+  });
+
+  it("grows a short-weekday ultra well past its starting load instead of stalling", () => {
+    const o = get("100K trail ultra, short weekdays");
+    const peak = Math.max(...o.weeks.map((w) => w.runMinutes));
+    expect(peak).toBeGreaterThanOrEqual(450);
+    expect(o.notes.join(" ")).toMatch(/available time limits running/);
   });
 
   it("builds back-to-back long runs into an ultra about 8, 5 and 3 weeks out", () => {

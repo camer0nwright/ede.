@@ -10,7 +10,7 @@ import type {
   StrengthVolume,
   WeekPlan,
 } from "@/lib/domain";
-import { DAY_NAMES, EASY_MAX_RPE, easyRunMinutes, isHeavyLowerBody, mayBeLowerBody } from "@/lib/domain";
+import { DAY_NAMES, dayCap, EASY_MAX_RPE, easyRunMinutes, isHeavyLowerBody, mayBeLowerBody } from "@/lib/domain";
 import { failureAllowed, findExercise } from "@/lib/exercise-library";
 import { addDays, dayOfWeek, daysBetween } from "@/lib/dates";
 import { RUN_LIBRARY, runLabel } from "@/lib/session-library";
@@ -180,9 +180,9 @@ export const restDay: Rule = (week) => {
 };
 
 /** Sessions only on available days, within the time set, and two only on double days. */
-export const fitsAvailability: Rule = (week, { availability }) => {
+export const fitsAvailability: Rule = (week, { availability, ultraDistanceKm }) => {
   const out: Violation[] = [];
-  const cap = (m: number) => (m >= C.openEndedMinutes ? Infinity : m);
+  const cap = (m: number) => dayCap(m, ultraDistanceKm !== undefined);
   for (const [date, sessions] of sessionsByDate(week)) {
     const day = availability[dayOfWeek(date)];
     if (day.minutes === null) {

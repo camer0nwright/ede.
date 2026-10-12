@@ -4,6 +4,7 @@
 // full sessions on specific days. See SPEC.md "Plan outline and session variety".
 import { addDays, dayOfWeek, daysBetween } from "./dates";
 import {
+  dayCap,
   easyRunMinutes,
   type Availability,
   type BodyFocus,
@@ -98,6 +99,12 @@ export const OUTLINE_CONFIG = {
   easyShare: { default: 0.8, ultra: 0.9 },
   minEasyRunMinutes: 20,
   strengthMinutes: { low: 40, moderate: 55, high: 70 },
+  /** Light lifting sessions in recovery and taper weeks are shorter. */
+  lightStrengthMinutes: 30,
+  /** Keep at least this many lifts a week when there's room... */
+  minLifts: 2,
+  /** ...dropping runs down to this many before dropping lifts. */
+  minRunsBeforeDroppingLifts: 3,
 } as const;
 const O = OUTLINE_CONFIG;
 
@@ -192,7 +199,8 @@ function maxLongShare(input: OutlineInput, runs: number, backToBack: boolean): n
   if (runs <= 2) return 0.65;
   if (runs === 3) return 0.5;
   const base = distanceKey(input) === "ultra" ? 0.45 : 0.4;
-  return backToBack ? base + 0.15 : base;
+  // A back-to-back weekend is two long runs, so the pair may take more of the week.
+  return backToBack ? base + 0.3 : base;
 }
 
 /** Recommended plan length in weeks, for the "shorter than recommended" note. */
@@ -223,13 +231,13 @@ const FOCUS_PATTERNS: Record<number, BodyFocus[]> = {
 
 // ---------- availability ----------
 
-function availabilityFacts(availability: Availability) {
+function availabilityFacts(availability: Availability, ultra: boolean) {
   const days = availability.filter((d) => d.minutes !== null);
   // Keep at least one rest day even if every day is marked available.
   const trainingDays = Math.min(days.length, 6);
   const doubleDays = days.filter((d) => d.isDouble).length;
-  const open = (m: number) => (m >= 120 ? Infinity : m);
-  /** Each available day's time for its first session, longest first ("120" means 120+). */
+  const open = (m: number) => dayCap(m, ultra);
+  /** Each available day's time for its first session, longest first (the top option has no limit). */
   const dayCaps = days.map((d) => open(d.minutes!)).sort((a, b) => b - a).slice(0, trainingDays);
   const longestDay = dayCaps[0] ?? 0;
   // Two days in a row with 60+ minutes each (for back-to-back long runs).
@@ -311,7 +319,7 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
 
   const n = planLength(input);
   const taper = taperLength(input);
-  const avail = availabilityFacts(input.availability);
+  const avail = availabilityFacts(input.availability, input.raceDistance === "ultra");
   const beginner = input.experienceLevel === "beginner";
   const isUltra = distanceKey(input) === "ultra";
   const notes: string[] = [];
@@ -373,7 +381,11 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
     runs = Math.max(1, Math.min(runs, Math.floor(target / O.minEasyRunMinutes)));
     let lifts = desiredStrength(input);
     if (phase === "recovery" || phase === "taper") lifts = Math.max(1, lifts - 1);
+    // ede. is a hybrid coach: keep at least 2 lifts, dropping runs (down to 3)
+    // before lifts when there aren't enough slots in the week.
     const slots = avail.trainingDays + avail.doubleDays;
+    while (runs + lifts > slots && lifts > O.minLifts) lifts--;
+    while (runs + lifts > slots && runs > O.minRunsBeforeDroppingLifts) runs--;
     while (runs + lifts > slots && lifts > 1) lifts--;
     while (runs + lifts > slots && runs > 1) runs--;
     target = Math.min(target, round5(avail.runCapacity(runs)));
@@ -430,15 +442,26 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
       let qualityTotal = 0;
       const qualityRuns: OutlineRun[] = [];
       for (const wanted of qualityKinds) {
-        const cap = caps.shift() ?? 0;
-        // If this kind's next level doesn't fit the day, use the next kind in the
-        // rotation that does, so levels never go backwards in a build week.
+        // Quality sessions take the shortest day they fit on, and never the
+        // longest remaining day (that's for running volume). If this kind's next
+        // level doesn't fit, the next kind in the rotation that does is used,
+        // so levels never go backwards in a build week.
+        const usable = caps.length > 1 ? caps.slice(1) : caps;
         const options = [wanted, ...qPool.filter((k) => k !== wanted && !qualityKinds.includes(k))];
-        const kind = options.find((k) => minMinutes(k, levelFor(k)) <= cap);
-        if (!kind) continue; // nothing fits any day: leave it out
-        const level = levelFor(kind);
-        const minutes = Math.min(ceil5(minMinutes(kind, level)), cap);
-        qualityRuns.push({ role: "quality", kind, level, minutes });
+        let pick: { kind: RunKind; index: number } | undefined;
+        for (const kind of options) {
+          const need = minMinutes(kind, levelFor(kind));
+          const fits = usable.map((c, k) => ({ c, k })).filter(({ c }) => c >= need).sort((a, b) => a.c - b.c)[0];
+          if (fits) {
+            pick = { kind, index: fits.k + (caps.length > 1 ? 1 : 0) };
+            break;
+          }
+        }
+        if (!pick) continue; // nothing fits a suitable day: leave it out
+        const cap = caps.splice(pick.index, 1)[0];
+        const level = levelFor(pick.kind);
+        const minutes = Math.min(ceil5(minMinutes(pick.kind, level)), cap);
+        qualityRuns.push({ role: "quality", kind: pick.kind, level, minutes });
         qualityTotal += minutes;
       }
       out.push(...qualityRuns);
@@ -471,9 +494,11 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
         }
       }
 
-      // Easy runs share what's left, each fitting its day and shorter than the long run.
+      // Easy runs share what's left, each fitting its day and no longer than the
+      // long run. Shortest days are filled first, so leftovers flow to longer days.
       const longest = longRuns[0]?.minutes ?? Infinity;
       while (easyCaps.length > 0 && remaining / easyCaps.length < O.minEasyRunMinutes) easyCaps = easyCaps.slice(0, -1);
+      easyCaps = [...easyCaps].sort((a, b) => a - b);
       const easyRuns: OutlineRun[] = [];
       easyCaps.forEach((cap, e) => {
         const minutes = round5(Math.min(remaining / (easyCaps.length - e), cap, longest));
@@ -523,14 +548,16 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
         : FOCUS_PATTERNS[Math.min(lifts, 4)] ?? [];
     const effort: StrengthEffort =
       phase === "recovery" || phase === "taper" ? "light" : beginner && i < 4 ? "technique" : "hard";
+    const liftMinutes = effort === "light" ? O.lightStrengthMinutes : strengthMin;
     let strength: OutlineStrength[] = focuses.map((focus) => ({
       focus,
       variant: i % 2 === 0 ? "A" : "B",
       effort,
-      minutes: strengthMin,
+      minutes: liftMinutes,
     }));
 
-    // Recovery and taper weeks must also cut total load (checker: recovery 70%, taper 60/80/90%).
+    // Recovery and taper weeks must also cut total load (checker: recovery 70%,
+    // taper 60/80/90%). Trim running first, then drop lifts if still over.
     let runMinutes = sum(weekRuns);
     const totalCap =
       phase === "recovery" && lastBuild
@@ -538,18 +565,20 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
         : phase === "taper" && lastBuild
           ? lastBuild.total * O.taperShares[weeksOut!]
           : Infinity;
-    while (runMinutes + strength.length * strengthMin > totalCap && strength.length > 0) {
-      strength = strength.slice(0, -1);
-    }
-    if (runMinutes + strength.length * strengthMin > totalCap) {
-      const scale = totalCap / runMinutes;
+    if (runMinutes + sum(strength) > totalCap) {
+      const scale = Math.max(0, totalCap - sum(strength)) / runMinutes;
       weekRuns = weekRuns.map((r) => ({ ...r, minutes: Math.max(O.minEasyRunMinutes, Math.floor((r.minutes * scale) / 5) * 5) }));
+      // Rounding can leave an easy run longer than the long run: cap it.
+      const longMinutes = weekRuns.find((r) => r.role === "long")?.minutes;
+      if (longMinutes) weekRuns = weekRuns.map((r) => (r.role === "long" ? r : { ...r, minutes: Math.min(r.minutes, longMinutes) }));
       runMinutes = sum(weekRuns);
     }
-    const strengthMinutes = strength.length * strengthMin;
+    while (runMinutes + sum(strength) > totalCap && strength.length > 0) strength = strength.slice(0, -1);
+    const strengthMinutes = sum(strength);
 
     // ----- bookkeeping for rotation and progression -----
-    if (qualityKinds.length > 0) qPointer += 1;
+    // Move the rotation on even if this week's quality session was dropped, so it can't get stuck.
+    if (quality.length > 0) qPointer += 1;
     if (fullLevel && phase !== "base" && !backToBack && !beginner) lPointer += 1;
     for (const r of weekRuns) {
       lastLevel.set(r.kind, r.level);
@@ -579,7 +608,7 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
   return { weeks, taperWeeks: taper, notes };
 }
 
-const sum = (runs: OutlineRun[]) => runs.reduce((s, r) => s + r.minutes, 0);
+const sum = (items: { minutes: number }[]) => items.reduce((s, r) => s + r.minutes, 0);
 
 /** Share of a week's running at easy effort, using the library's steps. */
 export function easyShareOf(runs: OutlineRun[]): number {

@@ -12,29 +12,24 @@ const ITEMS = [
   { href: "/you", label: "You", icon: User },
 ] as const;
 
-export function BottomNav() {
-  const pathname = usePathname();
-  const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
-
+/** The bar itself. `active` is null while the current page is still unknown. */
+export function NavBar({ active }: { active: string | null }) {
   return (
-    <nav
-      aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/85 backdrop-blur-lg pb-safe"
-    >
+    <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/85 backdrop-blur-lg pb-safe">
       <ul className="mx-auto grid max-w-md grid-cols-4">
         {ITEMS.map(({ href, label, icon: Icon }) => {
-          const active = isActive(href);
+          const on = active === href;
           return (
             <li key={href}>
               <Link
                 href={href}
-                aria-current={active ? "page" : undefined}
+                aria-current={on ? "page" : undefined}
                 className={cn(
                   "flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
-                  active ? "text-primary-strong" : "text-muted-foreground hover:text-foreground",
+                  on ? "text-primary-strong" : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                <Icon className="size-5" strokeWidth={active ? 2.5 : 2} aria-hidden />
+                <Icon className="size-5" strokeWidth={on ? 2.5 : 2} aria-hidden />
                 {label}
               </Link>
             </li>
@@ -43,4 +38,13 @@ export function BottomNav() {
       </ul>
     </nav>
   );
+}
+
+/** Reads the URL to highlight the current tab. Wrap in Suspense with <NavBar active={null} />. */
+export function BottomNav() {
+  const pathname = usePathname();
+  // Onboarding is full screen.
+  if (pathname.startsWith("/onboarding")) return null;
+  const active = ITEMS.find(({ href }) => (href === "/" ? pathname === "/" : pathname.startsWith(href)))?.href ?? null;
+  return <NavBar active={active} />;
 }

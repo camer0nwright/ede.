@@ -1,6 +1,6 @@
 // Formatting helpers for the UI.
 import { addDays, toUtc } from "./dates";
-import type { Intensity, Phase } from "./domain";
+import { openEndedMinutes, type Intensity, type Phase } from "./domain";
 
 /** 45 → "45 min", 90 → "1h 30", 120 → "2h". */
 export function formatMinutes(minutes: number): string {
@@ -10,12 +10,16 @@ export function formatMinutes(minutes: number): string {
   return m === 0 ? `${h}h` : `${h}h ${String(m).padStart(2, "0")}`;
 }
 
-/** Short form for tight spaces: 45 → "45m", 90 → "1h30", 120+ → "2h+" (120 means "120 or more"). */
+/** Short form for tight spaces: 45 → "45m", 90 → "1h30", 180 → "3h". */
 export function formatMinutesShort(minutes: number): string {
-  if (minutes >= 120) return "2h+";
   if (minutes < 60) return `${minutes}m`;
   const m = minutes % 60;
   return m === 0 ? `${minutes / 60}h` : `${Math.floor(minutes / 60)}h${m}`;
+}
+
+/** A day's available time: the top option reads "2h+" (or "6h+" for ultras). */
+export function formatDayMinutes(minutes: number, ultra = false): string {
+  return minutes >= openEndedMinutes(ultra) ? `${formatMinutesShort(openEndedMinutes(ultra))}+` : formatMinutesShort(minutes);
 }
 
 /** "1 double day", "2 double days". */

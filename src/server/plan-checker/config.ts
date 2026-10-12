@@ -68,6 +68,5 @@ export const CHECKER_CONFIG = {
   /** Recalculation cap: weekly minutes may grow by at most this share. */
   maxRecalcLoadIncreaseShare: 0.1,
 
-  /** Availability of 120 minutes means "120+", so it has no upper limit. */
-  openEndedMinutes: 120,
+  // The top availability option ("2h+", or "6h+" for ultras) has no upper limit: see dayCap in src/lib/domain.ts.
 } as const;
