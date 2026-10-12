@@ -30,6 +30,7 @@ A day holds one or two sessions. Each session has: type (run or strength), durat
 
 ## Plan checker rules (enforced by the app, not the AI)
 - Gradual weekly load progression, with a recovery week every 3-4 weeks
+- At least 80% of weekly running time is easy (counted from the planned minutes of runs marked easy)
 - No heavy leg session the day before a key run
 - At least one full rest day per week
 - Sessions fit within the time set for that day
