@@ -45,6 +45,10 @@ export const CHECKER_CONFIG = {
     moderate: { min: 3, max: 3 },
     high: { min: 3, max: 4 },
   },
+  /** Lowest working-set RPE that counts as hard for each strength volume setting. */
+  hardLiftMinRpe: { low: 8.5, moderate: 8, high: 7.5 },
+  /** More than this share of a session's exercises must be hard ("most lifts are hard"). */
+  minHardExerciseShare: 0.5,
 
   /** Recalculation cap: sessions that may be added or made harder at once. */
   maxSessionsIncreasedPerRecalc: 3,

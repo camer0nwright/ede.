@@ -117,6 +117,8 @@ The plan engine's output also gives each session a key-session flag and a body f
 - Sessions fit within the time set for that day
 - Double days are a run plus a lift only, never two hard sessions back to back, and no heavy legs on a double day that includes a key run
 - Working sets per exercise must match the strength volume setting
+- Most exercises in each strength session are hard for the strength volume setting (decision 15)
+- No heavy lower-body sessions on consecutive days (decision 16)
 - failure_allowed only on machine, cable or isolation exercises
 - Injury severity rules (see prompts/plan-engine.md): pain 0-3 reduces runs, 4-6 means no running, 7+ means no running and no lower-body lifting. While an injury is active, run minutes don't go above last week's.
 - Taper logic if a target date is set
@@ -177,3 +179,5 @@ Places where the v4 additions or the plan-engine prompt disagreed with the earli
 12. **Gym progression.** Code-based double progression sets next session's targets; the AI can hold it back and explains why.
 13. **Taper loads.** Race week at most 60% and the week before at most 80% of the last full week; 100-mile ultras add a third taper week at most 90%.
 14. **Consecutive days.** Strength sessions may be on consecutive days, as some plans need it. Two hard runs on consecutive days are still ruled out. A hard lift is fine the day after a hard run as long as it is not legs (lower body the day after a hard or long run stays at RPE 8 or less). Most lifting sessions should be hard. The plan-engine prompt's rule 7 is updated to match in step 5.
+15. **Most lifts are hard.** In each strength session, most exercises (more than half) are at or above the strength volume setting's lowest RPE (Low 8.5, Moderate 8, Higher 7.5). Not applied to beginners, recovery or taper weeks, or lower-body work capped the day after a hard or long run. The plan outline plans strength sessions as hard by default.
+16. **No consecutive leg days.** Heavy lower-body sessions are not placed on consecutive days.

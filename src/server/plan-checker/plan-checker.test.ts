@@ -5,6 +5,8 @@ import { checkWeekPlan, describeViolations } from "./index";
 import {
   beginnerEasyRunning,
   consecutiveHardRuns,
+  consecutiveHeavyLegs,
+  strengthEffort,
   doubleDay,
   easyRunning,
   fitsAvailability,
@@ -379,6 +381,64 @@ describe("working-sets", () => {
     const v = workingSets(w, { ...ctx, strengthVolume: "high" });
     expect(v).toHaveLength(1);
     expect(v[0].message).toMatch(/Curl/);
+  });
+});
+
+describe("consecutive-heavy-legs", () => {
+  it("rejects heavy lower-body sessions on consecutive days", () => {
+    const w = add(lift("2026-10-14", "lower", [exercise("Leg press", 9)], 2));
+    const v = consecutiveHeavyLegs(w, ctx);
+    expect(v).toHaveLength(1);
+    expect(v[0].date).toBe("2026-10-14");
+  });
+
+  it("allows lower body followed by upper body", () => {
+    const w = add(lift("2026-10-14", "upper", [exercise("Row", 9)], 2));
+    expect(consecutiveHeavyLegs(w, ctx)).toEqual([]);
+  });
+
+  it("allows a light full-body day after a heavy leg day", () => {
+    const w = add(lift("2026-10-14", "full", [exercise("Goblet squat", 7)], 2));
+    expect(consecutiveHeavyLegs(w, ctx)).toEqual([]);
+  });
+});
+
+describe("strength-effort (most lifts are hard)", () => {
+  const session = (rpes: number[]) =>
+    week({ sessions: [lift("2026-10-13", "upper", rpes.map((r, i) => exercise(`Lift ${i}`, r)))] });
+
+  it("passes the demo week, where every working set is RPE 8.5+", () => {
+    expect(strengthEffort(week(), ctx)).toEqual([]);
+  });
+
+  it("passes when most exercises are hard", () => {
+    expect(strengthEffort(session([9, 9, 7]), ctx)).toEqual([]);
+  });
+
+  it("fails when half or fewer are hard", () => {
+    const v = strengthEffort(session([9, 7, 7, 9]), ctx);
+    expect(v[0].message).toMatch(/Only 2 of 4 exercises .* RPE 8.5\+/);
+  });
+
+  it("uses each strength volume setting's range", () => {
+    expect(strengthEffort(session([8, 8, 8]), ctx)).toHaveLength(1); // low: 8.5+
+    expect(strengthEffort(session([8, 8, 8]), { ...ctx, strengthVolume: "moderate" })).toEqual([]);
+    expect(strengthEffort(session([7.5, 7.5]), { ...ctx, strengthVolume: "high" })).toEqual([]);
+  });
+
+  it("skips beginners, recovery and taper weeks", () => {
+    const easy = session([6, 6, 6]);
+    expect(strengthEffort(easy, { ...ctx, experienceLevel: "beginner" })).toEqual([]);
+    expect(strengthEffort({ ...easy, phase: "recovery" }, ctx)).toEqual([]);
+    expect(strengthEffort({ ...easy, phase: "taper" }, ctx)).toEqual([]);
+  });
+
+  it("skips lower-body work capped at RPE 8 the day after a key run", () => {
+    const w = edit("2026-10-16", 2, {
+      bodyFocus: "lower",
+      exercises: [exercise("Leg press", 8), exercise("Hip thrust", 7.5)],
+    } as Partial<PlannedSession>);
+    expect(strengthEffort(w, ctx)).toEqual([]);
   });
 });
 

@@ -23,6 +23,8 @@ export type RuleId =
   | "easy-running"
   | "beginner-easy-running"
   | "working-sets"
+  | "strength-effort"
+  | "consecutive-heavy-legs"
   | "run-progression"
   | "recovery-week"
   | "taper"
@@ -289,6 +291,41 @@ export const beginnerEasyRunning: Rule = (week, { experienceLevel }) => {
     }));
 };
 
+/** No heavy lower-body sessions on consecutive days. */
+export const consecutiveHeavyLegs: Rule = (week) => {
+  const out: Violation[] = [];
+  const heavyDates = new Set(week.sessions.filter(isHeavyLowerBody).map((s) => s.date));
+  for (const date of [...heavyDates].sort()) {
+    const next = addDays(date, 1);
+    if (heavyDates.has(next)) {
+      out.push({ rule: "consecutive-heavy-legs", date: next, message: `Heavy lower-body sessions on ${label(date)} and ${label(next)} are on consecutive days; make one of them upper body or move it.` });
+    }
+  }
+  return out;
+};
+
+/**
+ * Most lifting is hard: in each strength session, most exercises are at or
+ * above the strength volume setting's lowest RPE. Skipped for beginners, in
+ * recovery and taper weeks, and for lower-body work capped after a key run.
+ */
+export const strengthEffort: Rule = (week, { strengthVolume = "low", experienceLevel }) => {
+  if (experienceLevel === "beginner" || isRecovery(week) || isTaper(week)) return [];
+  const minRpe = C.hardLiftMinRpe[strengthVolume];
+  const keyRunDates = new Set(keyRuns(week).map((r) => r.date));
+  const out: Violation[] = [];
+  for (const s of week.sessions) {
+    if (s.type !== "strength" || s.exercises.length === 0) continue;
+    const cappedAfterKeyRun = s.bodyFocus !== "upper" && keyRunDates.has(addDays(s.date, -1));
+    if (cappedAfterKeyRun) continue;
+    const hard = s.exercises.filter((e) => e.targetRpe >= minRpe).length;
+    if (hard / s.exercises.length <= C.minHardExerciseShare) {
+      out.push({ rule: "strength-effort", date: s.date, message: `Only ${hard} of ${s.exercises.length} exercises in "${s.title}" on ${label(s.date)} are at RPE ${minRpe}+; most lifts should be hard on ${strengthVolume} strength volume.` });
+    }
+  }
+  return out;
+};
+
 /** Every strength exercise has the working sets for the athlete's strength volume. */
 export const workingSets: Rule = (week, { strengthVolume = "low" }) => {
   const { min, max } = C.workingSets[strengthVolume];
@@ -429,6 +466,8 @@ export const ALL_RULES: Rule[] = [
   easyRunning,
   beginnerEasyRunning,
   workingSets,
+  strengthEffort,
+  consecutiveHeavyLegs,
   runProgression,
   recoveryWeek,
   taper,
