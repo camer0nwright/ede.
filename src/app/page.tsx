@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { Logo } from "@/components/logo";
 import { MedicalNotice } from "@/components/medical-notice";
 import { SessionList } from "@/components/plan/session-list";
 import { daysBetween } from "@/lib/dates";
@@ -16,7 +17,7 @@ export default function TodayPage() {
   return (
     <main className="flex flex-col gap-6 pt-8">
       <header>
-        <p className="font-display text-2xl text-primary-strong">ede.</p>
+        <Logo />
         <h1 className="mt-4 font-display text-5xl leading-none uppercase">This week</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Week {week.weekNumber} · {PHASE_LABEL[week.phase]} · {formatWeekRange(week.weekStart)}
