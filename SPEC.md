@@ -65,7 +65,7 @@ Sessions change and rotate week to week, in the style of a structured running-co
 - **Whole plan up front.** Right after onboarding, code (not the AI) builds a plan outline for the whole plan: up to the target date, or rolling 8-week blocks that repeat when there is no race. For each week it sets the phase, target run minutes, and which session type and level goes in each role. The user can see the whole plan, week by week.
 - **Weekly roles.** Each week has roles such as easy runs, one or two quality sessions, a long run and strength sessions. The number of each depends on availability, goal and experience.
 - **Session library (in code).** Each session type has progression levels: intervals (several levels), tempo/threshold, hills, fartlek, progression runs, strides, long run variations (all easy, fast finish, race-pace section), run/walk steps for beginners, and for ultras the session types in Ultra training.
-- **Rotation and progression.** Quality sessions rotate (for example intervals, then tempo, then hills or fartlek), and a session type comes back at the same or a higher level. The same main hard session type is not used two weeks in a row.
+- **Rotation and progression.** Quality sessions rotate (for example intervals, then tempo, then hills or fartlek), and a session type comes back at the same or a higher level. The same main hard session type is not used two weeks in a row. The checker enforces this as: a week's set of quality session types is never the same as the week before, and a type never comes back at a lower level outside recovery and taper weeks (decision 18).
 - **The AI fills in each week when it is due.** It turns the outline's session types into full sessions, fits them to that week's availability, and adapts to check-ins and skipped sessions.
 - **Suited to onboarding choices:**
   - Goal and race distance: 5K/10K lean to intervals; half marathon/marathon lean to tempo and longer long runs; ultras follow Ultra training; strength goals get fewer quality runs and more lifting; general fitness gets fartleks and mixed sessions.
@@ -109,6 +109,7 @@ The plan engine's output also gives each session a key-session flag and a body f
 - Gradual weekly load progression, with a recovery week every 3-4 weeks
 - Weekly run minutes within about 10% above last week's run minutes (strength minutes don't count), with the starting-load exception above
 - At least 80% of weekly running time is easy (counted from the planned minutes of runs marked easy)
+  - Changed (decision 17): counted step by step: time at RPE 4 or less is easy, including warm-ups, cool-downs and the easy part of a fast-finish long run
 - No heavy leg session the day before a key run
 - No heavy lower-body session the day before, or the same day as, a hard or long run
 - No hard run followed by a hard run, and no strength session followed by a strength session, on consecutive days
@@ -181,3 +182,6 @@ Places where the v4 additions or the plan-engine prompt disagreed with the earli
 14. **Consecutive days.** Strength sessions may be on consecutive days, as some plans need it. Two hard runs on consecutive days are still ruled out. A hard lift is fine the day after a hard run as long as it is not legs (lower body the day after a hard or long run stays at RPE 8 or less). Most lifting sessions should be hard. The plan-engine prompt's rule 7 is updated to match in step 5.
 15. **Most lifts are hard.** In each strength session, most exercises (more than half) are at or above the strength volume setting's lowest RPE (Low 8.5, Moderate 8, Higher 7.5). Not applied to beginners, recovery or taper weeks, or lower-body work capped the day after a hard or long run. The plan outline plans strength sessions as hard by default.
 16. **No consecutive leg days.** Heavy lower-body sessions are not placed on consecutive days.
+17. **Easy running is counted by step.** For the 80% rule, time at RPE 4 or less counts as easy, even inside an interval or fast-finish session. Runs without steps count by their intensity.
+18. **Variety rule.** A week's set of quality session types must differ from the previous week's, and a session type never returns at a lower level except in recovery and taper weeks. The plan engine may echo each run's session_kind and level (optional fields) so the checker can see them.
+19. **Plan outline scope.** The outline sets each week's phase, run minutes and sessions (kind, level, minutes, and strength focus and effort), fitted to the user's longest available days. The AI places sessions on specific days. Its numbers live in OUTLINE_CONFIG, and its tests check every plan against the plan checker's limits.

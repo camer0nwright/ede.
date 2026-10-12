@@ -19,6 +19,7 @@ import {
   restDay,
   runMinutes,
   runProgression,
+  sessionVariety,
   taper,
   totalMinutes,
   weekStructure,
@@ -315,17 +316,37 @@ describe("lower-body-after-key-run", () => {
   });
 });
 
-describe("easy-running (at least 80%)", () => {
-  it("passes the demo week at 80% easy", () => {
+describe("easy-running (at least 80%, counted by step effort)", () => {
+  const step = (minutes: number, targetRpe: number) => ({ name: "Step", minutes, targetRpe });
+  const run = (
+    date: string,
+    minutes: number,
+    steps: ReturnType<typeof step>[],
+    intensity: "easy" | "moderate" | "hard" = "hard",
+  ): PlannedSession => ({ ...easyRun(date, minutes), intensity, steps }) as PlannedSession;
+
+  it("passes the demo week at 90% easy (intervals' warm-up and cool-down count as easy)", () => {
     expect(easyRunning(week(), ctx)).toEqual([]);
   });
 
-  it("fails when too much running is not easy", () => {
-    const v = easyRunning(edit("2026-10-14", 1, { intensity: "moderate" }), ctx);
-    expect(v[0].message).toMatch(/Only 63%/);
+  it("fails when too much running is above easy effort", () => {
+    let w = edit("2026-10-13", 1, { steps: [step(30, 6)] } as Partial<PlannedSession>);
+    w = edit("2026-10-14", 1, { steps: [step(40, 6)] } as Partial<PlannedSession>, w);
+    expect(easyRunning(w, ctx)[0].message).toMatch(/Only 59% .* RPE 4 or less \(136 of 230 min\)/);
   });
 
-  it("passes at exactly 80%", () => {
+  it("counts an interval session's easy warm-up and cool-down", () => {
+    const intervals = run("2026-10-15", 45, [step(12, 3), step(24, 8), step(9, 3)]);
+    expect(easyRunning(week({ sessions: [intervals, easyRun("2026-10-13", 60)] }), ctx)).toHaveLength(1); // 81 of 105
+    expect(easyRunning(week({ sessions: [intervals, easyRun("2026-10-13", 75)] }), ctx)).toEqual([]); // 96 of 120
+  });
+
+  it("lets a fast-finish long run fit, counting its easy part", () => {
+    const fastFinish = run("2026-10-17", 90, [step(75, 4), step(15, 7)], "moderate");
+    expect(easyRunning(week({ sessions: [fastFinish, easyRun("2026-10-14", 30)] }), ctx)).toEqual([]); // 105 of 120
+  });
+
+  it("counts runs without steps by their intensity, and passes at exactly 80%", () => {
     const w = week({
       sessions: [easyRun("2026-10-13", 80), { ...easyRun("2026-10-15", 20), intensity: "hard" }],
     });
@@ -570,6 +591,53 @@ describe("taper", () => {
       history: [build(560), build(570), build(580)],
     };
     expect(rulesHit(week({ phase: "taper" }), c)).toEqual([]);
+  });
+});
+
+describe("session-variety", () => {
+  const quality = (kind: "tempo" | "hills" | "intervals_short", level: number, date = "2026-10-15"): PlannedSession => ({
+    ...easyRun(date, 45),
+    title: kind,
+    intensity: "hard",
+    kind,
+    level,
+  }) as PlannedSession;
+  const withQuality = (...sessions: PlannedSession[]) => week({ sessions });
+  const past = (q: { kind: "tempo" | "hills" | "intervals_short"; level: number }[]): PastWeek => ({
+    ...build(300, 220),
+    quality: q,
+  });
+
+  it("passes when this week's quality session differs from last week's", () => {
+    const c = { ...ctx, history: [past([{ kind: "tempo", level: 2 }])] };
+    expect(sessionVariety(withQuality(quality("hills", 1)), c)).toEqual([]);
+  });
+
+  it("rejects the same quality session two weeks running", () => {
+    const c = { ...ctx, history: [past([{ kind: "tempo", level: 2 }])] };
+    const v = sessionVariety(withQuality(quality("tempo", 3)), c);
+    expect(v[0].message).toMatch(/Last week's quality sessions were Tempo run/);
+  });
+
+  it("allows one of two quality sessions to carry over", () => {
+    const c = { ...ctx, history: [past([{ kind: "tempo", level: 2 }, { kind: "hills", level: 1 }])] };
+    expect(sessionVariety(withQuality(quality("hills", 2), quality("intervals_short", 1, "2026-10-17")), c)).toEqual([]);
+  });
+
+  it("rejects a session type coming back at a lower level", () => {
+    const c = { ...ctx, history: [past([{ kind: "hills", level: 3 }]), past([{ kind: "tempo", level: 2 }])] };
+    const v = sessionVariety(withQuality(quality("hills", 2)), c);
+    expect(v[0].message).toMatch(/level 2, but Hill repeats was last done at level 3/);
+  });
+
+  it("allows a lower level in recovery and taper weeks", () => {
+    const c = { ...ctx, history: [past([{ kind: "hills", level: 3 }]), past([{ kind: "tempo", level: 2 }])] };
+    expect(sessionVariety({ ...withQuality(quality("hills", 2)), phase: "taper" }, c)).toEqual([]);
+  });
+
+  it("skips runs without a library kind (as in the demo week)", () => {
+    const c = { ...ctx, history: [past([{ kind: "tempo", level: 2 }])] };
+    expect(sessionVariety(week(), c)).toEqual([]);
   });
 });
 

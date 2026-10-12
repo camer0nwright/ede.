@@ -39,6 +39,32 @@ export const RACE_DISTANCES = ["5k", "10k", "half", "marathon", "ultra"] as cons
 export const RaceDistance = z.enum(RACE_DISTANCES);
 export type RaceDistance = z.infer<typeof RaceDistance>;
 
+export const TERRAINS = ["road", "trail", "mountain"] as const;
+export const Terrain = z.enum(TERRAINS);
+export type Terrain = z.infer<typeof Terrain>;
+
+/** Every kind of run in the session library (src/lib/session-library.ts). */
+export const RUN_KINDS = [
+  "easy",
+  "recovery",
+  "strides",
+  "run_walk",
+  "long_easy",
+  "long_fast_finish",
+  "long_race_pace",
+  "long_hilly",
+  "intervals_short",
+  "intervals_long",
+  "tempo",
+  "hills",
+  "fartlek",
+  "progression",
+  "aerobic_power",
+  "hill_hike",
+] as const;
+export const RunKind = z.enum(RUN_KINDS);
+export type RunKind = z.infer<typeof RunKind>;
+
 /** A calendar date as YYYY-MM-DD, with no time zone. */
 export const IsoDate = z.iso.date();
 
@@ -87,6 +113,9 @@ export const RunSession = z.object({
   ...sessionBase,
   type: z.literal("run"),
   steps: z.array(RunStep).default([]),
+  /** Which library session this is, and its progression level, when known. */
+  kind: RunKind.optional(),
+  level: z.number().int().min(1).optional(),
 });
 
 export const StrengthSession = z.object({
@@ -184,4 +213,20 @@ export function isHeavyLowerBody(s: PlannedSession): boolean {
   if (s.type !== "strength") return false;
   if (s.bodyFocus === "lower") return true;
   return s.bodyFocus === "full" && s.exercises.some((e) => e.targetRpe >= HEAVY_LOWER_RPE);
+}
+
+/** Steps at or below this RPE count as easy running (SPEC decision 17). */
+export const EASY_MAX_RPE = 4;
+
+/**
+ * Easy minutes in a run. With steps, the share of step time at RPE 4 or less
+ * is applied to the planned minutes; without steps, the whole run counts by
+ * its intensity.
+ */
+export function easyRunMinutes(s: PlannedSession): number {
+  if (s.type !== "run") return 0;
+  const stepTotal = s.steps.reduce((sum, st) => sum + st.minutes, 0);
+  if (stepTotal === 0) return s.intensity === "easy" ? s.plannedMinutes : 0;
+  const easy = s.steps.filter((st) => st.targetRpe <= EASY_MAX_RPE).reduce((sum, st) => sum + st.minutes, 0);
+  return (s.plannedMinutes * easy) / stepTotal;
 }

@@ -7,6 +7,7 @@ import {
   DAY_NAMES,
   Intensity,
   Phase,
+  RunKind,
   type PlannedSession,
   type WeekPlan,
 } from "./domain";
@@ -36,6 +37,9 @@ export const EngineSession = z
     body_focus: BodyFocus.nullable(),
     steps: z.array(EngineRunStep),
     exercises: z.array(EngineExercise),
+    /** Runs only: the plan outline's session kind and level, echoed back. Added for ede.; optional. */
+    session_kind: RunKind.optional(),
+    level: z.number().int().min(1).optional(),
   })
   .superRefine((s, ctx) => {
     if (s.type === "run") {
@@ -48,6 +52,8 @@ export const EngineSession = z
         ctx.addIssue({ code: "custom", path: ["body_focus"], message: "Strength sessions need a body_focus" });
       if (s.steps.length > 0)
         ctx.addIssue({ code: "custom", path: ["steps"], message: "Strength sessions must have an empty steps array" });
+      if (s.session_kind)
+        ctx.addIssue({ code: "custom", path: ["session_kind"], message: "Only runs have a session_kind" });
     }
   });
 export type EngineSession = z.infer<typeof EngineSession>;
@@ -135,6 +141,8 @@ export function toWeekPlan(engine: EngineWeek, weekStart: string): WeekPlan {
                 minutes: st.duration_minutes,
                 targetRpe: st.target_effort_rpe,
               })),
+              ...(s.session_kind && { kind: s.session_kind }),
+              ...(s.level && { level: s.level }),
             }
           : {
               ...base,

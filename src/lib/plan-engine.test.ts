@@ -67,6 +67,27 @@ describe("parseEngineResponse", () => {
   });
 });
 
+describe("session_kind and level (optional, for variety)", () => {
+  it("carries a run's library kind and level into the week", () => {
+    const w = clone();
+    Object.assign(w.days[3].sessions[0], { session_kind: "intervals_long", level: 3 });
+    const r = parseEngineResponse(asText(w));
+    expect(r.ok).toBe(true);
+    const session = toWeekPlan(r.ok ? r.week : w, "2026-10-12").sessions.find((s) => s.title === "Intervals")!;
+    expect(session.type === "run" && [session.kind, session.level]).toEqual(["intervals_long", 3]);
+  });
+
+  it("rejects an unknown kind, and a kind on a strength session", () => {
+    const unknown = clone();
+    Object.assign(unknown.days[3].sessions[0], { session_kind: "swim_intervals" });
+    expect(errorsFor(unknown)).toMatch(/session_kind/);
+
+    const onLift = clone();
+    Object.assign(onLift.days[1].sessions[1], { session_kind: "tempo" });
+    expect(errorsFor(onLift)).toMatch(/Only runs have a session_kind/);
+  });
+});
+
 describe("toWeekPlan", () => {
   const week = toWeekPlan(demoEngineWeek, "2026-10-12");
 

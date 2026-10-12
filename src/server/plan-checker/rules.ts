@@ -5,11 +5,13 @@ import type {
   ExperienceLevel,
   Phase,
   PlannedSession,
+  RunKind,
   StrengthVolume,
   WeekPlan,
 } from "@/lib/domain";
-import { DAY_NAMES, isHeavyLowerBody } from "@/lib/domain";
+import { DAY_NAMES, EASY_MAX_RPE, easyRunMinutes, isHeavyLowerBody } from "@/lib/domain";
 import { addDays, dayOfWeek, daysBetween } from "@/lib/dates";
+import { RUN_LIBRARY, runLabel } from "@/lib/session-library";
 import { CHECKER_CONFIG as C } from "./config";
 
 export type RuleId =
@@ -28,6 +30,7 @@ export type RuleId =
   | "run-progression"
   | "recovery-week"
   | "taper"
+  | "session-variety"
   | "recalc-cap";
 
 export type Violation = { rule: RuleId; message: string; date?: string };
@@ -37,6 +40,8 @@ export type PastWeek = {
   totalMinutes: number;
   runMinutes: number;
   phase: Phase;
+  /** The week's quality sessions (library kind and level), when known. */
+  quality?: { kind: RunKind; level: number }[];
 };
 
 export type CheckContext = {
@@ -267,15 +272,19 @@ export const lowerBodyAfterKeyRun: Rule = (week) => {
   return out;
 };
 
-/** At least 80% of running minutes are in easy runs. */
+/**
+ * At least 80% of running minutes are at easy effort (SPEC decision 17):
+ * counted step by step, so warm-ups, cool-downs and the easy part of a
+ * fast-finish long run count as easy.
+ */
 export const easyRunning: Rule = (week) => {
   const runs = week.sessions.filter((s) => s.type === "run");
   const total = runs.reduce((sum, s) => sum + s.plannedMinutes, 0);
   if (total === 0) return [];
-  const easy = runs.filter((s) => s.intensity === "easy").reduce((sum, s) => sum + s.plannedMinutes, 0);
+  const easy = runs.reduce((sum, s) => sum + easyRunMinutes(s), 0);
   const share = easy / total;
   return share + 1e-9 < C.minEasyRunShare
-    ? [{ rule: "easy-running", message: `Only ${Math.round(share * 100)}% of running time is easy (${easy} of ${total} min); at least ${C.minEasyRunShare * 100}% must be.` }]
+    ? [{ rule: "easy-running", message: `Only ${Math.round(share * 100)}% of running time is at easy effort, RPE ${EASY_MAX_RPE} or less (${Math.round(easy)} of ${total} min); at least ${C.minEasyRunShare * 100}% must be.` }]
     : [];
 };
 
@@ -425,6 +434,38 @@ export const taper: Rule = (week, ctx) => {
   return out;
 };
 
+/**
+ * Sessions vary week to week (SPEC "Plan outline and session variety"): the
+ * set of quality session kinds isn't the same as last week's, and a kind comes
+ * back at the same or a higher level (except in recovery and taper weeks).
+ * Only checks runs that carry a library kind.
+ */
+export const sessionVariety: Rule = (week, { history }) => {
+  const out: Violation[] = [];
+  const quality = week.sessions.filter(
+    (s): s is Extract<PlannedSession, { type: "run" }> =>
+      s.type === "run" && s.kind !== undefined && RUN_LIBRARY[s.kind].role === "quality",
+  );
+  const last = history.at(-1)?.quality;
+  if (quality.length > 0 && last && last.length > 0) {
+    const kinds = new Set(quality.map((s) => s.kind!));
+    const lastKinds = new Set(last.map((q) => q.kind));
+    if (kinds.size === lastKinds.size && [...kinds].every((k) => lastKinds.has(k))) {
+      out.push({ rule: "session-variety", message: `Last week's quality sessions were ${[...lastKinds].map(runLabel).join(" and ")}; use a different session type this week.` });
+    }
+  }
+  if (!isRecovery(week) && !isTaper(week)) {
+    for (const s of quality) {
+      if (s.level === undefined) continue;
+      const previous = history.flatMap((w) => w.quality ?? []).findLast((q) => q.kind === s.kind);
+      if (previous && s.level < previous.level) {
+        out.push({ rule: "session-variety", date: s.date, message: `"${s.title}" on ${label(s.date)} is level ${s.level}, but ${runLabel(s.kind!)} was last done at level ${previous.level}; progress from there.` });
+      }
+    }
+  }
+  return out;
+};
+
 /** A recalculation may only add or harden a few sessions and must not add much load. */
 export const recalcCap: Rule = (week, { previousVersion }) => {
   if (!previousVersion) return [];
@@ -471,5 +512,6 @@ export const ALL_RULES: Rule[] = [
   runProgression,
   recoveryWeek,
   taper,
+  sessionVariety,
   recalcCap,
 ];
