@@ -1,5 +1,6 @@
 // ede. database schema. See SPEC.md for the product rules behind it.
 // Enums are stored as strings and validated with Zod in src/lib/domain.ts.
+// JSON is stored as text and validated with Zod when read.
 
 generator client {
   provider = "prisma-client"
@@ -12,19 +13,32 @@ datasource db {
 
 // One person using ede. and their onboarding answers.
 model Athlete {
-  id              String    @id @default(cuid())
-  name            String?
-  goalType        String // "race" | "strength" | "general"
-  goalDetail      String? // e.g. "Half marathon under 1:50"
-  targetDate      DateTime?
-  currentTraining String? // free text: what they do now each week
-  equipment       String? // free text: gym, home weights, etc.
-  injuryHistory   String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  name               String?
+  goalType           String // "race" | "strength" | "general"
+  goalDetail         String? // e.g. "Half marathon under 1:50"
+  targetDate         DateTime?
+  raceDistance       String? // "5k" | "10k" | "half" | "marathon" | "ultra"
+  ultraDistanceKm    Float?
+  elevationGainM     Int?
+  terrain            String? // "road" | "trail" | "mountain"
+  experienceLevel    String    @default("intermediate") // "beginner" | "intermediate" | "advanced"
+  strengthVolume     String    @default("low") // "low" | "moderate" | "high"
+  currentTraining    String? // free text: what they do now each week
+  lastWeekRunMinutes Int? // from onboarding, for the starting load
+  recent5kMinutes    Float? // for pace targets (v2)
+  equipment          String? // free text: gym, home weights, etc.
+  injuryHistory      String?
+  weightUnit         String    @default("kg") // "kg" | "lb"
+  distanceUnit       String    @default("km") // "km" | "mi"
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  availability AvailabilityDay[]
-  weeks        PlanWeek[]
+  availability  AvailabilityDay[]
+  injuries      Injury[]
+  outlines      PlanOutline[]
+  weeks         PlanWeek[]
+  coachMessages CoachMessage[]
 }
 
 // The weekly availability grid: one row per weekday.
@@ -43,18 +57,56 @@ model AvailabilityDay {
   @@unique([athleteId, dayOfWeek])
 }
 
-// One week of the plan.
-model PlanWeek {
-  id             String   @id @default(cuid())
-  athleteId      String
-  weekStart      DateTime // the Monday this week starts on
-  weekNumber     Int // 1-based count since the plan began
-  isRecoveryWeek Boolean  @default(false)
-  isTaperWeek    Boolean  @default(false)
-  summary        String? // weekly summary: what was done, what changed and why
-  createdAt      DateTime @default(now())
+// An injury: area, pain level and when it hurts. Active until resolved.
+model Injury {
+  id         String    @id @default(cuid())
+  athleteId  String
+  area       String // "knee" | "ankle" | "hip" | "back" | "shoulder" | "elbow" | "other"
+  painLevel  Int // 0-10
+  painWhen   String // "running" | "walking" | "resting" | "lifting_only"
+  notes      String?
+  startedAt  DateTime  @default(now())
+  resolvedAt DateTime?
 
-  athlete  Athlete   @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId, resolvedAt])
+}
+
+// The plan outline built by code (src/lib/plan-outline.ts). Rebuilt after big
+// changes; only one is active per athlete.
+model PlanOutline {
+  id        String   @id @default(cuid())
+  athleteId String
+  active    Boolean  @default(true)
+  input     String // JSON: OutlineInput
+  outline   String // JSON: PlanOutline
+  createdAt DateTime @default(now())
+
+  athlete Athlete    @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  weeks   PlanWeek[]
+
+  @@index([athleteId, active])
+}
+
+// One week of the plan, as written by the AI and passed by the plan checker.
+model PlanWeek {
+  id              String   @id @default(cuid())
+  athleteId       String
+  outlineId       String?
+  weekStart       DateTime // the Monday this week starts on
+  weekNumber      Int // 1-based count since the plan began
+  phase           String   @default("base") // "base" | "build" | "peak" | "taper" | "recovery"
+  runMinutes      Int      @default(0) // planned; carried forward as last week's run minutes
+  strengthMinutes Int      @default(0)
+  quality         String? // JSON: [{ kind, level }], for the variety rule
+  dayNotes        String? // JSON: { "YYYY-MM-DD": "note" }
+  coachNote       String?
+  summary         String? // weekly summary: what was done, what changed and why
+  createdAt       DateTime @default(now())
+
+  athlete  Athlete      @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  outline  PlanOutline? @relation(fields: [outlineId], references: [id], onDelete: SetNull)
   sessions Session[]
 
   @@unique([athleteId, weekStart])
@@ -62,27 +114,102 @@ model PlanWeek {
 
 // A planned session. A day with no sessions is a rest day; a day can hold at most two.
 model Session {
-  id          String   @id @default(cuid())
-  weekId      String
-  date        DateTime
-  slot        Int      @default(1) // 1 or 2 (2 only on double days)
-  type        String // "run" | "strength"
-  title       String
-  intensity   String // "easy" | "moderate" | "hard"
-  isKeyRun    Boolean  @default(false)
-  isHeavyLegs Boolean  @default(false)
-  // Structured steps as JSON (warm-up/intervals/cool-down, or exercises/sets/reps).
-  steps       String?
+  id           String   @id @default(cuid())
+  weekId       String
+  date         DateTime
+  slot         Int      @default(1) // 1 or 2 (2 only on double days)
+  type         String // "run" | "strength"
+  title        String
+  intensity    String // "easy" | "moderate" | "hard"
+  isKeySession Boolean  @default(false) // the AI's own marker
+  // Runs: library kind and level (src/lib/session-library.ts), and steps.
+  kind         String?
+  level        Int?
+  steps        String? // JSON: RunStep[]
+  // Strength: body focus and exercises.
+  bodyFocus    String? // "upper" | "lower" | "full"
+  exercises    String? // JSON: StrengthExercise[]
 
   plannedMinutes Int
   // Check-in
-  status         String  @default("planned") // "planned" | "completed" | "skipped"
+  status         String    @default("planned") // "planned" | "in_progress" | "completed" | "skipped"
+  startedAt      DateTime? // a gym session in progress has started but not completed
+  completedAt    DateTime?
   actualMinutes  Int?
   effort         Int? // 1-10
   notes          String?
   skipReason     String? // "injury" | "illness" | "holiday" | "work_life" | "fatigue" | "other"
 
-  week PlanWeek @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  week    PlanWeek @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  setLogs SetLog[]
+  runLog  RunLog?
 
   @@unique([weekId, date, slot])
+}
+
+// The exercise library, copied from src/lib/exercise-library.ts by the seed script.
+model Exercise {
+  id                 String  @id @default(cuid())
+  name               String  @unique
+  aliases            String? // JSON: string[]
+  muscleGroup        String
+  equipment          String // "barbell" | "dumbbell" | "machine" | "cable" | "bodyweight" | "kettlebell" | "band"
+  category           String // "compound" | "isolation"
+  isLowerBody        Boolean
+  isMainLift         Boolean @default(false)
+  failureAllowed     Boolean
+  defaultRestSeconds Int
+  weightStepKg       Float
+  loads              String // JSON: body areas this exercise loads
+  alternatives       String // JSON: exercise names
+
+  setLogs SetLog[]
+}
+
+// One logged set in a gym session. Saved as it's entered, so a workout in
+// progress survives closing the page.
+model SetLog {
+  id          String    @id @default(cuid())
+  sessionId   String
+  exerciseId  String
+  setNumber   Int
+  setType     String    @default("working") // "warmup" | "working" | "drop" | "failure"
+  plannedReps String? // "5", "8-10"
+  plannedRpe  Float?
+  weightKg    Float? // always stored in kg; shown in the athlete's unit
+  reps        Int?
+  rpe         Float?
+  completedAt DateTime?
+
+  session  Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id])
+
+  @@unique([sessionId, exerciseId, setNumber])
+}
+
+// A logged run (entered manually in v1).
+model RunLog {
+  id              String  @id @default(cuid())
+  sessionId       String  @unique
+  distanceKm      Float? // always stored in km
+  durationSeconds Int?
+  avgHeartRate    Int?
+  notes           String?
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+// The AI coach chat. Suggested plan changes wait for the athlete to accept.
+model CoachMessage {
+  id              String   @id @default(cuid())
+  athleteId       String
+  role            String // "user" | "assistant"
+  content         String
+  suggestedChange String? // JSON: a proposed change to the plan
+  changeStatus    String? // "pending" | "accepted" | "declined"
+  createdAt       DateTime @default(now())
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId, createdAt])
 }

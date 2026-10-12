@@ -3,13 +3,15 @@
 import type {
   Availability,
   ExperienceLevel,
+  Injury,
   Phase,
   PlannedSession,
   RunKind,
   StrengthVolume,
   WeekPlan,
 } from "@/lib/domain";
-import { DAY_NAMES, EASY_MAX_RPE, easyRunMinutes, isHeavyLowerBody } from "@/lib/domain";
+import { DAY_NAMES, EASY_MAX_RPE, easyRunMinutes, isHeavyLowerBody, mayBeLowerBody } from "@/lib/domain";
+import { failureAllowed, findExercise } from "@/lib/exercise-library";
 import { addDays, dayOfWeek, daysBetween } from "@/lib/dates";
 import { RUN_LIBRARY, runLabel } from "@/lib/session-library";
 import { CHECKER_CONFIG as C } from "./config";
@@ -25,6 +27,8 @@ export type RuleId =
   | "easy-running"
   | "beginner-easy-running"
   | "working-sets"
+  | "failure-allowed"
+  | "injury"
   | "strength-effort"
   | "consecutive-heavy-legs"
   | "run-progression"
@@ -54,6 +58,8 @@ export type CheckContext = {
   experienceLevel?: ExperienceLevel;
   /** Defaults to "low", the recommended setting for hybrid athletes. */
   strengthVolume?: StrengthVolume;
+  /** The athlete's active injury, if any. */
+  injury?: Injury;
   /** For ultra races: the race distance, which sets the taper length. */
   ultraDistanceKm?: number;
   /** The version of this week before a recalculation, if this is one. */
@@ -261,9 +267,10 @@ export const lowerBodyAfterKeyRun: Rule = (week) => {
     const dayAfter = addDays(run.date, 1);
     for (const s of byDate.get(dayAfter) ?? []) {
       if (s.type !== "strength" || s.bodyFocus === "upper") continue;
-      // Until the exercise library exists, every exercise in a full-body session
-      // is treated as possibly lower-body (SPEC decision 4).
-      const tooHard = s.exercises.filter((e) => e.targetRpe > C.maxLowerRpeAfterKeyRun);
+      // In a full-body session only lower-body work counts (unknown exercises
+      // are treated as possibly lower-body, SPEC decision 4).
+      const lower = s.bodyFocus === "lower" ? s.exercises : s.exercises.filter((e) => mayBeLowerBody(e.name));
+      const tooHard = lower.filter((e) => e.targetRpe > C.maxLowerRpeAfterKeyRun);
       if (tooHard.length > 0) {
         out.push({ rule: "lower-body-after-key-run", date: dayAfter, message: `"${s.title}" on ${label(dayAfter)} is the day after the hard or long run "${run.title}"; prefer upper body, or keep lower-body work at RPE ${C.maxLowerRpeAfterKeyRun} or less (${tooHard.map((e) => e.name).join(", ")} ${tooHard.length === 1 ? "is" : "are"} higher).` });
       }
@@ -346,6 +353,87 @@ export const workingSets: Rule = (week, { strengthVolume = "low" }) => {
       if (e.workingSets < min || e.workingSets > max) {
         out.push({ rule: "working-sets", date: s.date, message: `${e.name} in "${s.title}" on ${label(s.date)} has ${e.workingSets} working sets; ${strengthVolume} strength volume needs ${want}.` });
       }
+    }
+  }
+  return out;
+};
+
+/**
+ * Failure (failure_allowed) only on machine, cable or isolation exercises from
+ * the library, and heavy barbell lifts never above RPE 9.
+ */
+export const failureAllowedRule: Rule = (week) => {
+  const out: Violation[] = [];
+  for (const s of week.sessions) {
+    if (s.type !== "strength") continue;
+    for (const e of s.exercises) {
+      const info = findExercise(e.name);
+      if (e.failureAllowed && (!info || !failureAllowed(info))) {
+        out.push({ rule: "failure-allowed", date: s.date, message: info ? `${e.name} on ${label(s.date)} can't be taken to failure; only machine, cable or isolation exercises can. Set failure_allowed to false.` : `${e.name} on ${label(s.date)} isn't in ede.'s exercise library, so it can't be taken to failure. Use a library exercise or set failure_allowed to false.` });
+      }
+      if (info?.equipment === "barbell" && info.category === "compound" && e.targetRpe > C.maxBarbellRpe) {
+        out.push({ rule: "failure-allowed", date: s.date, message: `${e.name} on ${label(s.date)} is at RPE ${e.targetRpe}; keep heavy barbell lifts at RPE ${C.maxBarbellRpe} or less.` });
+      }
+    }
+  }
+  return out;
+};
+
+/** Which injury band applies (SPEC: Injury and pain handling). */
+export function injuryBand(injury: Injury): "mild" | "moderate" | "severe" {
+  const { mildMax, moderateMax } = C.injury;
+  if (injury.painLevel > moderateMax || injury.painWhen === "resting") return "severe";
+  if (injury.painLevel > mildMax || injury.painWhen === "walking") return "moderate";
+  return "mild";
+}
+
+const HILL_KINDS = new Set(["hills", "hill_hike", "long_hilly"]);
+
+/**
+ * Injury rules: mild pain means easy, flat running cut by 20% or more (so never
+ * above last week's); moderate pain means no running; severe pain means no
+ * running and no lower-body lifting. Lifts avoid the injured area, and the
+ * coach note points to a physio or doctor when the pain is more than mild.
+ */
+export const injuryRule: Rule = (week, { injury, history }) => {
+  if (!injury) return [];
+  const out: Violation[] = [];
+  const band = injuryBand(injury);
+  const runs = week.sessions.filter((s): s is Extract<PlannedSession, { type: "run" }> => s.type === "run");
+  const where = `${injury.area} pain ${injury.painLevel}/10`;
+
+  if (band === "mild") {
+    for (const r of runs) {
+      if (r.intensity !== "easy" || (r.kind && HILL_KINDS.has(r.kind))) {
+        out.push({ rule: "injury", date: r.date, message: `With ${where}, keep running easy and flat: "${r.title}" on ${label(r.date)} must be an easy run with no intervals or hills.` });
+      }
+    }
+    const last = history.at(-1)?.runMinutes;
+    if (last !== undefined && runMinutes(week) > last * C.injury.mildRunShare) {
+      out.push({ rule: "injury", message: `With ${where}, cut running by at least ${Math.round((1 - C.injury.mildRunShare) * 100)}%: at most ${Math.floor(last * C.injury.mildRunShare)} run minutes, not ${runMinutes(week)}.` });
+    }
+  } else if (runs.length > 0) {
+    out.push({ rule: "injury", message: `With ${where}${injury.painWhen === "walking" ? " (hurting when walking)" : ""}, there should be no running this week; plan strength sessions that avoid the ${injury.area} instead.` });
+  }
+
+  for (const s of week.sessions) {
+    if (s.type !== "strength") continue;
+    if (band === "severe" && (s.bodyFocus !== "upper" || s.exercises.some((e) => mayBeLowerBody(e.name)))) {
+      out.push({ rule: "injury", date: s.date, message: `With ${where}, no lower-body lifting: make "${s.title}" on ${label(s.date)} upper body only.` });
+    }
+    for (const e of s.exercises) {
+      const info = findExercise(e.name);
+      if (info?.loads.includes(injury.area)) {
+        const swap = info.alternatives.map(findExercise).find((a) => a && !a.loads.includes(injury.area));
+        out.push({ rule: "injury", date: s.date, message: `${e.name} on ${label(s.date)} loads the injured ${injury.area}; swap it${swap ? ` (for example ${swap.name})` : ""}.` });
+      }
+    }
+  }
+
+  if (band !== "mild") {
+    const who = band === "severe" ? /doctor/i : /physio|doctor/i;
+    if (!who.test(week.coachNote)) {
+      out.push({ rule: "injury", message: band === "severe" ? "The coach note must clearly advise seeing a doctor before training." : "The coach note must advise seeing a physio or doctor." });
     }
   }
   return out;
@@ -507,6 +595,8 @@ export const ALL_RULES: Rule[] = [
   easyRunning,
   beginnerEasyRunning,
   workingSets,
+  failureAllowedRule,
+  injuryRule,
   strengthEffort,
   consecutiveHeavyLegs,
   runProgression,

@@ -8,6 +8,9 @@ import {
   consecutiveHeavyLegs,
   strengthEffort,
   doubleDay,
+  failureAllowedRule,
+  injuryBand,
+  injuryRule,
   easyRunning,
   fitsAvailability,
   heavyLegsNearKeyRun,
@@ -460,6 +463,129 @@ describe("strength-effort (most lifts are hard)", () => {
       exercises: [exercise("Leg press", 8), exercise("Hip thrust", 7.5)],
     } as Partial<PlannedSession>);
     expect(strengthEffort(w, ctx)).toEqual([]);
+  });
+});
+
+describe("failure-allowed", () => {
+  const withExercise = (e: Partial<StrengthExercise>) =>
+    week({ sessions: [lift("2026-10-13", "lower", [{ ...exercise("Back squat", 8.5), ...e }])] });
+
+  it("passes the demo week", () => {
+    expect(failureAllowedRule(week(), ctx)).toEqual([]);
+  });
+
+  it("rejects failure on a barbell lift", () => {
+    const v = failureAllowedRule(withExercise({ failureAllowed: true }), ctx);
+    expect(v[0].message).toMatch(/Back squat .* can't be taken to failure/);
+  });
+
+  it("allows failure on machine and isolation exercises", () => {
+    expect(failureAllowedRule(withExercise({ name: "Leg press", failureAllowed: true, targetRpe: 10 }), ctx)).toEqual([]);
+    expect(failureAllowedRule(withExercise({ name: "Leg extension", failureAllowed: true, targetRpe: 10 }), ctx)).toEqual([]);
+  });
+
+  it("rejects failure on an exercise that isn't in the library", () => {
+    const v = failureAllowedRule(withExercise({ name: "Mystery lift", failureAllowed: true }), ctx);
+    expect(v[0].message).toMatch(/isn't in ede.'s exercise library/);
+  });
+
+  it("keeps heavy barbell lifts at RPE 9 or less", () => {
+    const v = failureAllowedRule(withExercise({ targetRpe: 9.5 }), ctx);
+    expect(v[0].message).toMatch(/RPE 9.5; keep heavy barbell lifts at RPE 9 or less/);
+  });
+});
+
+describe("heavy lower-body uses the exercise library", () => {
+  it("doesn't count a hard full-body session of upper-body exercises as heavy legs", () => {
+    const w = edit("2026-10-16", 2, {
+      bodyFocus: "full",
+      exercises: [exercise("Bench press", 9), exercise("Pull-up", 9), exercise("Plank", 8)],
+    } as Partial<PlannedSession>);
+    expect(heavyLegsNearKeyRun(w, ctx)).toEqual([]);
+  });
+
+  it("counts a full-body session with a hard lower-body or unknown exercise", () => {
+    for (const name of ["Deadlift", "Mystery lift"]) {
+      const w = edit("2026-10-16", 2, { bodyFocus: "full", exercises: [exercise(name, 9)] } as Partial<PlannedSession>);
+      expect(heavyLegsNearKeyRun(w, ctx), name).toHaveLength(1);
+    }
+  });
+});
+
+describe("injury", () => {
+  const mildKnee = { area: "knee", painLevel: 2, painWhen: "running" } as const;
+  const noRuns = (w: WeekPlan) => ({ ...w, sessions: w.sessions.filter((s) => s.type !== "run") });
+  const upperOnly = week({ sessions: [lift("2026-10-16", "upper", [exercise("Bench press", 9), exercise("Seated cable row", 9)])] });
+
+  it("puts pain into bands: mild, moderate or severe", () => {
+    expect(injuryBand({ area: "knee", painLevel: 3, painWhen: "running" })).toBe("mild");
+    expect(injuryBand({ area: "knee", painLevel: 3, painWhen: "lifting_only" })).toBe("mild");
+    expect(injuryBand({ area: "knee", painLevel: 4, painWhen: "running" })).toBe("moderate");
+    expect(injuryBand({ area: "knee", painLevel: 2, painWhen: "walking" })).toBe("moderate");
+    expect(injuryBand({ area: "knee", painLevel: 7, painWhen: "running" })).toBe("severe");
+    expect(injuryBand({ area: "knee", painLevel: 3, painWhen: "resting" })).toBe("severe");
+  });
+
+  it("does nothing without an injury", () => {
+    expect(injuryRule(week(), ctx)).toEqual([]);
+  });
+
+  describe("mild pain (0-3)", () => {
+    const c = { ...ctx, injury: mildKnee };
+    const messages = (w: WeekPlan) => injuryRule(w, c).map((v) => v.message).join("\n");
+
+    it("keeps running easy and flat, with no intervals or hills", () => {
+      expect(messages(week())).toMatch(/"Intervals" .* must be an easy run/);
+    });
+
+    it("cuts running by at least 20% on last week", () => {
+      expect(messages(week())).toMatch(/at most 176 run minutes, not 230/);
+    });
+
+    it("swaps exercises that load the injured area", () => {
+      expect(messages(week())).toMatch(/Back squat .* loads the injured knee/);
+    });
+
+    it("passes a reduced week of easy running with lifts that avoid the knee", () => {
+      const w = week({
+        sessions: [easyRun("2026-10-13", 40), easyRun("2026-10-15", 40), easyRun("2026-10-17", 60), ...upperOnly.sessions],
+      });
+      expect(injuryRule(w, c)).toEqual([]);
+    });
+  });
+
+  describe("moderate pain (4-6) or pain when walking", () => {
+    const c = { ...ctx, injury: { area: "knee", painLevel: 5, painWhen: "running" } as const };
+
+    it("allows no running and needs a physio or doctor note", () => {
+      const text = injuryRule(week(), c).map((v) => v.message).join("\n");
+      expect(text).toMatch(/no running this week/);
+      expect(text).toMatch(/advise seeing a physio or doctor/);
+    });
+
+    it("passes strength that avoids the area, with a physio note", () => {
+      expect(injuryRule({ ...upperOnly, coachNote: "Please see a physio about your knee." }, c)).toEqual([]);
+    });
+
+    it("treats pain when walking as moderate", () => {
+      const walking = { ...ctx, injury: { area: "ankle", painLevel: 2, painWhen: "walking" } as const };
+      expect(injuryRule(week(), walking).map((v) => v.message).join()).toMatch(/hurting when walking/);
+    });
+  });
+
+  describe("severe pain (7+) or pain at rest", () => {
+    const c = { ...ctx, injury: { area: "back", painLevel: 8, painWhen: "running" } as const };
+
+    it("allows no lower-body lifting, and needs a doctor note (a physio note isn't enough)", () => {
+      const text = injuryRule({ ...noRuns(week()), coachNote: "See a physio." }, c).map((v) => v.message).join("\n");
+      expect(text).toMatch(/no lower-body lifting: make "Lower body strength"/);
+      expect(text).toMatch(/clearly advise seeing a doctor/);
+    });
+
+    it("passes upper-body work that avoids the back, with a doctor note", () => {
+      const w = week({ sessions: [lift("2026-10-16", "upper", [exercise("Bench press", 9), exercise("Chest-supported row", 9)])], coachNote: "See a doctor before training." });
+      expect(injuryRule(w, c)).toEqual([]);
+    });
   });
 });
 

@@ -1,6 +1,7 @@
 // Shared shapes for ede.'s training data. The database stores enums as strings,
 // so everything that comes in (AI output, form input, rows) is validated here.
 import { z } from "zod";
+import { findExercise } from "./exercise-library";
 
 export const SESSION_TYPES = ["run", "strength"] as const;
 export const INTENSITIES = ["easy", "moderate", "hard"] as const;
@@ -38,6 +39,34 @@ export type StrengthVolume = z.infer<typeof StrengthVolume>;
 export const RACE_DISTANCES = ["5k", "10k", "half", "marathon", "ultra"] as const;
 export const RaceDistance = z.enum(RACE_DISTANCES);
 export type RaceDistance = z.infer<typeof RaceDistance>;
+
+export const EQUIPMENT = ["barbell", "dumbbell", "machine", "cable", "bodyweight", "kettlebell", "band"] as const;
+export const Equipment = z.enum(EQUIPMENT);
+export type Equipment = z.infer<typeof Equipment>;
+
+export const BODY_AREAS = ["knee", "ankle", "hip", "back", "shoulder", "elbow", "other"] as const;
+export const BodyArea = z.enum(BODY_AREAS);
+export type BodyArea = z.infer<typeof BodyArea>;
+
+/** When an injury hurts (SPEC: Injury input). */
+export const PAIN_WHEN = ["running", "walking", "resting", "lifting_only"] as const;
+export const PainWhen = z.enum(PAIN_WHEN);
+export type PainWhen = z.infer<typeof PainWhen>;
+
+/** An active injury: area, pain level 0-10 and when it hurts. */
+export const Injury = z.object({
+  area: BodyArea,
+  painLevel: z.number().int().min(0).max(10),
+  painWhen: PainWhen,
+});
+export type Injury = z.infer<typeof Injury>;
+
+export const SET_TYPES = ["warmup", "working", "drop", "failure"] as const;
+export const SetType = z.enum(SET_TYPES);
+export type SetType = z.infer<typeof SetType>;
+
+export const WeightUnit = z.enum(["kg", "lb"]);
+export const DistanceUnit = z.enum(["km", "mi"]);
 
 export const TERRAINS = ["road", "trail", "mountain"] as const;
 export const Terrain = z.enum(TERRAINS);
@@ -205,15 +234,18 @@ export function summariseAvailability(week: Availability) {
 export const HEAVY_LOWER_RPE = 8;
 
 /**
- * Heavy lower-body: a lower-focus session, or a full-body session with an
- * exercise at RPE 8+. Until the exercise library exists, every exercise in a
- * full-body session is treated as possibly lower-body.
+ * Heavy lower-body (SPEC decision 4): a lower-focus session, or a full-body
+ * session with a lower-body exercise at RPE 8+. Exercises not in the library
+ * are treated as possibly lower-body, to stay on the safe side.
  */
 export function isHeavyLowerBody(s: PlannedSession): boolean {
   if (s.type !== "strength") return false;
   if (s.bodyFocus === "lower") return true;
-  return s.bodyFocus === "full" && s.exercises.some((e) => e.targetRpe >= HEAVY_LOWER_RPE);
+  return s.bodyFocus === "full" && s.exercises.some((e) => e.targetRpe >= HEAVY_LOWER_RPE && mayBeLowerBody(e.name));
 }
+
+/** True for lower-body library exercises and for anything not in the library. */
+export const mayBeLowerBody = (name: string) => findExercise(name)?.isLowerBody ?? true;
 
 /** Steps at or below this RPE count as easy running (SPEC decision 17). */
 export const EASY_MAX_RPE = 4;

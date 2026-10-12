@@ -1,57 +1,61 @@
-// Fills the local database with one demo athlete and one week of sessions.
-// Run with: npm run db:seed (it clears existing data first).
+// Fills the local database with the exercise library, plus one demo athlete
+// with their plan outline and first week. Run with: npm run db:seed (it clears
+// the demo athlete's data first).
 import "dotenv/config";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { demoAvailability as availability, demoWeek as week } from "../src/lib/demo-week";
-import { isHeavyLowerBody } from "../src/lib/domain";
+import { exerciseToRow, sessionToRow, toDbDate, weekToRow } from "../src/lib/db-mapping";
+import { DEMO_ATHLETE, demoOutline, demoOutlineInput } from "../src/lib/demo-athlete";
+import { demoWeek } from "../src/lib/demo-week";
+import { EXERCISES } from "../src/lib/exercise-library";
 
 const db = new PrismaClient({
   adapter: new PrismaLibSql({ url: process.env.DATABASE_URL! }),
 });
 
 async function main() {
-  await db.athlete.deleteMany();
+  // Exercise library: create or update every exercise from the code library.
+  for (const e of EXERCISES) {
+    const row = exerciseToRow(e);
+    await db.exercise.upsert({ where: { name: e.name }, create: row, update: row });
+  }
 
+  await db.athlete.deleteMany();
+  const input = demoOutlineInput;
   const athlete = await db.athlete.create({
     data: {
-      name: "Demo athlete",
-      goalType: "race",
-      goalDetail: "Half marathon under 1:50",
-      targetDate: new Date("2027-03-14"),
-      currentTraining: "3 runs and 2 gym sessions a week",
+      name: DEMO_ATHLETE.name,
+      goalType: input.goalType,
+      goalDetail: DEMO_ATHLETE.goal,
+      targetDate: input.targetDate ? toDbDate(input.targetDate) : null,
+      raceDistance: input.raceDistance ?? null,
+      experienceLevel: input.experienceLevel,
+      strengthVolume: input.strengthVolume,
+      currentTraining: "3-4 runs and 2 gym sessions a week",
+      lastWeekRunMinutes: input.lastWeekRunMinutes ?? null,
       equipment: "Full gym",
       availability: {
-        create: availability.map((d, dayOfWeek) => ({ dayOfWeek, ...d })),
+        create: input.availability.map((d, dayOfWeek) => ({ dayOfWeek, ...d })),
       },
-      weeks: {
-        create: {
-          // Phase, day notes and the coach note get their own columns in step 3d.
-          weekStart: new Date(week.weekStart),
-          weekNumber: week.weekNumber,
-          isRecoveryWeek: week.phase === "recovery",
-          isTaperWeek: week.phase === "taper",
-          sessions: {
-            create: week.sessions.map((s) => ({
-              date: new Date(s.date),
-              slot: s.slot,
-              type: s.type,
-              title: s.title,
-              intensity: s.intensity,
-              plannedMinutes: s.plannedMinutes,
-              isKeyRun: s.type === "run" && s.isKeySession,
-              isHeavyLegs: isHeavyLowerBody(s),
-              steps: JSON.stringify(s.type === "run" ? s.steps : s.exercises),
-            })),
-          },
-        },
+      outlines: {
+        create: { input: JSON.stringify(input), outline: JSON.stringify(demoOutline) },
       },
     },
-    include: { weeks: { include: { sessions: true } } },
+    include: { outlines: true },
+  });
+
+  const week = await db.planWeek.create({
+    data: {
+      ...weekToRow(demoWeek),
+      athleteId: athlete.id,
+      outlineId: athlete.outlines[0].id,
+      sessions: { create: demoWeek.sessions.map(sessionToRow) },
+    },
+    include: { sessions: true },
   });
 
   console.log(
-    `Seeded ${athlete.name} with ${athlete.weeks[0].sessions.length} sessions.`,
+    `Seeded ${EXERCISES.length} exercises, and ${athlete.name} with a ${demoOutline.weeks.length}-week plan and ${week.sessions.length} sessions in week 1.`,
   );
 }
 

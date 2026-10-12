@@ -9,15 +9,16 @@ export const DEMO_ATHLETE = {
   raceName: "Half marathon",
 };
 
-// Monday and Friday off; Tuesday is a double day; long run on Saturday (2h+).
+// Monday and Sunday off; Tuesday and Friday are double days; long run on
+// Saturday (2h+). The demo week (src/lib/demo-week.ts) fits it too.
 export const demoAthleteAvailability = Availability.parse([
   { minutes: null },
   { minutes: 60, isDouble: true, secondMinutes: 45 },
   { minutes: 45 },
   { minutes: 60 },
-  { minutes: null },
+  { minutes: 60, isDouble: true, secondMinutes: 45 },
   { minutes: 120 },
-  { minutes: 60 },
+  { minutes: null },
 ]);
 
 export const demoOutlineInput: OutlineInput = {

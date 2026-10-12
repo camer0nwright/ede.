@@ -50,6 +50,19 @@ export const CHECKER_CONFIG = {
   /** More than this share of a session's exercises must be hard ("most lifts are hard"). */
   minHardExerciseShare: 0.5,
 
+  /** Heavy barbell lifts stay at or below this RPE: never to failure. */
+  maxBarbellRpe: 9,
+
+  /** Injury bands by pain level (SPEC: prompts/plan-engine.md, Injury and pain handling). */
+  injury: {
+    /** Pain up to this level (during running or specific lifts only): reduced, easy running. */
+    mildMax: 3,
+    /** Pain up to this level: no running. Above it: no running and no lower-body lifting. */
+    moderateMax: 6,
+    /** Mild pain: run minutes at most this share of last week's (a 20-30% cut). */
+    mildRunShare: 0.8,
+  },
+
   /** Recalculation cap: sessions that may be added or made harder at once. */
   maxSessionsIncreasedPerRecalc: 3,
   /** Recalculation cap: weekly minutes may grow by at most this share. */
