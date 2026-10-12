@@ -28,7 +28,7 @@ Run, strength (lifting) and rest only. No swimming or cross-training.
 - Monday to Sunday, each day set to Rest or an available time (e.g. 30, 45, 60, 90, 120+ minutes), so users can have longer sessions at weekends
 - A "double day" toggle per day, allowing two sessions (one run, one lift), each with its own time length
 - Summary showing training days, double days and full rest days (double days exist to create more full rest days)
-- The plan-engine prompt instead describes one time per day, with both sessions on a double day fitting within it combined. See Open questions.
+- The plan-engine prompt instead describes one time per day, with both sessions on a double day fitting within it combined. See Decisions (v4), item 1.
 
 ## Strength volume setting
 Chosen in onboarding, changeable later in the profile. ede. pre-selects Low for hybrid athletes and explains why in one line ("keeps your legs fresh for running").
@@ -115,11 +115,11 @@ Strava/Garmin data sync, nutrition tracking, payments, social features, a native
 ## Success criteria
 5 real users complete 2 weeks of check-ins, and at least 3 say the plan adjustments felt sensible.
 
-## Open questions
-Places where the v4 additions or the plan-engine prompt disagree with the earlier spec, or leave something undefined. To be decided before the code changes.
-1. **Double-day time.** The availability grid gives each session on a double day its own time; the plan-engine prompt gives one time per day that both sessions must fit within combined.
-2. **Recovery week size.** The prompt cuts volume by about 30-40%; the checker currently allows up to 80% of the last build week (a 20% cut).
-3. **"Hard or long run".** "Hard" is intensity hard. "Long" is not defined (for example: the week's longest run, or any run of 75+ minutes).
-4. **"Heavy lower-body".** The prompt gives strength sessions a body focus (upper, lower, full) but no heavy flag. Which counts as heavy lower-body: lower focus only, or full body too, and at what RPE?
-5. **Key session vs key run.** The older rules say "key run"; the new ones say "hard or long run", and the output has is_key_session. Should "key run" now mean "hard or long run"?
-6. **Progression measure.** The older rule progresses total load; v4 progresses run minutes only. Should strength minutes have any limit of their own?
+## Decisions (v4)
+Places where the v4 additions or the plan-engine prompt disagreed with the earlier spec, or left something undefined, and what was decided.
+1. **Double-day time.** Keep a separate time for each session on a double day (as in the availability grid). The plan-engine prompt, which describes one combined time per day, will be updated to receive both times.
+2. **Recovery week size.** A recovery week cuts volume by at least 30% (at most 70% of the last build week), matching the prompt's 30-40%.
+3. **Long run.** The week's longest run, if it is 60 minutes or more.
+4. **Heavy lower-body.** A strength session with a lower body focus, or a full-body session with a lower-body exercise at RPE 8 or above. Until the exercise library exists, every exercise in a full-body session is treated as possibly lower-body.
+5. **Key run.** "Key run" now means a hard or long run. The output's is_key_session is kept as the AI's own marker.
+6. **Progression measure.** Only run minutes have a progression limit. Strength minutes have no separate limit in v1.
