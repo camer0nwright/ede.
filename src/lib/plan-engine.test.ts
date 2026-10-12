@@ -138,7 +138,11 @@ describe("isHeavyLowerBody (SPEC decision 4)", () => {
 });
 
 describe("checkEngineResponse", () => {
-  const ctx = { availability: demoAvailability, history: [] };
+  // An intermediate athlete who ran 220 minutes last week.
+  const ctx = {
+    availability: demoAvailability,
+    history: [{ totalMinutes: 300, runMinutes: 220, phase: "build" as const }],
+  };
 
   it("passes the demo week end to end", () => {
     const r = checkEngineResponse(asText(demoEngineWeek), "2026-10-12", ctx);
@@ -156,6 +160,6 @@ describe("checkEngineResponse", () => {
     const w = clone();
     w.days[4].sessions[1].body_focus = "lower"; // Friday legs before Saturday's key long run
     const r = checkEngineResponse(asText(w), "2026-10-12", ctx);
-    expect(r.violations.map((v) => v.rule)).toContain("heavy-legs-before-key-run");
+    expect(r.violations.map((v) => v.rule)).toContain("heavy-legs-near-key-run");
   });
 });

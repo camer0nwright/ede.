@@ -1,36 +1,62 @@
 import { describe, expect, it } from "vitest";
 import { demoAvailability, demoWeek } from "@/lib/demo-week";
-import type { Availability, PlannedSession, WeekPlan } from "@/lib/domain";
+import type { Availability, PlannedSession, StrengthExercise, WeekPlan } from "@/lib/domain";
 import { checkWeekPlan, describeViolations } from "./index";
 import {
+  beginnerEasyRunning,
+  consecutiveDays,
   doubleDay,
   easyRunning,
   fitsAvailability,
-  heavyLegsBeforeKeyRun,
-  loadProgression,
+  heavyLegsNearKeyRun,
+  keyRuns,
+  longRuns,
+  lowerBodyAfterKeyRun,
   recalcCap,
   recoveryWeek,
   restDay,
+  runMinutes,
+  runProgression,
   taper,
   totalMinutes,
   weekStructure,
+  workingSets,
   type CheckContext,
   type PastWeek,
 } from "./rules";
 
-// The demo week (310 min, 2026-10-12 to 2026-10-18) passes every rule.
-// Mon rest; Tue easy run + lower body; Wed easy run; Thu intervals (key);
-// Fri recovery run + upper body; Sat long run (key); Sun rest.
+// The demo week (310 min, 230 of them running, 2026-10-12 to 2026-10-18)
+// passes every rule:
+//   Mon rest; Tue easy run + lower body; Wed easy run; Thu intervals (hard);
+//   Fri recovery run + upper body; Sat long easy run 85 min; Sun rest.
 // Each test changes one thing about it and checks the right rule catches it.
-const ctx: CheckContext = { availability: demoAvailability, history: [] };
+
+/** A past week. Run minutes default to three quarters of the total. */
+const build = (total: number, run = Math.round(total * 0.75)): PastWeek => ({
+  totalMinutes: total,
+  runMinutes: run,
+  phase: "build",
+});
+const recovery = (total: number, run = Math.round(total * 0.75)): PastWeek => ({
+  totalMinutes: total,
+  runMinutes: run,
+  phase: "recovery",
+});
+
+// An intermediate athlete on low strength volume who ran 220 minutes last week.
+const ctx: CheckContext = {
+  availability: demoAvailability,
+  history: [build(300, 220)],
+  experienceLevel: "intermediate",
+  strengthVolume: "low",
+};
 
 function week(changes: Partial<WeekPlan> = {}): WeekPlan {
   return { ...structuredClone(demoWeek), ...changes };
 }
 
 /** Changes the session on `date` in `slot`. */
-function edit(date: string, slot: number, patch: Partial<PlannedSession>): WeekPlan {
-  const w = week();
+function edit(date: string, slot: number, patch: Partial<PlannedSession>, w = week()): WeekPlan {
   w.sessions = w.sessions.map((s) =>
     s.date === date && s.slot === slot ? ({ ...s, ...patch } as PlannedSession) : s,
   );
@@ -54,8 +80,31 @@ const easyRun = (date: string, minutes: number, slot: 1 | 2 = 1): PlannedSession
   steps: [],
 });
 
-const build = (totalMinutes: number): PastWeek => ({ totalMinutes, phase: "build" });
-const recovery = (totalMinutes: number): PastWeek => ({ totalMinutes, phase: "recovery" });
+const exercise = (name: string, targetRpe: number, workingSets = 2): StrengthExercise => ({
+  name,
+  warmupSets: 0,
+  workingSets,
+  reps: "8",
+  targetRpe,
+  failureAllowed: false,
+});
+
+const lift = (
+  date: string,
+  bodyFocus: "upper" | "lower" | "full",
+  exercises: StrengthExercise[],
+  slot: 1 | 2 = 1,
+): PlannedSession => ({
+  date,
+  slot,
+  type: "strength",
+  title: `${bodyFocus} body`,
+  intensity: "hard",
+  plannedMinutes: 40,
+  isKeySession: false,
+  bodyFocus,
+  exercises,
+});
 
 const rulesHit = (w: unknown, c: CheckContext = ctx) =>
   checkWeekPlan(w, c).violations.map((v) => v.rule);
@@ -66,6 +115,7 @@ describe("the demo week", () => {
     expect(result.violations).toEqual([]);
     expect(result.ok).toBe(true);
     expect(totalMinutes(demoWeek)).toBe(310);
+    expect(runMinutes(demoWeek)).toBe(230);
   });
 });
 
@@ -159,23 +209,106 @@ describe("double-day", () => {
     const v = doubleDay(edit("2026-10-13", 1, { intensity: "hard" }), ctx);
     expect(v[0].message).toMatch(/two hard sessions/);
   });
+});
 
-  it("rejects heavy legs alongside a key run", () => {
-    const v = doubleDay(edit("2026-10-13", 1, { isKeySession: true }), ctx);
-    expect(v[0].message).toMatch(/key run with heavy legs/);
+describe("key runs: hard or long (SPEC decisions 3 and 5)", () => {
+  const titles = (sessions: PlannedSession[]) => sessions.map((s) => s.title);
+
+  it("finds the demo week's hard intervals and long run", () => {
+    expect(titles(keyRuns(week()))).toEqual(["Intervals", "Long easy run"]);
+  });
+
+  it("only counts the longest run as long when it is 60+ minutes", () => {
+    const w = edit("2026-10-17", 1, { plannedMinutes: 55 });
+    expect(longRuns(w)).toEqual([]);
+    expect(titles(keyRuns(w))).toEqual(["Intervals"]);
+  });
+
+  it("counts both runs of a back-to-back as long runs", () => {
+    const w = add({ ...easyRun("2026-10-18", 70), title: "Back-to-back long run" });
+    expect(titles(longRuns(w))).toEqual(["Long easy run", "Back-to-back long run"]);
+  });
+
+  it("does not count a 60+ minute run that isn't next to the longest run", () => {
+    const w = edit("2026-10-14", 1, { plannedMinutes: 65 });
+    expect(titles(longRuns(w))).toEqual(["Long easy run"]);
+  });
+
+  it("ignores the AI's own key-session marker", () => {
+    const w = edit("2026-10-14", 1, { isKeySession: true });
+    expect(titles(keyRuns(w))).toEqual(["Intervals", "Long easy run"]);
   });
 });
 
-describe("heavy-legs-before-key-run", () => {
-  it("passes when heavy legs is two days before the key run", () => {
-    expect(heavyLegsBeforeKeyRun(week(), ctx)).toEqual([]);
+describe("heavy-legs-near-key-run", () => {
+  it("passes when heavy legs is two days before the next key run", () => {
+    expect(heavyLegsNearKeyRun(week(), ctx)).toEqual([]);
   });
 
-  it("fails when heavy legs is the day before a key run", () => {
+  it("fails when heavy legs is the day before a long run", () => {
     const w = edit("2026-10-16", 2, { bodyFocus: "lower" } as Partial<PlannedSession>);
-    const v = heavyLegsBeforeKeyRun(w, ctx);
+    const v = heavyLegsNearKeyRun(w, ctx);
     expect(v).toHaveLength(1);
     expect(v[0].date).toBe("2026-10-16");
+    expect(v[0].message).toMatch(/day before/);
+  });
+
+  it("fails when heavy legs is the same day as a hard run", () => {
+    const v = heavyLegsNearKeyRun(edit("2026-10-13", 1, { intensity: "hard" }), ctx);
+    expect(v).toHaveLength(1);
+    expect(v[0].message).toMatch(/same day/);
+  });
+
+  it("allows a light full-body session (under RPE 8) the day before", () => {
+    const w = week();
+    w.sessions = w.sessions.filter((s) => !(s.date === "2026-10-16" && s.slot === 2));
+    w.sessions.push(lift("2026-10-16", "full", [exercise("Goblet squat", 7), exercise("Push-up", 7.5)], 2));
+    expect(heavyLegsNearKeyRun(w, ctx)).toEqual([]);
+  });
+});
+
+describe("consecutive-days", () => {
+  it("allows a hard run followed by a hard lift", () => {
+    expect(consecutiveDays(week(), ctx)).toEqual([]);
+  });
+
+  it("rejects hard runs on consecutive days", () => {
+    const v = consecutiveDays(edit("2026-10-14", 1, { intensity: "hard" }), ctx);
+    expect(v).toHaveLength(1);
+    expect(v[0].message).toMatch(/Hard runs/);
+    expect(v[0].date).toBe("2026-10-15");
+  });
+
+  it("rejects strength sessions on consecutive days", () => {
+    const v = consecutiveDays(add(lift("2026-10-14", "upper", [exercise("Row", 9)], 2)), ctx);
+    expect(v).toHaveLength(1);
+    expect(v[0].message).toMatch(/Strength sessions/);
+  });
+});
+
+describe("lower-body-after-key-run", () => {
+  it("passes upper body the day after a hard run", () => {
+    expect(lowerBodyAfterKeyRun(week(), ctx)).toEqual([]);
+  });
+
+  it("rejects lower body above RPE 8 the day after a hard run", () => {
+    const w = edit("2026-10-16", 2, { bodyFocus: "lower" } as Partial<PlannedSession>);
+    const v = lowerBodyAfterKeyRun(w, ctx);
+    expect(v).toHaveLength(1);
+    expect(v[0].message).toMatch(/RPE 8 or less/);
+  });
+
+  it("allows lower body at RPE 8 or less the day after a hard run", () => {
+    const w = edit("2026-10-16", 2, {
+      bodyFocus: "lower",
+      exercises: [exercise("Leg press", 8), exercise("Hip thrust", 7.5)],
+    } as Partial<PlannedSession>);
+    expect(lowerBodyAfterKeyRun(w, ctx)).toEqual([]);
+  });
+
+  it("applies after a long run too", () => {
+    const w = add(lift("2026-10-18", "full", [exercise("Deadlift", 9)]));
+    expect(lowerBodyAfterKeyRun(w, ctx)[0].date).toBe("2026-10-18");
   });
 });
 
@@ -191,10 +324,7 @@ describe("easy-running (at least 80%)", () => {
 
   it("passes at exactly 80%", () => {
     const w = week({
-      sessions: [
-        easyRun("2026-10-13", 80),
-        { ...easyRun("2026-10-15", 20), intensity: "hard" },
-      ],
+      sessions: [easyRun("2026-10-13", 80), { ...easyRun("2026-10-15", 20), intensity: "hard" }],
     });
     expect(easyRunning(w, ctx)).toEqual([]);
   });
@@ -204,31 +334,115 @@ describe("easy-running (at least 80%)", () => {
   });
 });
 
-describe("load-progression", () => {
-  it("skips week 1, which has nothing to compare against", () => {
-    expect(loadProgression(week(), ctx)).toEqual([]);
+describe("beginner-easy-running", () => {
+  it("does not apply to intermediate athletes", () => {
+    expect(beginnerEasyRunning(week(), ctx)).toEqual([]);
   });
 
-  it("allows up to 10% more than the last build week", () => {
-    expect(loadProgression(week(), { ...ctx, history: [build(290)] })).toEqual([]);
-  });
-
-  it("fails a jump of more than 10%", () => {
-    const v = loadProgression(week(), { ...ctx, history: [build(250)] });
-    expect(v[0].message).toMatch(/at most 275 min/);
-  });
-
-  it("allows at least 20 extra minutes for low-volume athletes", () => {
-    const w = week({ sessions: [easyRun("2026-10-13", 60), easyRun("2026-10-15", 60)] });
-    expect(loadProgression(w, { ...ctx, history: [build(100)] })).toEqual([]);
-  });
-
-  it("compares to the last build week, not a recovery week", () => {
-    expect(loadProgression(week(), { ...ctx, history: [build(290), recovery(200)] })).toEqual([]);
+  it("rejects any run that is not easy for a beginner", () => {
+    const v = beginnerEasyRunning(week(), { ...ctx, experienceLevel: "beginner" });
+    expect(v).toHaveLength(1);
+    expect(v[0].message).toMatch(/Intervals.*beginners run easy only/);
   });
 });
 
-describe("recovery-week", () => {
+describe("working-sets", () => {
+  it("passes 2 working sets on low strength volume", () => {
+    expect(workingSets(week(), ctx)).toEqual([]);
+  });
+
+  it("rejects anything but exactly 2 working sets on low", () => {
+    const w = week({
+      sessions: [lift("2026-10-13", "upper", [exercise("Bench", 9, 3), exercise("Row", 9, 1)])],
+    });
+    expect(workingSets(w, ctx).map((v) => v.message)).toEqual([
+      expect.stringMatching(/Bench .* has 3 working sets; low strength volume needs exactly 2/),
+      expect.stringMatching(/Row .* has 1 working sets/),
+    ]);
+  });
+
+  it("defaults to low when no setting is given", () => {
+    expect(workingSets(week(), { ...ctx, strengthVolume: undefined })).toEqual([]);
+  });
+
+  it("needs exactly 3 working sets on moderate", () => {
+    const v = workingSets(week(), { ...ctx, strengthVolume: "moderate" });
+    expect(v).toHaveLength(8); // every exercise in the two demo sessions
+    expect(v[0].message).toMatch(/has 2 working sets; moderate strength volume needs exactly 3/);
+  });
+
+  it("allows 3 or 4 working sets on high", () => {
+    const w = week({
+      sessions: [lift("2026-10-13", "upper", [exercise("Bench", 9, 3), exercise("Row", 9, 4), exercise("Curl", 9, 2)])],
+    });
+    const v = workingSets(w, { ...ctx, strengthVolume: "high" });
+    expect(v).toHaveLength(1);
+    expect(v[0].message).toMatch(/Curl/);
+  });
+});
+
+describe("run-progression (run minutes only)", () => {
+  it("allows up to 10% more run minutes than the last build week", () => {
+    expect(runProgression(week(), { ...ctx, history: [build(300, 210)] })).toEqual([]);
+  });
+
+  it("fails a jump of more than 10%", () => {
+    const v = runProgression(week(), { ...ctx, history: [build(300, 200)] });
+    expect(v[0].message).toMatch(/230 run minutes, up from 200; build gradually to at most 220/);
+  });
+
+  it("ignores strength minutes", () => {
+    // Total minutes jump from 250 to 310 (+24%), but run minutes only from 220 to 230.
+    expect(runProgression(week(), { ...ctx, history: [build(250, 220)] })).toEqual([]);
+  });
+
+  it("allows at least 20 extra minutes for low-volume runners", () => {
+    const w = week({ sessions: [easyRun("2026-10-13", 45), easyRun("2026-10-15", 45)] });
+    expect(runProgression(w, { ...ctx, history: [build(100, 70)] })).toEqual([]);
+  });
+
+  it("compares to the last build week, not a recovery week", () => {
+    const c = { ...ctx, history: [build(300, 220), recovery(200, 150)] };
+    expect(runProgression(week(), c)).toEqual([]);
+  });
+
+  it("does not apply in recovery or taper weeks", () => {
+    const c = { ...ctx, history: [build(100, 70)] };
+    expect(runProgression(week({ phase: "recovery" }), c)).toEqual([]);
+    expect(runProgression(week({ phase: "taper" }), c)).toEqual([]);
+  });
+
+  describe("starting load", () => {
+    const start = week({
+      sessions: [easyRun("2026-10-13", 25), easyRun("2026-10-15", 25), easyRun("2026-10-17", 30)],
+    });
+
+    it("applies when there is no history, and rejects too much running", () => {
+      const v = runProgression(week(), { ...ctx, history: [] });
+      expect(v.map((x) => x.message).join("\n")).toMatch(/run minutes should be 60-90 .* not 230/);
+      expect(v.map((x) => x.message).join("\n")).toMatch(/2-3 runs, not 5/);
+    });
+
+    it("applies when last week had under 60 run minutes", () => {
+      expect(runProgression(week(), { ...ctx, history: [build(150, 50)] })).not.toEqual([]);
+    });
+
+    it("passes 60-90 run minutes over 2-3 runs", () => {
+      expect(runProgression(start, { ...ctx, history: [] })).toEqual([]);
+    });
+
+    it("uses 40-60 run minutes for beginners", () => {
+      const beginner = { ...ctx, history: [], experienceLevel: "beginner" as const };
+      expect(runProgression(start, beginner)[0].message).toMatch(/40-60 for a beginner/);
+      const gentle = week({
+        sessions: [easyRun("2026-10-13", 15), easyRun("2026-10-15", 15), easyRun("2026-10-17", 20)],
+      });
+      expect(runProgression(gentle, beginner)).toEqual([]);
+    });
+  });
+});
+
+describe("recovery-week (cut at least 30%)", () => {
   it("requires a recovery week after 3 build weeks in a row", () => {
     const v = recoveryWeek(week(), { ...ctx, history: [build(280), build(290), build(300)] });
     expect(v[0].message).toMatch(/must be a recovery week/);
@@ -239,21 +453,22 @@ describe("recovery-week", () => {
     expect(v[0].message).toMatch(/too soon/);
   });
 
-  it("passes a lighter recovery week after 2-3 build weeks", () => {
+  it("passes a recovery week at 70% or less of the last build week", () => {
     const c = { ...ctx, history: [build(420), build(450)] };
     expect(recoveryWeek(week({ phase: "recovery" }), c)).toEqual([]);
   });
 
-  it("rejects a recovery week that is not lighter", () => {
+  it("rejects a recovery week that cuts less than 30%", () => {
     const c = { ...ctx, history: [build(300), build(320)] };
     const v = recoveryWeek(week({ phase: "recovery" }), c);
-    expect(v[0].message).toMatch(/at most 256 min/);
+    expect(v[0].message).toMatch(/at most 224 min \(at least 30% less/);
   });
 });
 
 describe("taper", () => {
   const raceSunday = "2026-10-18";
   const nextSunday = "2026-10-25";
+  const inTwoWeeks = "2026-11-01";
 
   it("requires race week to be a taper week", () => {
     const v = taper(week(), { ...ctx, targetDate: raceSunday });
@@ -274,6 +489,17 @@ describe("taper", () => {
 
   it("rejects a taper week outside the taper", () => {
     expect(taper(week({ phase: "taper" }), ctx)).toHaveLength(1);
+  });
+
+  it("uses a 2-week taper for races up to 100K", () => {
+    const c = { ...ctx, targetDate: inTwoWeeks, ultraDistanceKm: 100 };
+    expect(taper(week(), c)).toEqual([]);
+  });
+
+  it("uses a 3-week taper for 100-mile ultras, at 90% three weeks out", () => {
+    const c = { ...ctx, targetDate: inTwoWeeks, ultraDistanceKm: 161, history: [build(330)] };
+    expect(taper(week(), c)[0].message).toMatch(/must be a taper week/);
+    expect(taper(week({ phase: "taper" }), c)[0].message).toMatch(/at most 297 min/);
   });
 
   it("turns off progression and recovery rules during the taper", () => {

@@ -27,6 +27,18 @@ export type SessionStatus = z.infer<typeof SessionStatus>;
 export type SkipReason = z.infer<typeof SkipReason>;
 export type GoalType = z.infer<typeof GoalType>;
 
+export const EXPERIENCE_LEVELS = ["beginner", "intermediate", "advanced"] as const;
+export const ExperienceLevel = z.enum(EXPERIENCE_LEVELS);
+export type ExperienceLevel = z.infer<typeof ExperienceLevel>;
+
+export const STRENGTH_VOLUMES = ["low", "moderate", "high"] as const;
+export const StrengthVolume = z.enum(STRENGTH_VOLUMES);
+export type StrengthVolume = z.infer<typeof StrengthVolume>;
+
+export const RACE_DISTANCES = ["5k", "10k", "half", "marathon", "ultra"] as const;
+export const RaceDistance = z.enum(RACE_DISTANCES);
+export type RaceDistance = z.infer<typeof RaceDistance>;
+
 /** A calendar date as YYYY-MM-DD, with no time zone. */
 export const IsoDate = z.iso.date();
 

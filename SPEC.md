@@ -163,7 +163,7 @@ Strava/Garmin data sync, nutrition tracking, payments, social features, a native
 Places where the v4 additions or the plan-engine prompt disagreed with the earlier spec, or left something undefined, and what was decided.
 1. **Double-day time.** Keep a separate time for each session on a double day (as in the availability grid). The plan-engine prompt, which describes one combined time per day, will be updated to receive both times.
 2. **Recovery week size.** A recovery week cuts volume by at least 30% (at most 70% of the last build week), matching the prompt's 30-40%.
-3. **Long run.** The week's longest run, if it is 60 minutes or more.
+3. **Long run.** The week's longest run, if it is 60 minutes or more. For back-to-back long runs, a 60+ minute run on the day before or after it is also a long run.
 4. **Heavy lower-body.** A strength session with a lower body focus, or a full-body session with a lower-body exercise at RPE 8 or above. Until the exercise library exists, every exercise in a full-body session is treated as possibly lower-body.
 5. **Key run.** "Key run" now means a hard or long run. The output's is_key_session is kept as the AI's own marker.
 6. **Progression measure.** Only run minutes have a progression limit. Strength minutes have no separate limit in v1.
@@ -173,3 +173,4 @@ Places where the v4 additions or the plan-engine prompt disagreed with the earli
 10. **Strength variety.** Main lifts stay the same within a block; accessory exercises rotate.
 11. **Ultra intensity.** Aim for about 90% easy running in ultra plans; the checker's 80% minimum still applies to all plans.
 12. **Gym progression.** Code-based double progression sets next session's targets; the AI can hold it back and explains why.
+13. **Taper loads.** Race week at most 60% and the week before at most 80% of the last full week; 100-mile ultras add a third taper week at most 90%.
