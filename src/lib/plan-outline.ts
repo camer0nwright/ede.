@@ -254,13 +254,54 @@ function taperLength(input: OutlineInput): number {
   return (input.ultraDistanceKm ?? 0) >= 160 ? 3 : 2;
 }
 
-function phaseFor(i: number, n: number, input: OutlineInput, taper: number): Phase {
-  const weeksOut = input.targetDate ? n - 1 - i : null;
-  if (weeksOut !== null && weeksOut < taper) return "taper";
-  if ((i + 1) % O.recoveryEvery === 0) return "recovery";
-  if (weeksOut !== null && weeksOut < taper + O.peakWeeks) return "peak";
-  const baseWeeks = input.targetDate ? Math.max(1, Math.round((n - taper) * O.baseShare)) : 3;
-  return i < baseWeeks ? "base" : "build";
+/**
+ * Splits the weeks before the taper into training blocks: each block is 2-3
+ * build weeks then a recovery week, and the last block is the build weeks
+ * right before the taper (3 if possible). Shorter blocks come first, so the
+ * biggest weeks sit just before the taper. Returns build-weeks-per-block, or
+ * null if no split fits.
+ */
+function raceBlocks(weeks: number): number[] | null {
+  for (const last of [3, 2]) {
+    const rest = weeks - last;
+    if (rest === 0) return [last];
+    // rest = 3a + 4b: blocks of 2 builds + recovery (3 weeks) or 3 builds + recovery (4 weeks).
+    for (let b = Math.floor(rest / 4); b >= 0; b--) {
+      const remaining = rest - 4 * b;
+      if (remaining % 3 === 0) return [...Array(remaining / 3).fill(2), ...Array(b).fill(3), last];
+    }
+  }
+  return null;
+}
+
+/**
+ * Phases for every week. Without a race, recovery is every 4th week. With a
+ * race, recovery weeks line up from the taper backwards (see raceBlocks).
+ */
+function planPhases(n: number, input: OutlineInput, taper: number): Phase[] {
+  const buildWeeks = n - taper;
+  const baseWeeks = input.targetDate ? Math.max(1, Math.round(buildWeeks * O.baseShare)) : 3;
+  const label = (i: number): Phase => (i < baseWeeks ? "base" : "build");
+
+  if (!input.targetDate) {
+    return Array.from({ length: n }, (_, i) => ((i + 1) % O.recoveryEvery === 0 ? "recovery" : label(i)));
+  }
+
+  const phases: Phase[] = [];
+  const blocks = raceBlocks(buildWeeks);
+  if (blocks) {
+    blocks.forEach((builds, j) => {
+      for (let k = 0; k < builds; k++) phases.push(label(phases.length));
+      if (j < blocks.length - 1) phases.push("recovery");
+    });
+  } else {
+    // Very short plans (under 2 build weeks): no recovery week.
+    for (let i = 0; i < buildWeeks; i++) phases.push(label(i));
+  }
+  // The last weeks before the taper are peak weeks.
+  for (let i = phases.length - 1, p = 0; i >= 0 && p < O.peakWeeks && phases[i] !== "recovery"; i--, p++) phases[i] = "peak";
+  while (phases.length < n) phases.push("taper");
+  return phases;
 }
 
 // ---------- outline ----------
@@ -301,8 +342,9 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
   let limitedByTime = false;
   const weeks: OutlineWeek[] = [];
 
+  const phases = planPhases(n, input, taper);
   for (let i = 0; i < n; i++) {
-    const phase = phaseFor(i, n, input, taper);
+    const phase = phases[i];
     const weeksOut = input.targetDate ? n - 1 - i : null;
     const starting = prevRun === undefined || prevRun < O.startingBelow;
 

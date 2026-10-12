@@ -1,10 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { Geist } from "next/font/google";
+import { Barlow_Condensed, Geist } from "next/font/google";
+import { BottomNav } from "@/components/bottom-nav";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+});
+
+// Condensed display face for headings and big numbers.
+const display = Barlow_Condensed({
+  variable: "--font-display",
+  subsets: ["latin"],
+  weight: ["600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -15,19 +24,20 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0c0d12" },
+    { media: "(prefers-color-scheme: light)", color: "#fbfbf8" },
+  ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">
-        <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-4">
-          {children}
-          <footer className="py-6 text-center text-xs text-muted">
-            ede. gives general training guidance, not medical advice. If you
-            have pain, illness or an injury, see a doctor or physio.
-          </footer>
-        </div>
+    <html lang="en" className={`${geistSans.variable} ${display.variable} h-full`}>
+      <body className="min-h-full">
+        <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-24">{children}</div>
+        <BottomNav />
+        <Toaster position="top-center" />
       </body>
     </html>
   );

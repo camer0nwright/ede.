@@ -84,6 +84,12 @@ describe.each(outlines)("plan outline: %s", (_name, input, outline) => {
     }
   });
 
+  it("puts build or peak weeks, never a recovery week, right before the taper", () => {
+    if (!input.targetDate || weeks.length < outline.taperWeeks + 3) return;
+    const beforeTaper = weeks.slice(weeks.length - outline.taperWeeks - 2, weeks.length - outline.taperWeeks);
+    expect(beforeTaper.map((w) => w.phase)).toEqual(["peak", "peak"]);
+  });
+
   it("follows the run progression and starting-load rules", () => {
     weeks.forEach((w, i) => {
       if (!isFull(w)) return;
