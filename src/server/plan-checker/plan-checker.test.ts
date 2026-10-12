@@ -4,7 +4,7 @@ import type { Availability, PlannedSession, StrengthExercise, WeekPlan } from "@
 import { checkWeekPlan, describeViolations } from "./index";
 import {
   beginnerEasyRunning,
-  consecutiveDays,
+  consecutiveHardRuns,
   doubleDay,
   easyRunning,
   fitsAvailability,
@@ -267,22 +267,23 @@ describe("heavy-legs-near-key-run", () => {
   });
 });
 
-describe("consecutive-days", () => {
-  it("allows a hard run followed by a hard lift", () => {
-    expect(consecutiveDays(week(), ctx)).toEqual([]);
+describe("consecutive-hard-runs", () => {
+  it("allows a hard upper-body lift the day after a hard run", () => {
+    expect(consecutiveHardRuns(week(), ctx)).toEqual([]);
+    expect(rulesHit(week())).toEqual([]);
   });
 
   it("rejects hard runs on consecutive days", () => {
-    const v = consecutiveDays(edit("2026-10-14", 1, { intensity: "hard" }), ctx);
+    const v = consecutiveHardRuns(edit("2026-10-14", 1, { intensity: "hard" }), ctx);
     expect(v).toHaveLength(1);
     expect(v[0].message).toMatch(/Hard runs/);
     expect(v[0].date).toBe("2026-10-15");
   });
 
-  it("rejects strength sessions on consecutive days", () => {
-    const v = consecutiveDays(add(lift("2026-10-14", "upper", [exercise("Row", 9)], 2)), ctx);
-    expect(v).toHaveLength(1);
-    expect(v[0].message).toMatch(/Strength sessions/);
+  it("allows strength sessions on consecutive days", () => {
+    const w = add(lift("2026-10-14", "upper", [exercise("Row", 9)], 2));
+    expect(consecutiveHardRuns(w, ctx)).toEqual([]);
+    expect(rulesHit(w, { ...ctx, availability: demoAvailability.map((d, i) => (i === 2 ? { minutes: 45, isDouble: true, secondMinutes: 45 } : d)) })).toEqual([]);
   });
 });
 

@@ -50,6 +50,7 @@ Chosen in onboarding, changeable later in the profile. ede. pre-selects Low for 
 ## Coaching rules
 - Most running is easy: about 80% easy, 20% moderate to hard.
 - A hard run day can be followed by a hard gym day and vice versa. Two hard runs, or two strength sessions, are not placed on consecutive days.
+  - Changed (decision 14): strength sessions may be on consecutive days. Only two hard runs on consecutive days are ruled out. A hard lift is fine the day after a hard run as long as it is not legs.
 - After a hard or long run, prefer upper body the next day. Lower-body lifting the day after a hard or long run is a fallback, at no more than RPE 8.
 - No heavy lower-body lifting the day before, or the same day as, a hard or long run (extends the existing "day before a key run" rule).
 - On a double day with a hard or long run, the run comes first and the lift at least 6 hours later, noted in the day's notes.
@@ -111,6 +112,7 @@ The plan engine's output also gives each session a key-session flag and a body f
 - No heavy leg session the day before a key run
 - No heavy lower-body session the day before, or the same day as, a hard or long run
 - No hard run followed by a hard run, and no strength session followed by a strength session, on consecutive days
+  - Changed (decision 14): only hard runs on consecutive days are ruled out; strength sessions may be on consecutive days
 - At least one full rest day per week
 - Sessions fit within the time set for that day
 - Double days are a run plus a lift only, never two hard sessions back to back, and no heavy legs on a double day that includes a key run
@@ -174,3 +176,4 @@ Places where the v4 additions or the plan-engine prompt disagreed with the earli
 11. **Ultra intensity.** Aim for about 90% easy running in ultra plans; the checker's 80% minimum still applies to all plans.
 12. **Gym progression.** Code-based double progression sets next session's targets; the AI can hold it back and explains why.
 13. **Taper loads.** Race week at most 60% and the week before at most 80% of the last full week; 100-mile ultras add a third taper week at most 90%.
+14. **Consecutive days.** Strength sessions may be on consecutive days, as some plans need it. Two hard runs on consecutive days are still ruled out. A hard lift is fine the day after a hard run as long as it is not legs (lower body the day after a hard or long run stays at RPE 8 or less). Most lifting sessions should be hard. The plan-engine prompt's rule 7 is updated to match in step 5.

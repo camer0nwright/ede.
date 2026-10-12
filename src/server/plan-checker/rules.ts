@@ -18,7 +18,7 @@ export type RuleId =
   | "fits-availability"
   | "double-day"
   | "heavy-legs-near-key-run"
-  | "consecutive-days"
+  | "consecutive-hard-runs"
   | "lower-body-after-key-run"
   | "easy-running"
   | "beginner-easy-running"
@@ -227,21 +227,20 @@ export const heavyLegsNearKeyRun: Rule = (week) => {
   return out;
 };
 
-/** No hard run the day after a hard run, and no strength session the day after a strength session. */
-export const consecutiveDays: Rule = (week) => {
+/**
+ * No hard run the day after a hard run. Strength sessions may be on
+ * consecutive days, and a hard lift may follow a hard run (legs are covered
+ * by the heavy-legs and lower-body-after-key-run rules).
+ */
+export const consecutiveHardRuns: Rule = (week) => {
   const out: Violation[] = [];
-  const byDate = sessionsByDate(week);
-  const has = (date: string, test: (s: PlannedSession) => boolean) =>
-    (byDate.get(date) ?? []).some(test);
-  const hardRun = (s: PlannedSession) => s.type === "run" && s.intensity === "hard";
-  const lift = (s: PlannedSession) => s.type === "strength";
-  for (const date of [...byDate.keys()].sort()) {
+  const hardRunDates = new Set(
+    week.sessions.filter((s) => s.type === "run" && s.intensity === "hard").map((s) => s.date),
+  );
+  for (const date of [...hardRunDates].sort()) {
     const next = addDays(date, 1);
-    if (has(date, hardRun) && has(next, hardRun)) {
-      out.push({ rule: "consecutive-days", date: next, message: `Hard runs on ${label(date)} and ${label(next)} are on consecutive days; separate them.` });
-    }
-    if (has(date, lift) && has(next, lift)) {
-      out.push({ rule: "consecutive-days", date: next, message: `Strength sessions on ${label(date)} and ${label(next)} are on consecutive days; separate them.` });
+    if (hardRunDates.has(next)) {
+      out.push({ rule: "consecutive-hard-runs", date: next, message: `Hard runs on ${label(date)} and ${label(next)} are on consecutive days; separate them.` });
     }
   }
   return out;
@@ -425,7 +424,7 @@ export const ALL_RULES: Rule[] = [
   fitsAvailability,
   doubleDay,
   heavyLegsNearKeyRun,
-  consecutiveDays,
+  consecutiveHardRuns,
   lowerBodyAfterKeyRun,
   easyRunning,
   beginnerEasyRunning,
