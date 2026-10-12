@@ -12,7 +12,7 @@
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio --url \"file://$PWD/dev.db\""
   },
   "dependencies": {
     "@prisma/adapter-libsql": "7.10.0",
