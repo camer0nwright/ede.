@@ -17,8 +17,8 @@ Hybrid training creates interference: heavy leg days hurt run quality, long runs
 Run, strength (lifting) and rest only. No swimming or cross-training.
 
 ## Core loop
-1. Onboarding: goal, target date (optional), experience level (beginner, intermediate or advanced), current weekly training, equipment, injury history, strength volume setting, and the weekly availability grid (below)
-2. AI plan generation: the AI generates each week's sessions in a structured format (type, duration, intensity, step-by-step details), using the plan-engine prompt
+1. Onboarding: goal, target date (optional), experience level (beginner, intermediate or advanced), current weekly training, equipment, injury history, strength volume setting, and the weekly availability grid (below) — plus race distance (5K, 10K, half marathon, marathon or ultra), and for ultras the distance, elevation gain and terrain; and units (kg or lb, km or miles)
+2. AI plan generation: the AI generates each week's sessions in a structured format (type, duration, intensity, step-by-step details), using the plan-engine prompt; it fills in the sessions that the plan outline (see Plan outline and session variety) has already chosen for that week
 3. Plan checker: the app validates the AI's output against fixed rules and asks the AI to regenerate if a rule is broken
 4. Session check-in: completed or skipped, effort (1-10), notes, plus logging (see Logging)
 5. Skip workout: the user picks a reason (injury, illness, holiday, work/life, fatigue, other) and the AI recalculates the plan around it
@@ -28,6 +28,7 @@ Run, strength (lifting) and rest only. No swimming or cross-training.
 - Monday to Sunday, each day set to Rest or an available time (e.g. 30, 45, 60, 90, 120+ minutes), so users can have longer sessions at weekends
 - A "double day" toggle per day, allowing two sessions (one run, one lift), each with its own time length
 - Summary showing training days, double days and full rest days (double days exist to create more full rest days)
+- For ultra plans, longer options are offered (3h, 4h, 5h, 6h+) so long runs and back-to-back long runs can be planned
 - The plan-engine prompt instead describes one time per day, with both sessions on a double day fitting within it combined. See Decisions (v4), item 1.
 
 ## Strength volume setting
@@ -57,6 +58,46 @@ Chosen in onboarding, changeable later in the profile. ede. pre-selects Low for 
 - Recovery phase: reduce total volume by about 30-40% and keep intensity easy to moderate.
 - Taper: if the target date is within 2 weeks, cut volume and keep a little intensity.
 - Beginners: all running easy with run/walk intervals; strength at RPE 6-7 on machines and simple movements for the first 4 weeks, RPE 7.5-8.5 from week 5, and 8.5-9.5 only after 8+ weeks of consistent training. Prefer machines and dumbbells over heavy barbell lifts for the first 8 weeks.
+
+## Plan outline and session variety
+Sessions change and rotate week to week, in the style of a structured running-coach app, and are suited to what the user chose in onboarding.
+- **Whole plan up front.** Right after onboarding, code (not the AI) builds a plan outline for the whole plan: up to the target date, or rolling 8-week blocks that repeat when there is no race. For each week it sets the phase, target run minutes, and which session type and level goes in each role. The user can see the whole plan, week by week.
+- **Weekly roles.** Each week has roles such as easy runs, one or two quality sessions, a long run and strength sessions. The number of each depends on availability, goal and experience.
+- **Session library (in code).** Each session type has progression levels: intervals (several levels), tempo/threshold, hills, fartlek, progression runs, strides, long run variations (all easy, fast finish, race-pace section), run/walk steps for beginners, and for ultras the session types in Ultra training.
+- **Rotation and progression.** Quality sessions rotate (for example intervals, then tempo, then hills or fartlek), and a session type comes back at the same or a higher level. The same main hard session type is not used two weeks in a row.
+- **The AI fills in each week when it is due.** It turns the outline's session types into full sessions, fits them to that week's availability, and adapts to check-ins and skipped sessions.
+- **Suited to onboarding choices:**
+  - Goal and race distance: 5K/10K lean to intervals; half marathon/marathon lean to tempo and longer long runs; ultras follow Ultra training; strength goals get fewer quality runs and more lifting; general fitness gets fartleks and mixed sessions.
+  - Experience: beginners stay all easy; their variety comes from progressing run/walk ratios (for example 1:1, then 3:1, then 5:1).
+  - Availability: the number of run days sets how many quality sessions fit; the day with the most time gets the long run.
+  - Strength volume and equipment shape the gym sessions. Main lifts stay the same through a block (so logged weights can progress); accessory exercises rotate week to week.
+  - Injury overrides everything else.
+  - Recent 5K time gives pace targets (v2).
+
+## Ultra training
+For races longer than a marathon. The user enters the distance (for example 50K, 50 miles, 100K, 100 miles or a custom distance), and optionally elevation gain and terrain (road, trail or mountain). The plan is built around that distance. Based on coaching practice (most guidance comes from coaches and published plans rather than controlled studies):
+- **Mostly easy.** Ultra plans aim for about 90% easy running; the 80% minimum still applies. Hard work comes in small doses: strides, short hill repeats, moderate "aerobic power" runs below threshold, and occasional fast-finish long runs, which are the hardest sessions.
+- **Time on feet, not distance.** Long runs and weekly volume are planned in time.
+- **Back-to-back long runs** (for example Saturday then Sunday) build time on feet on tired legs with less injury risk than one very long run. Introduce them gradually, about every 4-5 weeks, with the biggest blocks roughly 8, 5 and 3 weeks out.
+- **Peak long run** (guide, adjusted for experience and terrain): 50K about 3.5-4 hours; 50 miles about 4-5 hours; 100K about 5-7 hours; 100 miles about 6-8 hours, or a big back-to-back weekend.
+- **Terrain-specific.** For trail or mountain races with significant elevation gain, long runs include hills and power hiking, plus hill-specific sessions.
+- **Race rehearsal.** Long runs practise fuelling, kit and walking breaks (in the session notes).
+- **Plan length** (guide): 50K 12-16 weeks from a marathon-level base; 100K 16-20 weeks from a 50K base; 100 miles 20-30 weeks with ultra experience. If the target date gives less time, ede. builds what fits and shows a gentle note.
+- **Taper:** 2 weeks for 50K-100K; 3 weeks for 100 miles.
+- **Readiness note:** beginners or people without a recent marathon-level base who choose an ultra see a gentle note suggesting a longer build, rather than being blocked.
+- **Strength** stays at Low volume by default to protect running recovery.
+
+## Gym sessions and logging
+Planned gym sessions work like the running plan (each session laid out in advance with exercises, sets, reps and target effort), with fast set-by-set logging in the style of a gym-tracker app.
+- **Start a planned session** and its exercises load with the planned sets: warm-up sets marked separately, working sets with target reps and RPE, and the weight and reps from last time pre-filled next to each set.
+- **Log each set** as weight, reps and RPE, and tick it done. Add or remove sets, swap an exercise for an alternative that suits the user's equipment, add an exercise, and write notes per exercise or per workout.
+- **Set types:** warm-up, working, drop set and failure (failure only where failure_allowed).
+- **Rest timer** starts automatically when a set is ticked, with a default per exercise (for example about 2-3 minutes for big compound lifts, 60-90 seconds for isolation work). It can be changed or turned off.
+- **Finish screen:** duration, sets done, total volume, and what beat last time.
+- **Progression:** next session's targets come from code using double progression: when every working set hits the top of the rep range at or under the target RPE, the weight goes up by the smallest step; otherwise reps go up. The AI can hold progression back for fatigue, injury or a recovery week, and explains changes in the weekly summary.
+- **A workout in progress is saved as it goes,** so closing the page does not lose logged sets.
+- **Units:** kg or lb, with sensible weight steps (for example 2.5 kg / 5 lb on barbells).
+- Later: supersets, warm-up set calculator, plate calculator (v2); personal records and charts (v3, as in Logging).
 
 ## Session data model
 A day holds one or two sessions. Each session has: type (run or strength), duration, intensity, planned vs actual, effort rating, and optional structured steps (warm-up, intervals, cool-down for runs; exercises, sets and reps for strength).
@@ -94,17 +135,20 @@ Used in onboarding and skip workout. Capture: area, pain level (0-10), and when 
 
 ## Logging
 - v1: strength sets logged as weight and reps per working set, with last session's numbers pre-filled and a rest timer; the AI adjusts next session's targets (progressive overload). Runs logged manually (distance, time, effort).
+- v1 detail for gym logging is in Gym sessions and logging; next session's targets come from code-based double progression, which the AI can hold back.
 - v2: Strava import, pace targets (needs a recent 5K time from onboarding), AI feedback after each workout, Garmin push once the Training API is approved.
 - v3: progress charts, personal records, history.
 - Skip: social feed, community, in-app GPS tracking, exercise videos.
 
 ## Data to add
 Stack-agnostic; implement in the existing Prisma schema.
-- Profile: strength_volume (low, moderate, high), experience_level (beginner, intermediate, advanced), recent_5k_minutes (optional), injury area / pain level / pain_when
-- Exercise library: name, muscle group, equipment, is_lower_body, failure_allowed
-- Set logs: session, exercise, set number, is_warmup, planned reps and RPE, actual weight, reps and RPE
+- Profile: strength_volume (low, moderate, high), experience_level (beginner, intermediate, advanced), recent_5k_minutes (optional), injury area / pain level / pain_when; race_distance (5K, 10K, half, marathon, ultra), ultra_distance_km, elevation_gain_m and terrain (road, trail, mountain) for ultras; units (kg/lb, km/miles)
+- Exercise library: name, muscle group, equipment, is_lower_body, failure_allowed, default rest seconds, weight step, alternatives, is_main_lift
+- Set logs: session, exercise, set number, is_warmup, planned reps and RPE, actual weight, reps and RPE; set type (warm-up, working, drop, failure); completed time
 - Run logs: session, distance_km, duration_seconds, avg_heart_rate (optional), notes
 - Weekly record: run_minutes and strength_minutes, so next week's plan can use last week's run minutes; phase (base, build, peak, taper or recovery)
+- Plan outline: per week, phase, target run minutes, and each role's session type and level
+- Workout in progress: the live gym session's logged sets, saved as they are entered
 
 ## Garmin (stretch goal)
 v1 shows each run clearly in the app with step details. Apply for Garmin's Training API early; add "send to watch" once approved.
@@ -123,3 +167,9 @@ Places where the v4 additions or the plan-engine prompt disagreed with the earli
 4. **Heavy lower-body.** A strength session with a lower body focus, or a full-body session with a lower-body exercise at RPE 8 or above. Until the exercise library exists, every exercise in a full-body session is treated as possibly lower-body.
 5. **Key run.** "Key run" now means a hard or long run. The output's is_key_session is kept as the AI's own marker.
 6. **Progression measure.** Only run minutes have a progression limit. Strength minutes have no separate limit in v1.
+7. **Whole plan up front.** Code builds a plan outline for the whole plan right after onboarding; the AI fills in each week's details when it is due.
+8. **Race distances.** 5K, 10K, half marathon, marathon and ultra (with a distance entered).
+9. **No race date.** Rolling 8-week blocks that repeat, each with a recovery week.
+10. **Strength variety.** Main lifts stay the same within a block; accessory exercises rotate.
+11. **Ultra intensity.** Aim for about 90% easy running in ultra plans; the checker's 80% minimum still applies to all plans.
+12. **Gym progression.** Code-based double progression sets next session's targets; the AI can hold it back and explains why.
