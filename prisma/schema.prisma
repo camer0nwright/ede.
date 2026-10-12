@@ -1,0 +1,88 @@
+// ede. database schema. See SPEC.md for the product rules behind it.
+// Enums are stored as strings and validated with Zod in src/lib/domain.ts.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// One person using ede. and their onboarding answers.
+model Athlete {
+  id              String    @id @default(cuid())
+  name            String?
+  goalType        String // "race" | "strength" | "general"
+  goalDetail      String? // e.g. "Half marathon under 1:50"
+  targetDate      DateTime?
+  currentTraining String? // free text: what they do now each week
+  equipment       String? // free text: gym, home weights, etc.
+  injuryHistory   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  availability AvailabilityDay[]
+  weeks        PlanWeek[]
+}
+
+// The weekly availability grid: one row per weekday.
+model AvailabilityDay {
+  id            String  @id @default(cuid())
+  athleteId     String
+  dayOfWeek     Int // 0 = Monday ... 6 = Sunday
+  // Minutes available for the main session. Null means a rest day.
+  minutes       Int?
+  // Double day: a second session (one run plus one lift), with its own time.
+  isDouble      Boolean @default(false)
+  secondMinutes Int?
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@unique([athleteId, dayOfWeek])
+}
+
+// One week of the plan.
+model PlanWeek {
+  id             String   @id @default(cuid())
+  athleteId      String
+  weekStart      DateTime // the Monday this week starts on
+  weekNumber     Int // 1-based count since the plan began
+  isRecoveryWeek Boolean  @default(false)
+  isTaperWeek    Boolean  @default(false)
+  summary        String? // weekly summary: what was done, what changed and why
+  createdAt      DateTime @default(now())
+
+  athlete  Athlete   @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  sessions Session[]
+
+  @@unique([athleteId, weekStart])
+}
+
+// A planned session. A day with no sessions is a rest day; a day can hold at most two.
+model Session {
+  id          String   @id @default(cuid())
+  weekId      String
+  date        DateTime
+  slot        Int      @default(1) // 1 or 2 (2 only on double days)
+  type        String // "run" | "strength"
+  title       String
+  intensity   String // "easy" | "moderate" | "hard"
+  isKeyRun    Boolean  @default(false)
+  isHeavyLegs Boolean  @default(false)
+  // Structured steps as JSON (warm-up/intervals/cool-down, or exercises/sets/reps).
+  steps       String?
+
+  plannedMinutes Int
+  // Check-in
+  status         String  @default("planned") // "planned" | "completed" | "skipped"
+  actualMinutes  Int?
+  effort         Int? // 1-10
+  notes          String?
+  skipReason     String? // "injury" | "illness" | "holiday" | "work_life" | "fatigue" | "other"
+
+  week PlanWeek @relation(fields: [weekId], references: [id], onDelete: Cascade)
+
+  @@unique([weekId, date, slot])
+}

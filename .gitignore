@@ -25,3 +25,10 @@ npm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma
+
+# local database and generated client
+*.db
+*.db-journal
+/src/generated/
