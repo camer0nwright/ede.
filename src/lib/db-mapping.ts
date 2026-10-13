@@ -1,6 +1,7 @@
 // Converts between ede.'s own types and database rows. JSON columns are
 // validated with Zod when read back, so bad data never reaches the plan checker.
 import { z } from "zod";
+import { SKIP_REASONS, type CheckIn } from "./checkin";
 import { toUtc } from "./dates";
 import {
   Phase,
@@ -115,6 +116,26 @@ export function rowToWeekPlan(row: {
     dayNotes: json(z.record(z.string(), z.string()), row.dayNotes) ?? {},
     coachNote: row.coachNote ?? "",
   };
+}
+
+/** A stored session's check-in, or undefined while it's still planned. */
+export function rowToCheckIn(row: {
+  status: string;
+  actualMinutes: number | null;
+  effort: number | null;
+  notes: string | null;
+  skipReason: string | null;
+  runLog?: { distanceKm: number | null } | null;
+}): CheckIn | undefined {
+  const notes = row.notes ?? undefined;
+  if (row.status === "completed") {
+    return { status: "completed", actualMinutes: row.actualMinutes ?? 0, effort: row.effort ?? 0, ...(row.runLog?.distanceKm && { distanceKm: row.runLog.distanceKm }), ...(notes && { notes }) };
+  }
+  if (row.status === "skipped") {
+    const reason = SKIP_REASONS.find((r) => r === row.skipReason) ?? "other";
+    return { status: "skipped", skipReason: reason, ...(notes && { notes }) };
+  }
+  return undefined;
 }
 
 const Quality = z.array(z.object({ kind: RunKind, level: z.number().int().min(1) }));

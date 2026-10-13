@@ -9,7 +9,8 @@ import { connection } from "next/server";
 import { sessionAthleteId } from "@/server/auth";
 import { db } from "@/lib/db";
 import type { SavedAthlete } from "@/components/onboarding/draft";
-import { fromDbDate, rowToWeekPlan } from "@/lib/db-mapping";
+import { sessionKey, type CheckIn } from "@/lib/checkin";
+import { fromDbDate, rowToCheckIn, rowToWeekPlan } from "@/lib/db-mapping";
 import { DEMO_ATHLETE, DEMO_TODAY, demoOutline, demoOutlineInput } from "@/lib/demo-athlete";
 import type { BodyArea, Injury, StrengthVolume, WeekPlan } from "@/lib/domain";
 import { formatDuration } from "@/lib/format";
@@ -54,6 +55,8 @@ export type PlanContext = {
   paces: PaceOptions;
   /** Weeks saved as they were when the plan was last rebuilt, so they don't change under you. */
   storedWeeks: WeekPlan[];
+  /** Check-ins by session key (date-slot). */
+  checkIns: Record<string, CheckIn>;
   /** The active injury, if any: the plan adapts around it from the day it was reported. */
   injury?: ActiveInjury;
 };
@@ -112,6 +115,7 @@ const demoContext = (): PlanContext => ({
   build: buildInput(demoOutlineInput, ["Full gym"]),
   paces: { fiveKSeconds: 25 * 60, unit: "km" },
   storedWeeks: [],
+  checkIns: {},
 });
 
 /** Today's date at request time (not when the page is pre-built). */
@@ -132,7 +136,7 @@ export async function getPlanContext(): Promise<PlanContext> {
     include: {
       outlines: { where: { active: true }, orderBy: { createdAt: "desc" }, take: 1 },
       injuries: { where: { resolvedAt: null }, orderBy: { startedAt: "desc" }, take: 1 },
-      weeks: { include: { sessions: true }, orderBy: { weekStart: "asc" } },
+      weeks: { include: { sessions: { include: { runLog: true } } }, orderBy: { weekStart: "asc" } },
     },
   });
   const current = athlete?.outlines[0];
@@ -167,8 +171,19 @@ export async function getPlanContext(): Promise<PlanContext> {
     strengthVolume: athlete.strengthVolume as StrengthVolume,
     today: await requestDate(),
     build: buildInput(input, equipment, injury?.area as BodyArea | undefined),
-    paces: { fiveKSeconds: athlete.recent5kMinutes ? Math.round(athlete.recent5kMinutes * 60) : undefined, unit: athlete.distanceUnit === "mi" ? "mi" : "km" },
+    paces: {
+      fiveKSeconds: athlete.recent5kMinutes ? Math.round(athlete.recent5kMinutes * 60) : undefined,
+      unit: athlete.distanceUnit === "mi" ? "mi" : "km",
+    },
     storedWeeks: athlete.weeks.map(rowToWeekPlan),
+    checkIns: Object.fromEntries(
+      athlete.weeks.flatMap((w) =>
+        w.sessions.flatMap((row) => {
+          const c = rowToCheckIn(row);
+          return c ? [[sessionKey(fromDbDate(row.date), row.slot), c]] : [];
+        }),
+      ),
+    ),
     ...(injury && {
       injury: {
         id: injury.id,
@@ -202,7 +217,14 @@ export async function getSavedAthlete(): Promise<{ id: string; saved: SavedAthle
       ...a,
       targetDate: a.targetDate ? fromDbDate(a.targetDate) : null,
       availability: a.availability.map((d) => ({ minutes: d.minutes, isDouble: d.isDouble, secondMinutes: d.secondMinutes })),
-      injury: injury ? { area: injury.area as Injury["area"], painLevel: injury.painLevel, painWhen: injury.painWhen as Injury["painWhen"], notes: injury.notes } : null,
+      injury: injury
+        ? {
+            area: injury.area as Injury["area"],
+            painLevel: injury.painLevel,
+            painWhen: injury.painWhen as Injury["painWhen"],
+            notes: injury.notes,
+          }
+        : null,
     },
   };
 }

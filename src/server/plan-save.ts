@@ -3,6 +3,7 @@
 // up to and including this one are saved as they are, so they don't change.
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
+import { sessionKey } from "@/lib/checkin";
 import { db } from "@/lib/db";
 import { sessionToRow, toDbDate, weekToRow } from "@/lib/db-mapping";
 import type { OutlineInput, PlanOutline } from "@/lib/plan-outline";
@@ -53,8 +54,10 @@ export async function saveRebuiltPlan(
       await tx.planWeek.deleteMany({ where: { athleteId: id, weekStart: { gte: toDbDate(start) } } });
       for (const { week, injured } of kept) {
         if (alreadyStored.has(week.weekStart)) {
-          // A saved week changed by an injury is saved again as it now is.
-          if (!injured) continue;
+          // A saved week changed by an injury is saved again as it now is,
+          // unless something in it has been checked in (that history stays).
+          const checkedIn = week.sessions.some((s) => ctx.checkIns[sessionKey(s.date, s.slot)]);
+          if (!injured || checkedIn) continue;
           await tx.planWeek.deleteMany({ where: { athleteId: id, weekStart: toDbDate(week.weekStart) } });
         }
         await tx.planWeek.create({

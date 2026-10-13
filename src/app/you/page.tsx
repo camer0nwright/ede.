@@ -13,7 +13,8 @@ import { DAY_NAMES, summariseAvailability } from "@/lib/domain";
 import { formatDate, formatDayMinutes, formatDuration, PHASE_LABEL, plural } from "@/lib/format";
 import { bandSummary, injuryBand } from "@/lib/injury";
 import { mondayOf, returnShare } from "@/lib/plan-rebuild";
-import { getInjuryHistory, getPlanContext, getSavedAthlete } from "@/server/athlete";
+import { builtWeeks, getInjuryHistory, getPlanContext, getSavedAthlete } from "@/server/athlete";
+import { progressSummary, sessionKey } from "@/lib/checkin";
 import { AccountSettings, DeleteMyData } from "@/components/you/account-settings";
 import { InjuryBetter } from "@/components/you/injury-better";
 
@@ -50,6 +51,8 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
   const nextMonday = addDays(mondayOf(ctx.today), 7);
 
   const injury = ctx.injury;
+  const dueKeys = builtWeeks(ctx).flatMap((b) => b.week.sessions.filter((x) => x.date <= ctx.today).map((x) => sessionKey(x.date, x.slot)));
+  const progress = progressSummary(dueKeys, ctx.checkIns);
   const restart = index < 0 ? "from the start of your plan" : `from Monday ${formatDate(nextMonday)}`;
   const INJURY_NOTES: Record<string, string> = {
     reported: "Your plan is adapted from today. Check Today and Plan for what's changed.",
@@ -123,7 +126,13 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
           {index < 0
             ? `Starts ${formatDate(input.startDate)}`
             : `Week ${Math.min(index + 1, total)} of ${total} · ${PHASE_LABEL[current.phase]} phase`}
-          . Your session history will show here once you start checking in.
+          .
+          {progress.due > 0 && (
+            <>
+              {" "}
+              {progress.done} of {plural(progress.due, "session")} done so far{progress.skipped > 0 && `, ${progress.skipped} skipped`}.
+            </>
+          )}
         </p>
       </section>
 

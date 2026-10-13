@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Dumbbell, Footprints } from "lucide-react";
-import { toast } from "sonner";
+import { Check, Dumbbell, Footprints } from "lucide-react";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { formatMinutes, INTENSITY_COLOR, INTENSITY_LABEL } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { DayView, Effort, LiftView, RunView, SessionView } from "@/lib/week-view";
+import { CheckInPanel, checkInSummary, type CheckInOptions } from "./check-in-sheet";
 
 const EFFORT_BG: Record<Effort, string> = { easy: "bg-easy", moderate: "bg-moderate", hard: "bg-hard" };
 const EFFORT_TEXT: Record<Effort, string> = { easy: "text-easy", moderate: "text-moderate", hard: "text-hard" };
@@ -34,7 +34,7 @@ function SessionIcon({ type, className }: { type: SessionView["type"]; className
   );
 }
 
-/** Mon-Sun with dates: today circled, a blue dot for each run and an orange dot for each lift. */
+/** Mon-Sun with dates: today circled, a dot per session (blue run, orange lift), solid once done, grey if skipped. */
 export function WeekStrip({ days, today }: { days: DayView[]; today?: string }) {
   return (
     <ol className="grid grid-cols-7 text-center" aria-label="This week by day">
@@ -54,7 +54,14 @@ export function WeekStrip({ days, today }: { days: DayView[]; today?: string }) 
             </span>
             <span className="flex h-1.5 gap-0.5" aria-label={rest ? "Rest" : d.sessions.map((s) => (s.type === "run" ? "Run" : "Lift")).join(" and ")}>
               {d.sessions.map((s) => (
-                <span key={s.id} className={cn("size-1.5 rounded-full", s.type === "run" ? "bg-run" : "bg-strength")} />
+                <span
+                  key={s.id}
+                  className={cn(
+                    "size-1.5 rounded-full",
+                    s.checkIn?.status === "skipped" ? "bg-muted-foreground/40" : s.type === "run" ? "bg-run" : "bg-strength",
+                    !s.checkIn && "opacity-45",
+                  )}
+                />
               ))}
             </span>
           </li>
@@ -64,8 +71,8 @@ export function WeekStrip({ days, today }: { days: DayView[]; today?: string }) 
   );
 }
 
-/** The session sheet: details, then Skip and Mark done (which arrive with check-ins). */
-function useSessionSheet() {
+/** The session sheet: details, then Skip and Mark done, or the check-in once there is one. */
+function useSessionSheet(options: CheckInOptions) {
   const [open, setOpen] = useState<{ session: SessionView; day: DayView } | null>(null);
   const sheet = (
     <Drawer open={open !== null} onOpenChange={(o) => !o && setOpen(null)}>
@@ -73,14 +80,7 @@ function useSessionSheet() {
         {open && (
           <div className="mx-auto w-full max-w-md overflow-y-auto px-4 pb-8">
             {open.session.type === "run" ? <RunSheet run={open.session} /> : <LiftSheet lift={open.session} day={open.day} />}
-            <div className="mt-6 grid grid-cols-2 gap-2">
-              <button type="button" className="h-12 rounded-xl border font-medium hover:bg-accent" onClick={() => toast("Skipping sessions arrives with check-ins, coming next.")}>
-                Skip
-              </button>
-              <button type="button" className="h-12 rounded-xl bg-primary font-semibold text-primary-foreground" onClick={() => toast("Marking sessions done arrives with check-ins, coming next.")}>
-                Mark done
-              </button>
-            </div>
+            <CheckInPanel key={open.session.id} session={open.session} options={options} onClose={() => setOpen(null)} />
           </div>
         )}
       </DrawerContent>
@@ -90,7 +90,8 @@ function useSessionSheet() {
 }
 
 /** What a session is, in a few words: effort for runs, exercise count for lifts. */
-function detail(s: SessionView) {
+function detail(s: SessionView, unit: "km" | "mi") {
+  if (s.checkIn) return <span className={cn(s.checkIn.status === "completed" && "font-medium text-easy")}>{checkInSummary(s.checkIn, unit)}</span>;
   return s.type === "run" ? (
     <span className={cn("font-medium", INTENSITY_COLOR[s.intensity])}>{INTENSITY_LABEL[s.intensity]}</span>
   ) : (
@@ -99,8 +100,8 @@ function detail(s: SessionView) {
 }
 
 /** Today's sessions, each as a card with the one main action on the screen. */
-export function TodaySessions({ day }: { day: DayView }) {
-  const { show, sheet } = useSessionSheet();
+export function TodaySessions({ day, options }: { day: DayView; options: CheckInOptions }) {
+  const { show, sheet } = useSessionSheet(options);
   return (
     <>
       {day.sessions.map((s) => (
@@ -120,9 +121,16 @@ export function TodaySessions({ day }: { day: DayView }) {
             {s.type === "run" ? s.purpose : s.exercises.map((e) => e.name).join(", ")}
           </p>
           {s.type === "run" && <EffortBar steps={s.steps} className="mt-3" />}
-          <button type="button" onClick={() => show(s, day)} className="mt-4 h-11 w-full rounded-xl bg-primary font-semibold text-primary-foreground active:scale-[0.99]">
-            Start session
-          </button>
+          {s.checkIn ? (
+            <button type="button" onClick={() => show(s, day)} className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border font-medium hover:bg-accent">
+              {s.checkIn.status === "completed" && <Check className="size-4 text-easy" aria-hidden />}
+              {checkInSummary(s.checkIn, options.unit)}
+            </button>
+          ) : (
+            <button type="button" onClick={() => show(s, day)} className="mt-4 h-11 w-full rounded-xl bg-primary font-semibold text-primary-foreground active:scale-[0.99]">
+              Start session
+            </button>
+          )}
         </article>
       ))}
       {sheet}
@@ -131,8 +139,9 @@ export function TodaySessions({ day }: { day: DayView }) {
 }
 
 /** Sessions as a plain list, one row each. With `showRest`, rest days get a quiet row too. */
-export function WeekDays({ days, today, showRest = false }: { days: DayView[]; today?: string; showRest?: boolean }) {
-  const { show, sheet } = useSessionSheet();
+export function WeekDays({ days, options, showRest = false }: { days: DayView[]; options: CheckInOptions; showRest?: boolean }) {
+  const today = options.today;
+  const { show, sheet } = useSessionSheet(options);
   return (
     <>
       <ul className="flex flex-col gap-2">
@@ -148,13 +157,13 @@ export function WeekDays({ days, today, showRest = false }: { days: DayView[]; t
           return d.sessions.map((s, i) => (
             <li key={s.id}>
               <button type="button" onClick={() => show(s, d)} className="flex w-full items-center gap-3 rounded-2xl border bg-card p-4 text-left transition-colors hover:bg-accent active:scale-[0.99]">
-                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-secondary">
-                  <SessionIcon type={s.type} />
+                <span className={cn("grid size-9 shrink-0 place-items-center rounded-xl", s.checkIn?.status === "completed" ? "bg-easy/15" : "bg-secondary")}>
+                  {s.checkIn?.status === "completed" ? <Check className="size-4 text-easy" aria-label="Done" /> : <SessionIcon type={s.type} />}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">{s.title}</span>
+                  <span className={cn("block truncate font-medium", s.checkIn?.status === "skipped" && "text-muted-foreground line-through")}>{s.title}</span>
                   <span className="block text-xs text-muted-foreground">
-                    <span className={cn(d.date === today && "font-medium text-foreground")}>{day}</span> · {detail(s)}
+                    <span className={cn(d.date === today && "font-medium text-foreground")}>{day}</span> · {detail(s, options.unit)}
                     {i === 0 && d.note && <> · {d.note}</>}
                   </span>
                 </span>

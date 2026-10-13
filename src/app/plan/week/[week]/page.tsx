@@ -55,7 +55,7 @@ async function WeekContent({ params }: { params: PageProps<"/plan/week/[week]">[
   if (!week) notFound();
 
   const built = builtWeeks(ctx)[week.weekNumber - 1].week;
-  const days = weekDays(built, ctx.paces);
+  const days = weekDays(built, ctx.paces, ctx.checkIns);
   const runs = built.sessions.filter((s) => s.type === "run");
   const prev = week.weekNumber > 1 ? week.weekNumber - 1 : null;
   const next = week.weekNumber < ctx.outline.weeks.length ? week.weekNumber + 1 : null;
@@ -103,7 +103,7 @@ async function WeekContent({ params }: { params: PageProps<"/plan/week/[week]">[
 
       <section aria-label="Sessions by day" className="flex flex-col gap-4">
         <WeekStrip days={days} today={ctx.today} />
-        <WeekDays days={days} today={ctx.today} showRest />
+        <WeekDays days={days} options={{ canCheckIn: !ctx.isDemo, today: ctx.today, unit: ctx.paces.unit }} showRest />
       </section>
     </>
   );

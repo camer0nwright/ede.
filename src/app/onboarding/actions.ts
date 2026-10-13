@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { answersToAthleteRow } from "@/lib/db-mapping";
+import { answersToAthleteRow, toDbDate } from "@/lib/db-mapping";
 import { OnboardingAnswers, targetDateProblem, toOutlineInput } from "@/lib/onboarding";
 import { buildPlanOutline } from "@/lib/plan-outline";
 import { ATHLETE_COOKIE } from "@/server/athlete";
@@ -57,7 +57,8 @@ export async function saveOnboarding(raw: unknown): Promise<SaveResult> {
         await tx.availabilityDay.createMany({ data: a.availability.map((d, dayOfWeek) => ({ athleteId: signedIn, dayOfWeek, ...d })) });
         await tx.planOutline.updateMany({ where: { athleteId: signedIn, active: true }, data: { active: false } });
         await tx.planOutline.create({ data: { athleteId: signedIn, input: JSON.stringify(input), outline: JSON.stringify(outline) } });
-        await tx.planWeek.deleteMany({ where: { athleteId: signedIn } });
+        // Weeks from the old plan that are under way or done stay as history.
+        await tx.planWeek.deleteMany({ where: { athleteId: signedIn, weekStart: { gte: toDbDate(input.startDate) } } });
         const active = await tx.injury.count({ where: { athleteId: signedIn, resolvedAt: null } });
         if (injury && active === 0) await tx.injury.create({ data: { ...injury, athleteId: signedIn } });
       });

@@ -27,9 +27,14 @@ async function Today({ searchParams }: { searchParams: PageProps<"/">["searchPar
   const index = Math.floor(daysBetween(ctx.input.startDate, ctx.today) / 7);
   const notStarted = index < 0;
   const { week } = weeks[Math.min(Math.max(index, 0), weeks.length - 1)];
-  const days = weekDays(week, ctx.paces);
+  const days = weekDays(week, ctx.paces, ctx.checkIns);
+  const options = { canCheckIn: !ctx.isDemo, today: ctx.today, unit: ctx.paces.unit };
   const today = days.find((d) => d.date === ctx.today);
   const upcoming = notStarted ? days : days.filter((d) => d.date > ctx.today);
+  // Earlier this week, sessions not yet marked done or skipped.
+  const missed = ctx.isDemo
+    ? []
+    : days.filter((d) => d.date < ctx.today).map((d) => ({ ...d, sessions: d.sessions.filter((s) => !s.checkIn) })).filter((d) => d.sessions.length > 0);
   const next = upcoming.find((d) => d.sessions.length > 0);
   const runMinutes = week.sessions.filter((s) => s.type === "run").reduce((sum, s) => sum + s.plannedMinutes, 0);
   const lifts = week.sessions.filter((s) => s.type === "strength").length;
@@ -51,7 +56,7 @@ async function Today({ searchParams }: { searchParams: PageProps<"/">["searchPar
       <WeekStrip days={days} today={ctx.today} />
 
       {today && today.sessions.length > 0 ? (
-        <TodaySessions day={today} />
+        <TodaySessions day={today} options={options} />
       ) : (
         <section aria-label="Today" className="rounded-2xl border bg-card p-4">
           <p className="text-xs font-medium text-muted-foreground">{notStarted ? "Starts Monday" : "Rest day"}</p>
@@ -61,6 +66,14 @@ async function Today({ searchParams }: { searchParams: PageProps<"/">["searchPar
               {notStarted ? "First up" : "Next"}: {next.dayName} · {next.sessions[0].title} · {formatMinutes(next.sessions[0].minutes)}
             </p>
           )}
+        </section>
+      )}
+
+      {missed.length > 0 && (
+        <section aria-label="Still to check in" className="flex flex-col gap-2">
+          <h2 className="font-semibold">Still to check in</h2>
+          <p className="text-sm text-muted-foreground">Mark these done or skipped so your plan knows how the week went.</p>
+          <WeekDays days={missed} options={options} />
         </section>
       )}
 
@@ -75,7 +88,7 @@ async function Today({ searchParams }: { searchParams: PageProps<"/">["searchPar
           {PHASE_LABEL[week.phase]} · {formatMinutes(runMinutes)} running · {plural(lifts, "lift")}
         </p>
         {next ? (
-          <WeekDays days={upcoming} today={ctx.today} />
+          <WeekDays days={upcoming} options={options} />
         ) : (
           <p className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">That&apos;s this week done. Next week is in Plan.</p>
         )}

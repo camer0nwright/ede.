@@ -1,5 +1,6 @@
 // Turns a built week into what the week and session screens show: every day
 // Monday to Sunday, each session with its purpose, tip and details.
+import { sessionKey, type CheckIn } from "./checkin";
 import { addDays, dayOfWeek } from "./dates";
 import { DAY_NAMES, EASY_MAX_RPE, type BodyFocus, type Intensity, type PlannedSession, type RunStep, type WeekPlan } from "./domain";
 import { defaultRestSeconds, findExercise } from "./exercise-library";
@@ -14,9 +15,11 @@ export type Effort = "easy" | "moderate" | "hard";
 /** How a step's effort shows in colour: RPE 4 or less easy, 5-6 moderate, 7+ hard. */
 export const effortOf = (rpe: number): Effort => (rpe <= EASY_MAX_RPE ? "easy" : rpe <= 6 ? "moderate" : "hard");
 
-export type RunView = {
+/** What every session view has: where it is in the week, and its check-in if there is one. */
+type SessionBase = { id: string; date: string; slot: 1 | 2; checkIn?: CheckIn };
+
+export type RunView = SessionBase & {
   type: "run";
-  id: string;
   title: string;
   minutes: number;
   intensity: Intensity;
@@ -28,9 +31,8 @@ export type RunView = {
   steps: (RunStep & { effort: Effort; pace?: string })[];
 };
 
-export type LiftView = {
+export type LiftView = SessionBase & {
   type: "strength";
-  id: string;
   title: string;
   minutes: number;
   focus: BodyFocus;
@@ -58,13 +60,16 @@ const LIFT_PURPOSE: Record<BodyFocus, string> = {
   full: "Whole-body strength in one efficient session.",
 };
 
-function runView(s: Extract<PlannedSession, { type: "run" }>, dayName: string, paces?: PaceOptions): RunView {
+function runView(s: Extract<PlannedSession, { type: "run" }>, dayName: string, paces?: PaceOptions, checkIn?: CheckIn): RunView {
   const kind = s.kind;
   const levels = kind ? maxLevel(kind) : 1;
   const role = kind ? RUN_LIBRARY[kind].role : "easy";
   return {
     type: "run",
-    id: `${s.date}-${s.slot}`,
+    id: sessionKey(s.date, s.slot),
+    date: s.date,
+    slot: s.slot,
+    ...(checkIn && { checkIn }),
     title: s.title,
     minutes: s.plannedMinutes,
     intensity: s.intensity,
@@ -80,11 +85,14 @@ function runView(s: Extract<PlannedSession, { type: "run" }>, dayName: string, p
   };
 }
 
-function liftView(s: Extract<PlannedSession, { type: "strength" }>): LiftView {
+function liftView(s: Extract<PlannedSession, { type: "strength" }>, checkIn?: CheckIn): LiftView {
   const light = s.exercises.every((e) => e.targetRpe <= 7);
   return {
     type: "strength",
-    id: `${s.date}-${s.slot}`,
+    id: sessionKey(s.date, s.slot),
+    date: s.date,
+    slot: s.slot,
+    ...(checkIn && { checkIn }),
     title: s.title,
     minutes: s.plannedMinutes,
     focus: s.bodyFocus,
@@ -99,14 +107,17 @@ function liftView(s: Extract<PlannedSession, { type: "strength" }>): LiftView {
   };
 }
 
-export function weekDays(week: WeekPlan, paces?: PaceOptions): DayView[] {
+export function weekDays(week: WeekPlan, paces?: PaceOptions, checkIns: Record<string, CheckIn> = {}): DayView[] {
   return Array.from({ length: 7 }, (_, i) => {
     const date = addDays(week.weekStart, i);
     const dayName = DAY_NAMES[dayOfWeek(date)];
     const sessions = week.sessions
       .filter((s) => s.date === date)
       .sort((a, b) => a.slot - b.slot)
-      .map((s) => (s.type === "run" ? runView(s, dayName, paces) : liftView(s)));
+      .map((s) => {
+        const checkIn = checkIns[sessionKey(s.date, s.slot)];
+        return s.type === "run" ? runView(s, dayName, paces, checkIn) : liftView(s, checkIn);
+      });
     return { date, dayName, sessions, ...(week.dayNotes[date] && { note: week.dayNotes[date] }) };
   });
 }
