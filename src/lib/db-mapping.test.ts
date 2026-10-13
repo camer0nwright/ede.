@@ -4,6 +4,7 @@ import {
   fromKg,
   rowToPastWeek,
   rowToSession,
+  rowToWeekPlan,
   sessionToRow,
   toKg,
   weekToRow,
@@ -35,6 +36,11 @@ describe("database mapping", () => {
     const row = weekToRow(demoWeek);
     expect([row.runMinutes, row.strengthMinutes, row.phase]).toEqual([230, 80, "base"]);
     expect(rowToPastWeek({ ...row, quality: null })).toEqual({ totalMinutes: 310, runMinutes: 230, phase: "base" });
+  });
+
+  it("reads a stored week back exactly as it was planned", () => {
+    const row = { ...weekToRow(demoWeek), sessions: [...demoWeek.sessions].reverse().map(sessionToRow) };
+    expect(rowToWeekPlan(row)).toEqual(demoWeek);
   });
 
   it("stores and reads back quality sessions for the variety rule", () => {

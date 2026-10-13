@@ -43,8 +43,8 @@ export function NavBar({ active }: { active: string | null }) {
 /** Reads the URL to highlight the current tab. Wrap in Suspense with <NavBar active={null} />. */
 export function BottomNav() {
   const pathname = usePathname();
-  // Onboarding is full screen.
-  if (pathname.startsWith("/onboarding")) return null;
+  // Full-screen flows with their own buttons at the bottom.
+  if (pathname.startsWith("/onboarding") || pathname.startsWith("/you/edit")) return null;
   const active = ITEMS.find(({ href }) => (href === "/" ? pathname === "/" : pathname.startsWith(href)))?.href ?? null;
   return <NavBar active={active} />;
 }

@@ -190,3 +190,90 @@ export function stepProblem(step: Step, d: Draft): string | null {
       return null;
   }
 }
+
+/** A saved athlete, as the database holds them (the fields the setup screens use). */
+export type SavedAthlete = {
+  name: string | null;
+  goalType: string;
+  goalDetail: string | null;
+  targetDate: string | null;
+  raceDistance: string | null;
+  ultraDistanceKm: number | null;
+  elevationGainM: number | null;
+  terrain: string | null;
+  experienceLevel: string;
+  strengthVolume: string;
+  lastWeekRunMinutes: number | null;
+  longestRecentRunMinutes: number | null;
+  targetTimeSeconds: number | null;
+  justFinish: boolean;
+  runsPerWeek: number | null;
+  liftsPerWeek: number | null;
+  recent5kMinutes: number | null;
+  equipment: string | null;
+  injuryHistory: string | null;
+  weightUnit: string;
+  distanceUnit: string;
+  /** Monday to Sunday. */
+  availability: Availability;
+  injury: (Injury & { notes: string | null }) | null;
+};
+
+/** A saved athlete as a filled-in draft, so the You section can edit one part of it. */
+export function athleteToDraft(a: SavedAthlete): Draft {
+  const race = a.goalType === "race";
+  const short = a.raceDistance === "5k" || a.raceDistance === "10k";
+  const t = a.targetTimeSeconds ?? 0;
+  const five = a.recent5kMinutes ? Math.round(a.recent5kMinutes * 60) : 0;
+  const days = a.availability.flatMap((d, i) => (d.minutes === null ? [] : [i]));
+  const minutesOn = (weekend: boolean) =>
+    Math.max(0, ...a.availability.filter((d, i) => d.minutes !== null && i >= 5 === weekend).map((d) => d.minutes!));
+  return {
+    ...START,
+    name: a.name ?? "",
+    goalType: a.goalType as GoalType,
+    ...(a.raceDistance && { raceDistance: a.raceDistance as RaceDistance }),
+    ...(a.ultraDistanceKm !== null && { ultraDistanceKm: a.ultraDistanceKm }),
+    terrain: (a.terrain as Terrain | null) ?? "road",
+    ...(a.elevationGainM !== null && { elevationGainM: a.elevationGainM }),
+    targetDate: a.targetDate ?? "",
+    timeBig: race && t ? String(short ? Math.floor(t / 60) : Math.floor(t / 3600)) : "",
+    timeSmall: race && t ? String(short ? t % 60 : Math.floor((t % 3600) / 60)).padStart(2, "0") : "",
+    justFinish: race && a.justFinish,
+    goalDetail: a.goalDetail ?? "",
+    experienceLevel: a.experienceLevel as ExperienceLevel,
+    lastWeekRunMinutes: a.lastWeekRunMinutes ?? 0,
+    longestRecentRunMinutes: a.longestRecentRunMinutes ?? 0,
+    fiveKMin: five ? String(Math.floor(five / 60)) : "",
+    fiveKSec: five ? String(five % 60).padStart(2, "0") : "",
+    ...(a.runsPerWeek !== null && { runsPerWeek: a.runsPerWeek }),
+    ...(a.liftsPerWeek !== null && { liftsPerWeek: a.liftsPerWeek }),
+    strengthVolume: a.strengthVolume as StrengthVolume,
+    quick: { days, weekdayMinutes: minutesOn(false) || START_WEEK.weekdayMinutes, weekendMinutes: minutesOn(true) || START_WEEK.weekendMinutes },
+    equipment: (a.equipment ?? "Full gym").split(", ").filter((e): e is Draft["equipment"][number] => (EQUIPMENT_OPTIONS as readonly string[]).includes(e)),
+    hasInjury: a.injury !== null,
+    injury: a.injury ? { ...a.injury, notes: a.injury.notes ?? "" } : START.injury,
+    injuryHistory: a.injuryHistory ?? "",
+    availability: a.availability,
+    weightUnit: a.weightUnit === "lb" ? "lb" : "kg",
+    distanceUnit: a.distanceUnit === "mi" ? "mi" : "km",
+  };
+}
+
+/** The parts of the plan the You section edits one at a time, and the setup screen each uses. */
+export const SECTIONS = {
+  goal: { title: "Goal", step: "goal" },
+  training: { title: "Training", step: "experience" },
+  lifting: { title: "Lifting", step: "strength" },
+  week: { title: "Your week", step: "week" },
+} as const satisfies Record<string, { title: string; step: Step }>;
+export type SectionId = keyof typeof SECTIONS;
+export const isSection = (s: string): s is SectionId => s in SECTIONS;
+
+/** What's missing before a section can be saved. Changing session counts must still fit the week. */
+export function sectionProblem(section: SectionId, d: Draft): string | null {
+  const problem = stepProblem(SECTIONS[section].step, d);
+  if (problem) return problem;
+  if (section !== "week" && stepProblem("week", d)) return "Your week doesn't have room for that many sessions. Change Your week first, or pick fewer.";
+  return null;
+}

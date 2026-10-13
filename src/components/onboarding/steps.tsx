@@ -22,7 +22,12 @@ import { Chip, Field, Note, OptionCard } from "./choices";
 import { DISTANCES, effective, fiveKSeconds, PAIN_WHEN, shortRace, targetSeconds, today, type Draft } from "./draft";
 import { WeekPlanner } from "./week-planner";
 
-export type StepProps = { draft: Draft; update: (patch: Partial<Draft>) => void };
+export type StepProps = {
+  draft: Draft;
+  update: (patch: Partial<Draft>) => void;
+  /** Editing a saved plan from the You section rather than setting one up. */
+  editing?: boolean;
+};
 
 export function StepGoal({ draft, update }: StepProps) {
   const ultra = draft.goalType === "race" && draft.raceDistance === "ultra";
@@ -149,18 +154,21 @@ export function StepGoal({ draft, update }: StepProps) {
   );
 }
 
-export function StepExperience({ draft, update }: StepProps) {
+export function StepExperience({ draft, update, editing = false }: StepProps) {
   const eff = effective(draft);
   const predictedNote = draft.justFinish || draft.goalType !== "race" ? null : desiredVsPredicted(draft.raceDistance, targetSeconds(draft), fiveKSeconds(draft));
   return (
     <>
           <>
-        <Heading title="Where are you starting from?" />
+        <Heading title={editing ? "Training" : "Where are you starting from?"} />
         <div className="flex flex-col gap-2">
           <OptionCard selected={draft.experienceLevel === "beginner"} onClick={() => update({ experienceLevel: "beginner" })} title="Beginner" description="New to running, lifting, or both. We'll start gently with run/walk and simple lifts." />
           <OptionCard selected={draft.experienceLevel === "intermediate"} onClick={() => update({ experienceLevel: "intermediate" })} title="Intermediate" description="You run and lift fairly regularly and know the main lifts." />
           <OptionCard selected={draft.experienceLevel === "advanced"} onClick={() => update({ experienceLevel: "advanced" })} title="Advanced" description="Years of consistent training, and you've raced before." />
         </div>
+        {/* When editing, the plan carries on from your actual weeks instead. */}
+        {!editing && (
+          <>
         <Field label="Roughly how much did you run last week?">
           <div className="flex flex-wrap gap-2">
             {LAST_WEEK_RUN_OPTIONS.map((o) => (
@@ -179,6 +187,8 @@ export function StepExperience({ draft, update }: StepProps) {
             ))}
           </div>
         </Field>
+          </>
+        )}
         <Field label="A recent 5K time (optional)" hint="Adds pace guides to your sessions. A race or a hard solo 5K in the last couple of months is best.">
           <div className="flex items-center gap-2">
             <Input type="number" inputMode="numeric" min={10} max={60} className="w-20 text-center" value={draft.fiveKMin} onChange={(e) => update({ fiveKMin: e.target.value })} aria-label="5K minutes" placeholder="mm" />
@@ -199,13 +209,13 @@ export function StepExperience({ draft, update }: StepProps) {
   );
 }
 
-export function StepStrength({ draft, update }: StepProps) {
+export function StepStrength({ draft, update, editing = false }: StepProps) {
   const eff = effective(draft);
   const volumeNote = strengthVolumeNote({ strengthVolume: eff.volume, raceDistance: draft.raceDistance, experienceLevel: draft.experienceLevel, runsPerWeek: eff.runs });
   return (
     <>
           <>
-        <Heading title="How much lifting?" sub="You can change this later in your profile." />
+        <Heading title="How much lifting?" sub={editing ? undefined : "You can change this later in your profile."} />
         <div className="flex flex-col gap-2">
           <OptionCard selected={eff.volume === "low"} onClick={() => update({ strengthVolume: "low" })} title="Low" badge={eff.recVolume === "low" ? "Recommended" : undefined} description="3-5 exercises, 2 hard working sets each, 30-45 min. Keeps your legs fresh for running." />
           <OptionCard selected={eff.volume === "moderate"} onClick={() => update({ strengthVolume: "moderate" })} title="Moderate" badge={eff.recVolume === "moderate" ? "Recommended" : undefined} description="4-6 exercises, 3 working sets each, 45-60 min. A solid balance of strength and running." />

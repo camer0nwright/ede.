@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { toDbDate } from "@/lib/db-mapping";
+import { answersToAthleteRow } from "@/lib/db-mapping";
 import { OnboardingAnswers, targetDateProblem, toOutlineInput } from "@/lib/onboarding";
 import { buildPlanOutline } from "@/lib/plan-outline";
 import { ATHLETE_COOKIE } from "@/server/athlete";
@@ -38,24 +38,10 @@ export async function saveOnboarding(raw: unknown): Promise<SaveResult> {
     athlete = await db.athlete.create({
       data: {
         name: a.name || null,
-        goalType: a.goalType,
-        goalDetail: a.goalDetail || null,
-        targetDate: input.targetDate ? toDbDate(input.targetDate) : null,
-        raceDistance: input.raceDistance ?? null,
-        ultraDistanceKm: input.ultraDistanceKm ?? null,
-        elevationGainM: a.elevationGainM ?? null,
-        terrain: input.terrain ?? null,
-        experienceLevel: a.experienceLevel,
-        strengthVolume: a.strengthVolume,
+        ...answersToAthleteRow(a, input),
         currentTraining: a.currentTraining || null,
         lastWeekRunMinutes: a.lastWeekRunMinutes,
         longestRecentRunMinutes: a.longestRecentRunMinutes,
-        recent5kMinutes: a.recent5kSeconds ? a.recent5kSeconds / 60 : null,
-        targetTimeSeconds: a.goalType === "race" && !a.justFinish ? (a.targetTimeSeconds ?? null) : null,
-        justFinish: a.goalType === "race" && (a.justFinish ?? false),
-        runsPerWeek: a.runsPerWeek,
-        liftsPerWeek: a.liftsPerWeek,
-        equipment: a.equipment.join(", "),
         injuryHistory: a.injuryHistory || null,
         weightUnit: a.weightUnit,
         distanceUnit: a.distanceUnit,

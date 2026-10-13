@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ALL_RULES, runMinutes, totalMinutes, type PastWeek } from "@/server/plan-checker/rules";
 import { PROFILES } from "@/test/profiles";
 import { buildPlanOutline } from "./plan-outline";
-import { continuityFrom, mondayOf, rebuildOutline, rebuildStart, returnFromInjury } from "./plan-rebuild";
+import { continuityFrom, continuityFromWeeks, mondayOf, rebuildOutline, rebuildStart, returnFromInjury } from "./plan-rebuild";
 import { RUN_LIBRARY } from "./session-library";
 import { equipmentFromAnswers } from "./strength-builder";
 import { buildPlanWeeks } from "./week-builder";
@@ -53,7 +53,7 @@ describe("plan rebuild", () => {
     for (const keep of [1, 2, 3, 5, 6, 9]) {
       const oldWeeks = buildPlanWeeks(old, build);
       const start = old.weeks[keep].weekStart;
-      const rebuilt = rebuildOutline(old, { ...input, ...continuityFrom(oldWeeks[keep - 1].week), runsPerWeek: 3, liftsPerWeek: 3 }, start);
+      const rebuilt = rebuildOutline(old, { ...input, ...continuityFromWeeks(oldWeeks.slice(0, keep).map((b) => b.week)), runsPerWeek: 3, liftsPerWeek: 3 }, start);
       const weeks = buildPlanWeeks(rebuilt, build);
       const history: PastWeek[] = [];
       weeks.forEach(({ week }, i) => {

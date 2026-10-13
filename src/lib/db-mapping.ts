@@ -10,6 +10,8 @@ import {
   StrengthExercise,
   type WeekPlan,
 } from "./domain";
+import type { OnboardingAnswers } from "./onboarding";
+import type { OutlineInput } from "./plan-outline";
 import { defaultRestSeconds, failureAllowed, weightStepKg, type ExerciseInfo } from "./exercise-library";
 import { RUN_LIBRARY } from "./session-library";
 
@@ -94,6 +96,27 @@ export function weekToRow(week: WeekPlan) {
   };
 }
 
+/** A stored week and its sessions back as a WeekPlan. */
+export function rowToWeekPlan(row: {
+  weekStart: Date;
+  weekNumber: number;
+  phase: string;
+  dayNotes: string | null;
+  coachNote: string | null;
+  sessions: SessionRow[];
+}): WeekPlan {
+  return {
+    weekStart: fromDbDate(row.weekStart),
+    weekNumber: row.weekNumber,
+    phase: Phase.parse(row.phase),
+    sessions: [...row.sessions]
+      .sort((x, y) => x.date.getTime() - y.date.getTime() || x.slot - y.slot)
+      .map(rowToSession),
+    dayNotes: json(z.record(z.string(), z.string()), row.dayNotes) ?? {},
+    coachNote: row.coachNote ?? "",
+  };
+}
+
 const Quality = z.array(z.object({ kind: RunKind, level: z.number().int().min(1) }));
 
 /** A stored week as the plan checker's history entry (see PastWeek in the checker). */
@@ -128,3 +151,25 @@ export function exerciseToRow(e: ExerciseInfo) {
 export const LB_PER_KG = 2.20462;
 export const toKg = (weight: number, unit: "kg" | "lb") => (unit === "kg" ? weight : weight / LB_PER_KG);
 export const fromKg = (kg: number, unit: "kg" | "lb") => (unit === "kg" ? kg : kg * LB_PER_KG);
+
+/** The Athlete columns that come from the setup answers (not name, units or injuries, which are saved separately). */
+export function answersToAthleteRow(a: OnboardingAnswers, input: OutlineInput) {
+  const race = a.goalType === "race";
+  return {
+    goalType: a.goalType,
+    goalDetail: a.goalDetail || null,
+    targetDate: input.targetDate ? toDbDate(input.targetDate) : null,
+    raceDistance: input.raceDistance ?? null,
+    ultraDistanceKm: input.ultraDistanceKm ?? null,
+    elevationGainM: race ? (a.elevationGainM ?? null) : null,
+    terrain: input.terrain ?? null,
+    experienceLevel: a.experienceLevel,
+    strengthVolume: a.strengthVolume,
+    recent5kMinutes: a.recent5kSeconds ? a.recent5kSeconds / 60 : null,
+    targetTimeSeconds: race && !a.justFinish ? (a.targetTimeSeconds ?? null) : null,
+    justFinish: race && (a.justFinish ?? false),
+    runsPerWeek: a.runsPerWeek,
+    liftsPerWeek: a.liftsPerWeek,
+    equipment: a.equipment.join(", "),
+  };
+}

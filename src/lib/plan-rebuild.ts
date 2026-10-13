@@ -26,6 +26,12 @@ export function continuityFrom(week: WeekPlan | undefined): { lastWeekRunMinutes
   };
 }
 
+/** Continuity from the weeks kept: the last full week, since recovery and taper weeks are deliberately lighter. */
+export function continuityFromWeeks(kept: WeekPlan[]) {
+  const full = kept.findLast((w) => w.phase !== "recovery" && w.phase !== "taper");
+  return continuityFrom(full ?? kept.at(-1));
+}
+
 /**
  * The old plan's weeks before `start`, then a new outline from `start`,
  * numbered on from the kept weeks. Blocks continue too, so main lifts change
