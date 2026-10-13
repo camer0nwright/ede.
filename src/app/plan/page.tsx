@@ -1,11 +1,12 @@
 import { Suspense } from "react";
 import { DemoBanner } from "@/components/demo-banner";
+import { InjuryBanner } from "@/components/injury-banner";
 import { PageSkeleton } from "@/components/page-skeleton";
 import { PhaseStrip } from "@/components/plan/phase-strip";
 import { WeekCard } from "@/components/plan/week-card";
 import { MedicalNotice } from "@/components/medical-notice";
 import { daysBetween } from "@/lib/dates";
-import { getPlanContext } from "@/server/athlete";
+import { builtWeeks, getPlanContext } from "@/server/athlete";
 import { formatDate } from "@/lib/format";
 
 export const metadata = { title: "Plan · ede." };
@@ -48,6 +49,7 @@ async function Plan() {
       </section>
 
       {ctx.isDemo && <DemoBanner />}
+      {ctx.injury && <InjuryBanner injury={ctx.injury} />}
 
       {notes.length > 0 && (
         <ul className="flex flex-col gap-2 text-sm">
@@ -60,8 +62,8 @@ async function Plan() {
       )}
 
       <section aria-label="Weeks" className="flex flex-col gap-2">
-        {weeks.map((w) => (
-          <WeekCard key={w.weekNumber} week={w} current={w.weekNumber === currentWeek} />
+        {builtWeeks(ctx).map(({ week, injured }) => (
+          <WeekCard key={week.weekNumber} week={week} injured={injured} current={week.weekNumber === currentWeek} />
         ))}
       </section>
 

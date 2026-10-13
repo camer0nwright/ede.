@@ -1,14 +1,20 @@
 import Link from "next/link";
 import { ChevronRight, Dumbbell, Footprints } from "lucide-react";
-import type { OutlineWeek } from "@/lib/plan-outline";
+import type { WeekPlan } from "@/lib/domain";
 import { formatMinutes, formatWeekRange, PHASE_COLOR, PHASE_LABEL } from "@/lib/format";
 import { RUN_LIBRARY } from "@/lib/session-library";
 import { cn } from "@/lib/utils";
 
-export function WeekCard({ week, current }: { week: OutlineWeek; current?: boolean }) {
-  const quality = week.runs.filter((r) => r.role === "quality").map((r) => RUN_LIBRARY[r.kind].label);
-  const long = week.runs.filter((r) => r.role === "long");
-  const headline = [...quality, ...long.map((r) => `${r.backToBack ? "Back-to-back" : "Long run"} ${formatMinutes(r.minutes)}`)];
+/** One week in the plan list: its key sessions and totals, as built (injury changes included). */
+export function WeekCard({ week, current, injured }: { week: WeekPlan; current?: boolean; injured?: boolean }) {
+  const runs = week.sessions.filter((s) => s.type === "run");
+  const lifts = week.sessions.filter((s) => s.type === "strength");
+  const role = (s: (typeof runs)[number]) => (s.kind ? RUN_LIBRARY[s.kind].role : "easy");
+  const headline = [
+    ...runs.filter((r) => role(r) === "quality").map((r) => r.title),
+    ...runs.filter((r) => role(r) === "long").map((r) => `${r.title} ${formatMinutes(r.plannedMinutes)}`),
+  ];
+  const runMinutes = runs.reduce((sum, r) => sum + r.plannedMinutes, 0);
 
   return (
     <Link
@@ -30,15 +36,18 @@ export function WeekCard({ week, current }: { week: OutlineWeek; current?: boole
           <span>{formatWeekRange(week.weekStart)}</span>
           {current && <span className="font-semibold text-primary-strong">This week</span>}
         </div>
-        <p className="mt-1 truncate text-sm font-medium">{headline.join(" · ") || "Easy running"}</p>
+        <p className="mt-1 truncate text-sm font-medium">
+          {injured && <span className="text-hard">Injury · </span>}
+          {headline.join(" · ") || (runs.length > 0 ? "Easy running" : "No running")}
+        </p>
         <div className="mt-1.5 flex gap-4 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <Footprints className="size-3.5 text-run" aria-hidden />
-            {week.runs.length} runs · {formatMinutes(week.runMinutes)}
+            {runs.length} {runs.length === 1 ? "run" : "runs"} · {formatMinutes(runMinutes)}
           </span>
           <span className="flex items-center gap-1">
             <Dumbbell className="size-3.5 text-strength" aria-hidden />
-            {week.strength.length} {week.strength.length === 1 ? "lift" : "lifts"}
+            {lifts.length} {lifts.length === 1 ? "lift" : "lifts"}
           </span>
         </div>
       </div>

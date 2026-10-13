@@ -59,7 +59,9 @@ async function WeekContent({ params }: { params: PageProps<"/plan/week/[week]">[
   const week = ctx.outline.weeks.find((w) => String(w.weekNumber) === param);
   if (!week) notFound();
 
-  const days = weekDays(builtWeeks(ctx)[week.weekNumber - 1].week, ctx.paces);
+  const built = builtWeeks(ctx)[week.weekNumber - 1].week;
+  const days = weekDays(built, ctx.paces);
+  const runs = built.sessions.filter((s) => s.type === "run");
   const prev = week.weekNumber > 1 ? week.weekNumber - 1 : null;
   const next = week.weekNumber < ctx.outline.weeks.length ? week.weekNumber + 1 : null;
 
@@ -87,11 +89,13 @@ async function WeekContent({ params }: { params: PageProps<"/plan/week/[week]">[
         <p className="mt-2 text-sm text-muted-foreground">{PHASE_NOTE[week.phase]}</p>
       </header>
 
+      {built.coachNote && <p className="rounded-xl border border-hard/40 bg-hard/10 p-3 text-sm">{built.coachNote}</p>}
+
       <dl className="grid grid-cols-3 gap-2">
         {[
-          ["Running", formatMinutes(week.runMinutes)],
-          ["Runs", String(week.runs.length)],
-          ["Lifts", String(week.strength.length)],
+          ["Running", formatMinutes(runs.reduce((sum, r) => sum + r.plannedMinutes, 0))],
+          ["Runs", String(runs.length)],
+          ["Lifts", String(built.sessions.length - runs.length)],
         ].map(([label, value]) => (
           <div key={label} className="rounded-2xl border bg-card p-3">
             <dt className="text-xs text-muted-foreground">{label}</dt>

@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { DemoBanner } from "@/components/demo-banner";
+import { InjuryBanner } from "@/components/injury-banner";
 import { Logo } from "@/components/logo";
 import { MedicalNotice } from "@/components/medical-notice";
 import { PageSkeleton } from "@/components/page-skeleton";
@@ -42,6 +43,7 @@ async function Today() {
       </header>
 
       {ctx.isDemo && <DemoBanner />}
+      {ctx.injury && <InjuryBanner injury={ctx.injury} />}
 
       {today && today.sessions.length > 0 ? (
         <section aria-label="Today's sessions" className="flex flex-col gap-2">

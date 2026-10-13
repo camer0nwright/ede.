@@ -10,6 +10,7 @@ import { fromDbDate, rowToWeekPlan } from "@/lib/db-mapping";
 import { DEMO_ATHLETE, DEMO_TODAY, demoOutline, demoOutlineInput } from "@/lib/demo-athlete";
 import type { BodyArea, Injury, StrengthVolume, WeekPlan } from "@/lib/domain";
 import { formatDuration } from "@/lib/format";
+import { adaptWeeksForInjury } from "@/lib/injury";
 import type { OutlineInput, PlanOutline } from "@/lib/plan-outline";
 import { equipmentFromAnswers } from "@/lib/strength-builder";
 import { buildPlanWeeks, type BuiltWeek, type WeekBuildInput } from "@/lib/week-builder";
@@ -34,15 +35,33 @@ export type PlanContext = {
   paces: PaceOptions;
   /** Weeks saved as they were when the plan was last rebuilt, so they don't change under you. */
   storedWeeks: WeekPlan[];
+  /** The active injury, if any: the plan adapts around it from the day it was reported. */
+  injury?: ActiveInjury;
 };
 
+export type ActiveInjury = Injury & { id: string; notes: string | null; since: string };
+
 /** Every week of the plan with sessions on days (src/lib/week-builder.ts). */
-export function builtWeeks(ctx: PlanContext): BuiltWeek[] {
+export function builtWeeks(ctx: PlanContext): (BuiltWeek & { injured: boolean })[] {
   const stored = new Map(ctx.storedWeeks.map((w) => [w.weekStart, w]));
-  return buildPlanWeeks(ctx.outline, ctx.build).map((b) => {
+  const weeks = buildPlanWeeks(ctx.outline, ctx.build).map((b) => {
     const week = stored.get(b.week.weekStart);
     return week ? { week, placed: true } : b;
   });
+  if (!ctx.injury) return weeks.map((b) => ({ ...b, injured: false }));
+  const adapted = adaptWeeksForInjury(
+    weeks.map((b) => b.week),
+    {
+      injury: ctx.injury,
+      since: ctx.injury.since,
+      lastWeekRunMinutes: ctx.input.lastWeekRunMinutes,
+      blocks: ctx.outline.weeks.map((w) => w.block),
+      volume: ctx.input.strengthVolume,
+      equipment: ctx.build.equipment,
+      experienceLevel: ctx.input.experienceLevel,
+    },
+  );
+  return weeks.map((b, i) => ({ ...b, ...adapted[i] }));
 }
 
 const buildInput = (input: OutlineInput, equipment: string[], avoid?: BodyArea): WeekBuildInput => ({
@@ -98,6 +117,8 @@ export async function getPlanContext(): Promise<PlanContext> {
   if (!athlete || !current) return demoContext();
 
   const input = JSON.parse(current.input) as OutlineInput;
+  const injury = athlete.injuries[0];
+  const equipment = (athlete.equipment ?? "Full gym").split(", ");
   const ultra = athlete.raceDistance === "ultra" && athlete.ultraDistanceKm ? `${Math.round(athlete.ultraDistanceKm)}K ultra` : null;
   const title =
     athlete.goalType === "race"
@@ -122,9 +143,19 @@ export async function getPlanContext(): Promise<PlanContext> {
     outline: JSON.parse(current.outline) as PlanOutline,
     strengthVolume: athlete.strengthVolume as StrengthVolume,
     today: await requestDate(),
-    build: buildInput(input, (athlete.equipment ?? "Full gym").split(", "), athlete.injuries[0]?.area as BodyArea | undefined),
+    build: buildInput(input, equipment, injury?.area as BodyArea | undefined),
     paces: { fiveKSeconds: athlete.recent5kMinutes ? Math.round(athlete.recent5kMinutes * 60) : undefined, unit: athlete.distanceUnit === "mi" ? "mi" : "km" },
     storedWeeks: athlete.weeks.map(rowToWeekPlan),
+    ...(injury && {
+      injury: {
+        id: injury.id,
+        area: injury.area as Injury["area"],
+        painLevel: injury.painLevel,
+        painWhen: injury.painWhen as Injury["painWhen"],
+        notes: injury.notes,
+        since: injury.startedAt.toISOString().slice(0, 10),
+      },
+    }),
   };
 }
 
@@ -150,4 +181,16 @@ export async function getSavedAthlete(): Promise<{ id: string; saved: SavedAthle
       injury: injury ? { area: injury.area as Injury["area"], painLevel: injury.painLevel, painWhen: injury.painWhen as Injury["painWhen"], notes: injury.notes } : null,
     },
   };
+}
+
+/** Past injuries, most recent first. */
+export async function getInjuryHistory(athleteId: string) {
+  const rows = await db.injury.findMany({ where: { athleteId, resolvedAt: { not: null } }, orderBy: { startedAt: "desc" }, take: 10 });
+  return rows.map((r) => ({
+    id: r.id,
+    area: r.area as Injury["area"],
+    painLevel: r.painLevel,
+    since: r.startedAt.toISOString().slice(0, 10),
+    until: r.resolvedAt!.toISOString().slice(0, 10),
+  }));
 }

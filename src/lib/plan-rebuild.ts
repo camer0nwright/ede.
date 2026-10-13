@@ -51,15 +51,22 @@ export function rebuildOutline(old: PlanOutline, input: OutlineInput, start: str
   };
 }
 
+/**
+ * The share of the pre-injury load to come back at. Mild injuries kept some
+ * easy running: 80%. Otherwise about 10% less per week out, from 70%, never
+ * below 30% (the starting load then applies).
+ */
+export function returnShare(weeksOut: number, ranDuringInjury: boolean): number {
+  return ranDuringInjury ? 0.8 : Math.max(0.3, 0.7 - 0.1 * Math.max(0, weeksOut - 1));
+}
+
 /** A gentle return after an injury (SPEC decision 42): less load the longer and worse it was. */
 export function returnFromInjury(
   before: { lastWeekRunMinutes: number; longestRecentRunMinutes: number },
   weeksOut: number,
   ranDuringInjury: boolean,
 ): { lastWeekRunMinutes: number; longestRecentRunMinutes: number } {
-  // Mild injuries kept some easy running: come back at 80%. Otherwise lose about
-  // 10% per week out, from 70%, never below 30% (the starting load then applies).
-  const share = ranDuringInjury ? 0.8 : Math.max(0.3, 0.7 - 0.1 * Math.max(0, weeksOut - 1));
+  const share = returnShare(weeksOut, ranDuringInjury);
   return {
     lastWeekRunMinutes: Math.round(before.lastWeekRunMinutes * share),
     longestRecentRunMinutes: Math.round(before.longestRecentRunMinutes * share),

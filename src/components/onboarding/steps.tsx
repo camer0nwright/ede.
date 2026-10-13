@@ -255,44 +255,7 @@ export function StepInjury({ draft, update }: StepProps) {
         </div>
         {draft.hasInjury && (
           <>
-            <Field label="Where?">
-              <div className="flex flex-wrap gap-2">
-                {BODY_AREAS.map((a) => (
-                  <Chip key={a} selected={draft.injury.area === a} onClick={() => update({ injury: { ...draft.injury, area: a as BodyArea } })}>
-                    {a[0].toUpperCase() + a.slice(1)}
-                  </Chip>
-                ))}
-              </div>
-            </Field>
-            <Field label={`How bad? ${draft.injury.painLevel} out of 10`}>
-              <input
-                type="range"
-                min={0}
-                max={10}
-                step={1}
-                value={draft.injury.painLevel}
-                onChange={(e) => update({ injury: { ...draft.injury, painLevel: Number(e.target.value) } })}
-                className="h-11 w-full accent-[var(--primary)]"
-                aria-label="Pain level from 0 to 10"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>0 none</span>
-                <span>5 moderate</span>
-                <span>10 worst</span>
-              </div>
-            </Field>
-            <Field label="When does it hurt?">
-              <div className="flex flex-wrap gap-2">
-                {PAIN_WHEN.map((p) => (
-                  <Chip key={p.value} selected={draft.injury.painWhen === p.value} onClick={() => update({ injury: { ...draft.injury, painWhen: p.value } })}>
-                    {p.label}
-                  </Chip>
-                ))}
-              </div>
-            </Field>
-            <Field label="Anything else about it? (optional)">
-              <Textarea value={draft.injury.notes} onChange={(e) => update({ injury: { ...draft.injury, notes: e.target.value } })} maxLength={500} />
-            </Field>
+            <InjuryFields injury={draft.injury} onChange={(injury) => update({ injury })} />
           </>
         )}
         {draft.hasInjury !== undefined && (
@@ -436,5 +399,51 @@ export function NumberRow({
         </button>
       ))}
     </div>
+  );
+}
+
+/** Where it hurts, how much and when: used in setup and when reporting an injury. */
+export function InjuryFields({ injury, onChange }: { injury: Draft["injury"]; onChange: (injury: Draft["injury"]) => void }) {
+  return (
+    <>
+      <Field label="Where?">
+        <div className="flex flex-wrap gap-2">
+          {BODY_AREAS.map((a) => (
+            <Chip key={a} selected={injury.area === a} onClick={() => onChange({ ...injury, area: a as BodyArea })}>
+              {a[0].toUpperCase() + a.slice(1)}
+            </Chip>
+          ))}
+        </div>
+      </Field>
+      <Field label={`How bad? ${injury.painLevel} out of 10`}>
+        <input
+          type="range"
+          min={0}
+          max={10}
+          step={1}
+          value={injury.painLevel}
+          onChange={(e) => onChange({ ...injury, painLevel: Number(e.target.value) })}
+          className="h-11 w-full accent-[var(--primary)]"
+          aria-label="Pain level from 0 to 10"
+        />
+        <div className="flex justify-between text-xs text-muted-foreground">
+          <span>0 none</span>
+          <span>5 moderate</span>
+          <span>10 worst</span>
+        </div>
+      </Field>
+      <Field label="When does it hurt?">
+        <div className="flex flex-wrap gap-2">
+          {PAIN_WHEN.map((p) => (
+            <Chip key={p.value} selected={injury.painWhen === p.value} onClick={() => onChange({ ...injury, painWhen: p.value })}>
+              {p.label}
+            </Chip>
+          ))}
+        </div>
+      </Field>
+      <Field label="Anything else about it? (optional)">
+        <Textarea value={injury.notes} onChange={(e) => onChange({ ...injury, notes: e.target.value })} maxLength={500} />
+      </Field>
+    </>
   );
 }

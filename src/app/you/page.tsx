@@ -11,8 +11,10 @@ import { Button } from "@/components/ui/button";
 import { addDays, daysBetween } from "@/lib/dates";
 import { DAY_NAMES, summariseAvailability } from "@/lib/domain";
 import { formatDate, formatDayMinutes, formatDuration, PHASE_LABEL, plural } from "@/lib/format";
-import { mondayOf } from "@/lib/plan-rebuild";
-import { getPlanContext, getSavedAthlete } from "@/server/athlete";
+import { bandSummary, injuryBand } from "@/lib/injury";
+import { mondayOf, returnShare } from "@/lib/plan-rebuild";
+import { getInjuryHistory, getPlanContext, getSavedAthlete } from "@/server/athlete";
+import { InjuryBetter } from "@/components/you/injury-better";
 
 export const metadata = { title: "You · ede." };
 
@@ -29,6 +31,7 @@ export default function YouPage({ searchParams }: PageProps<"/you">) {
 
 async function You({ searchParams }: { searchParams: PageProps<"/you">["searchParams"] }) {
   const [ctx, loaded, query] = await Promise.all([getPlanContext(), getSavedAthlete(), searchParams]);
+  const pastInjuries = ctx.athleteId ? await getInjuryHistory(ctx.athleteId) : [];
   const { input, outline } = ctx;
   const saved = loaded?.saved;
   const ultra = input.raceDistance === "ultra";
@@ -40,6 +43,14 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
   const current = outline.weeks[Math.min(Math.max(index, 0), total - 1)];
   const weeksToRace = input.targetDate ? Math.ceil(daysBetween(ctx.today, input.targetDate) / 7) : null;
   const nextMonday = addDays(mondayOf(ctx.today), 7);
+
+  const injury = ctx.injury;
+  const restart = index < 0 ? "from the start of your plan" : `from Monday ${formatDate(nextMonday)}`;
+  const INJURY_NOTES: Record<string, string> = {
+    reported: "Your plan is adapted from today. Check Today and Plan for what's changed.",
+    updated: "Updated. Your plan adapts from today.",
+    better: `Welcome back. Your plan restarts gently ${restart}.`,
+  };
 
   const five = saved?.recent5kMinutes ? formatDuration(Math.round(saved.recent5kMinutes * 60)) : null;
   const sections: { id: SectionId; rows: [string, string][] }[] = [
@@ -80,6 +91,8 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
         <Note>{index < 0 ? "Saved. Your plan has been rebuilt with your changes." : `Saved. Your plan changes from Monday ${formatDate(nextMonday)}; this week stays as it is.`}</Note>
       )}
 
+      {typeof query.injury === "string" && INJURY_NOTES[query.injury] && <Note>{INJURY_NOTES[query.injury]}</Note>}
+
       <section aria-label="Plan progress" className="rounded-3xl bg-primary p-5 text-primary-foreground">
         <p className="text-xs font-semibold tracking-widest uppercase opacity-70">{index < 0 ? "Starts soon" : `${PHASE_LABEL[current.phase]} phase`}</p>
         <p className="mt-1 font-display text-4xl leading-none uppercase">
@@ -93,6 +106,60 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
         )}
         <p className="mt-1 text-xs opacity-70">Session stats arrive with check-ins.</p>
       </section>
+
+      {!ctx.isDemo && (
+        <section aria-label="Injuries" className={`rounded-2xl border p-4 ${injury ? "border-hard/40 bg-hard/5" : "bg-card"}`}>
+          <h2 className="font-display text-2xl uppercase">Injuries</h2>
+          {injury ? (
+            <>
+              <p className="mt-2 font-medium capitalize">
+                {injury.area} · {injury.painLevel}/10
+              </p>
+              <p className="text-sm text-muted-foreground">Since {formatDate(injury.since)}</p>
+              <p className="mt-2 text-sm">{bandSummary(injury)}</p>
+              {injuryBand(injury) !== "mild" && (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {injuryBand(injury) === "severe" ? "Please see a doctor before training." : "A physio or doctor can help you get back sooner."}
+                </p>
+              )}
+              <div className="mt-4 flex gap-2">
+                <Button asChild variant="secondary" className="h-11 flex-1 rounded-2xl">
+                  <Link href="/you/injury">Update</Link>
+                </Button>
+                <InjuryBetter
+                  area={injury.area === "other" ? "injury" : injury.area}
+                  restart={restart}
+                  share={returnShare(Math.max(1, Math.ceil(daysBetween(injury.since, ctx.today) / 7)), injuryBand(injury) === "mild")}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="mt-2 text-sm text-muted-foreground">Nothing hurting. If something starts to, tell ede. and your plan adapts from that day.</p>
+              <Button asChild variant="secondary" className="mt-3 h-11 w-full rounded-2xl">
+                <Link href="/you/injury">Report an injury</Link>
+              </Button>
+            </>
+          )}
+          {pastInjuries.length > 0 && (
+            <div className="mt-4 border-t pt-3">
+              <h3 className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">History</h3>
+              <ul className="mt-2 flex flex-col gap-1 text-sm">
+                {pastInjuries.map((p) => (
+                  <li key={p.id} className="flex justify-between gap-4">
+                    <span className="capitalize">
+                      {p.area} · {p.painLevel}/10
+                    </span>
+                    <span className="text-muted-foreground">
+                      {formatDate(p.since)} – {formatDate(p.until)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
 
       {sections.map(({ id, rows }) => (
         <Section key={id} id={id} editable={!ctx.isDemo}>
