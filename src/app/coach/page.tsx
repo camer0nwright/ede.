@@ -23,7 +23,7 @@ export default function CoachPage() {
       </header>
       <section aria-label="Example questions">
         <h2 className="mb-1 font-semibold">Things you&apos;ll be able to ask</h2>
-        <ul className="divide-y border-y">
+        <ul className="divide-y rounded-2xl border bg-card px-4">
           {EXAMPLES.map((q) => (
             <li key={q} className="flex items-center gap-3 py-3 text-sm">
               <MessageCircle className="size-4 shrink-0 text-muted-foreground" aria-hidden />

@@ -88,13 +88,13 @@ async function WeekContent({ params }: { params: PageProps<"/plan/week/[week]">[
         </p>
       )}
 
-      <dl className="grid grid-cols-3 divide-x border-y py-3 text-center">
+      <dl className="grid grid-cols-3 gap-2">
         {[
           ["Running", formatMinutes(runs.reduce((sum, r) => sum + r.plannedMinutes, 0))],
           ["Runs", String(runs.length)],
           ["Lifts", String(built.sessions.length - runs.length)],
         ].map(([label, value]) => (
-          <div key={label} className="flex flex-col-reverse">
+          <div key={label} className="flex flex-col-reverse rounded-2xl border bg-card p-3">
             <dt className="text-xs text-muted-foreground">{label}</dt>
             <dd className="font-display text-2xl tabular-nums">{value}</dd>
           </div>

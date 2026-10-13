@@ -135,21 +135,22 @@ export function WeekDays({ days, today, showRest = false }: { days: DayView[]; t
   const { show, sheet } = useSessionSheet();
   return (
     <>
-      <ul className="divide-y border-y">
+      <ul className="flex flex-col gap-2">
         {days.map((d) => {
           const day = d.date === today ? "Today" : short(d.dayName);
           if (d.sessions.length === 0) {
             return showRest ? (
-              <li key={d.date} className="flex items-center gap-3 py-3 text-sm text-muted-foreground">
-                <span className="size-4" aria-hidden />
-                {day} · Rest
+              <li key={d.date} className="px-4 py-1 text-sm text-muted-foreground">
+                {day} · Rest day
               </li>
             ) : null;
           }
           return d.sessions.map((s, i) => (
             <li key={s.id}>
-              <button type="button" onClick={() => show(s, d)} className="flex w-full items-center gap-3 py-3 text-left active:bg-accent/50">
-                <SessionIcon type={s.type} />
+              <button type="button" onClick={() => show(s, d)} className="flex w-full items-center gap-3 rounded-2xl border bg-card p-4 text-left transition-colors hover:bg-accent active:scale-[0.99]">
+                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-secondary">
+                  <SessionIcon type={s.type} />
+                </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{s.title}</span>
                   <span className="block text-xs text-muted-foreground">

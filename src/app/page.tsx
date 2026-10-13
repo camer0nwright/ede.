@@ -75,7 +75,7 @@ async function Today() {
         {next ? (
           <WeekDays days={upcoming} today={ctx.today} />
         ) : (
-          <p className="border-y py-3 text-sm text-muted-foreground">That&apos;s this week done. Next week is in Plan.</p>
+          <p className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">That&apos;s this week done. Next week is in Plan.</p>
         )}
       </section>
 

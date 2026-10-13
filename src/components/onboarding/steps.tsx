@@ -351,7 +351,7 @@ export function Review({ draft, caution }: { draft: Draft; caution: string | nul
   return (
     <>
       <Heading title={draft.name.trim() ? `Ready, ${draft.name.trim()}` : "Ready to build"} sub="Check your answers, then ede. builds your whole plan." />
-      <dl className="divide-y border-y">
+      <dl className="divide-y rounded-2xl border bg-card px-4">
         {rows.map(([label, value]) => (
           <div key={label} className="flex justify-between gap-4 py-3 text-sm">
             <dt className="text-muted-foreground">{label}</dt>

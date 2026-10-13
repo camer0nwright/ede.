@@ -81,7 +81,7 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
   ];
 
   return (
-    <main className="flex flex-col gap-8 pt-6">
+    <main className="flex flex-col gap-4 pt-6">
       <header>
         <p className="text-sm text-muted-foreground">
           {ctx.title} · {ctx.goal}
@@ -99,7 +99,7 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
       )}
       {typeof query.injury === "string" && INJURY_NOTES[query.injury] && <Note>{INJURY_NOTES[query.injury]}</Note>}
 
-      <section aria-label="Plan progress">
+      <section aria-label="Plan progress" className="rounded-2xl border bg-card p-4">
         <div className="flex items-baseline justify-between">
           <h2 className="font-semibold">Progress</h2>
           <span className="text-sm text-muted-foreground">
@@ -127,10 +127,10 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
       </section>
 
       {!ctx.isDemo && (
-        <section aria-label="Injuries">
+        <section aria-label="Injuries" className={injury ? "rounded-2xl border border-hard/30 bg-hard/10 p-4" : "rounded-2xl border bg-card p-4"}>
           <h2 className="font-semibold">Injuries</h2>
           {injury ? (
-            <div className="mt-3 rounded-2xl bg-hard/10 p-4">
+            <div className="mt-2">
               <p className="font-medium capitalize">
                 {injury.area} · {injury.painLevel}/10
               </p>
@@ -163,9 +163,9 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
           {pastInjuries.length > 0 && (
             <>
               <h3 className="mt-5 text-sm text-muted-foreground">Past injuries</h3>
-              <ul className="mt-1 divide-y border-y text-sm">
+              <ul className="mt-1 divide-y border-t text-sm">
                 {pastInjuries.map((p) => (
-                  <li key={p.id} className="flex justify-between gap-4 py-3">
+                  <li key={p.id} className="flex justify-between gap-4 py-3 last:pb-0">
                     <span className="capitalize">
                       {p.area} · {p.painLevel}/10
                     </span>
@@ -182,9 +182,9 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
 
       {sections.map(({ id, rows }) => (
         <Section key={id} id={id} editable={!ctx.isDemo}>
-          <dl className="divide-y border-y">
+          <dl className="divide-y">
             {rows.map(([label, value]) => (
-              <div key={label} className="flex justify-between gap-4 py-3 text-sm">
+              <div key={label} className="flex justify-between gap-4 py-3 text-sm first:pt-0 last:pb-0">
                 <dt className="text-muted-foreground">{label}</dt>
                 <dd className="text-right font-medium">{value}</dd>
               </div>
@@ -194,9 +194,9 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
       ))}
 
       <Section id="week" editable={!ctx.isDemo}>
-        <ul className="grid grid-cols-7 border-y py-3 text-center">
+        <ul className="grid grid-cols-7 gap-1.5 text-center">
           {input.availability.map((d, i) => (
-            <li key={DAY_NAMES[i]}>
+            <li key={DAY_NAMES[i]} className={`rounded-xl py-2 ${d.minutes === null ? "bg-secondary/50" : "bg-secondary"}`}>
               <span className="block text-[11px] text-muted-foreground">{DAY_NAMES[i].slice(0, 3)}</span>
               <span className={`mt-1 block text-sm tabular-nums ${d.minutes === null ? "text-muted-foreground" : "font-medium"}`}>
                 {d.minutes === null ? "Rest" : formatDayMinutes(d.minutes, ultra)}
@@ -205,23 +205,23 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
             </li>
           ))}
         </ul>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-3 text-sm text-muted-foreground">
           {plural(summary.trainingDays, "training day")}, {plural(summary.doubleDays, "double day")},{" "}
           {plural(summary.restDays, "full rest day")}.
         </p>
       </Section>
 
-      <section aria-label="Account">
+      <section aria-label="Account" className="rounded-2xl border bg-card p-4">
         <h2 className="font-semibold">Account</h2>
         {ctx.isDemo ? (
           <RowLink href="/onboarding">Set up your own plan</RowLink>
         ) : (
-          <div className="mt-2 divide-y border-y">
+          <div className="mt-3 divide-y border-t">
             <Link href="/onboarding" className="flex items-center justify-between py-3 text-sm font-medium">
               Start a new plan from scratch <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
             </Link>
             <form action={resetToDemo}>
-              <button type="submit" className="flex w-full items-center justify-between py-3 text-sm text-muted-foreground">
+              <button type="submit" className="flex w-full items-center justify-between pt-3 text-sm text-muted-foreground">
                 Switch this device to the demo plan <ChevronRight className="size-4" aria-hidden />
               </button>
             </form>
@@ -236,7 +236,7 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
 
 function RowLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <Link href={href} className="mt-2 flex items-center justify-between border-y py-3 text-sm font-medium">
+    <Link href={href} className="mt-3 flex items-center justify-between border-t pt-3 text-sm font-medium">
       {children} <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
     </Link>
   );
@@ -244,8 +244,8 @@ function RowLink({ href, children }: { href: string; children: React.ReactNode }
 
 function Section({ id, editable, children }: { id: SectionId; editable: boolean; children: React.ReactNode }) {
   return (
-    <section aria-label={SECTIONS[id].title}>
-      <div className="mb-2 flex items-baseline justify-between">
+    <section aria-label={SECTIONS[id].title} className="rounded-2xl border bg-card p-4">
+      <div className="mb-3 flex items-baseline justify-between">
         <h2 className="font-semibold">{SECTIONS[id].title}</h2>
         {editable && (
           <Link href={`/you/edit/${id}`} className="-mr-1 flex items-center text-sm font-medium text-primary-strong">
