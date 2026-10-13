@@ -47,7 +47,7 @@ async function Plan() {
             {ctx.input.targetDate ? `${plural(weeksToGo, "week")} to go` : `Started ${formatDate(ctx.input.startDate)}`}
           </span>
         </p>
-        <PhaseStrip weeks={weeks} currentWeek={currentWeek} race={!!ctx.input.targetDate} />
+        <PhaseStrip weeks={weeks} currentWeek={currentWeek} />
       </section>
 
       {notes.length > 0 && (
@@ -61,8 +61,8 @@ async function Plan() {
         </ul>
       )}
 
-      <section aria-label="Weeks" className="flex flex-col">
-        <h2 className="mb-1 font-semibold">All weeks</h2>
+      <section aria-label="Weeks" className="flex flex-col gap-2">
+        <h2 className="font-semibold">All weeks</h2>
         {builtWeeks(ctx).map(({ week, injured }) => (
           <WeekCard key={week.weekNumber} week={week} injured={injured} current={week.weekNumber === currentWeek} />
         ))}

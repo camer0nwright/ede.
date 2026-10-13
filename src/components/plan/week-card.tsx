@@ -20,7 +20,7 @@ export function WeekCard({ week, current, injured }: { week: WeekPlan; current?:
     <Link
       prefetch
       href={`/plan/week/${week.weekNumber}`}
-      className={cn("-mx-2 flex items-center gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-accent/60", current && "bg-card ring-1 ring-border")}
+      className={cn("flex items-center gap-3 rounded-2xl border bg-card p-4 transition-colors hover:bg-accent", current && "border-primary-strong ring-1 ring-primary-strong")}
     >
       <span className="w-7 shrink-0 text-center font-display text-2xl tabular-nums">{week.weekNumber}</span>
       <span className="min-w-0 flex-1">
