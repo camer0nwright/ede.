@@ -22,7 +22,7 @@ export function Chip({
       onClick={onClick}
       className={cn(
         "min-h-11 rounded-full border px-4 text-sm font-medium transition-colors active:scale-[0.97]",
-        selected ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-accent",
+        selected ? "border-foreground bg-foreground text-background" : "bg-card hover:bg-accent",
         className,
       )}
     >
@@ -51,14 +51,14 @@ export function OptionCard({
       aria-pressed={selected}
       onClick={onClick}
       className={cn(
-        "flex w-full items-start gap-3 rounded-2xl border bg-card p-4 text-left transition-colors active:scale-[0.99]",
-        selected ? "border-primary-strong ring-1 ring-primary-strong" : "hover:bg-accent",
+        "flex w-full items-start gap-3 rounded-xl border bg-card p-4 text-left transition-colors active:scale-[0.99]",
+        selected ? "border-foreground ring-1 ring-foreground" : "hover:bg-accent",
       )}
     >
       <span
         className={cn(
           "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border",
-          selected && "border-primary bg-primary text-primary-foreground",
+          selected && "border-foreground bg-foreground text-background",
         )}
         aria-hidden
       >
@@ -67,7 +67,7 @@ export function OptionCard({
       <span className="flex-1">
         <span className="flex items-center gap-2 font-medium">
           {title}
-          {badge && <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[11px] font-semibold text-primary-strong">{badge}</span>}
+          {badge && <span className="text-xs font-medium text-primary-strong">{badge}</span>}
         </span>
         {description && <span className="mt-1 block text-sm text-muted-foreground">{description}</span>}
       </span>
@@ -79,7 +79,7 @@ export function OptionCard({
 export function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <fieldset className="flex flex-col gap-2.5">
-      <legend className="mb-2.5 text-sm font-semibold">{label}</legend>
+      <legend className="mb-2.5 text-sm font-medium">{label}</legend>
       {hint && <p className="-mt-1.5 text-sm text-muted-foreground">{hint}</p>}
       {children}
     </fieldset>
@@ -92,8 +92,8 @@ export function Note({ tone = "info", children }: { tone?: "info" | "caution"; c
     <p
       role={tone === "caution" ? "alert" : undefined}
       className={cn(
-        "rounded-xl border p-3 text-sm",
-        tone === "caution" ? "border-hard/40 bg-hard/10" : "border-moderate/40 bg-moderate/10",
+        "rounded-xl px-4 py-3 text-sm",
+        tone === "caution" ? "bg-hard/10" : "bg-muted",
       )}
     >
       {children}

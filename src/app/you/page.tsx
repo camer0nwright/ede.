@@ -18,7 +18,11 @@ import { InjuryBetter } from "@/components/you/injury-better";
 
 export const metadata = { title: "You · ede." };
 
-const EXPERIENCE = { beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced" } as const;
+const EXPERIENCE = {
+  beginner: "Beginner",
+  intermediate: "Intermediate",
+  advanced: "Advanced",
+} as const;
 const VOLUME = { low: "Low", moderate: "Moderate", high: "Higher" } as const;
 
 export default function YouPage({ searchParams }: PageProps<"/you">) {
@@ -56,10 +60,7 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
   const sections: { id: SectionId; rows: [string, string][] }[] = [
     {
       id: "goal",
-      rows: [
-        [ctx.title, ctx.goal],
-        ...(input.targetDate ? ([["Race day", formatDate(input.targetDate)]] as [string, string][]) : []),
-      ],
+      rows: [[ctx.title, ctx.goal], ...(input.targetDate ? ([["Race day", formatDate(input.targetDate)]] as [string, string][]) : [])],
     },
     {
       id: "training",
@@ -80,50 +81,70 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
   ];
 
   return (
-    <main className="flex flex-col gap-6 pt-8">
+    <main className="flex flex-col gap-8 pt-6">
       <header>
-        <p className="text-sm font-medium text-primary-strong">You</p>
-        <h1 className="font-display text-5xl leading-none">{ctx.name}</h1>
+        <p className="text-sm text-muted-foreground">
+          {ctx.title} · {ctx.goal}
+        </p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight">{ctx.name}</h1>
       </header>
 
       {ctx.isDemo && <DemoBanner />}
       {query.saved && !ctx.isDemo && (
-        <Note>{index < 0 ? "Saved. Your plan has been rebuilt with your changes." : `Saved. Your plan changes from Monday ${formatDate(nextMonday)}; this week stays as it is.`}</Note>
+        <Note>
+          {index < 0
+            ? "Saved. Your plan has been rebuilt with your changes."
+            : `Saved. Your plan changes from Monday ${formatDate(nextMonday)}; this week stays as it is.`}
+        </Note>
       )}
-
       {typeof query.injury === "string" && INJURY_NOTES[query.injury] && <Note>{INJURY_NOTES[query.injury]}</Note>}
 
-      <section aria-label="Plan progress" className="rounded-3xl bg-primary p-5 text-primary-foreground">
-        <p className="text-xs font-semibold opacity-70">{index < 0 ? "Starts soon" : `${PHASE_LABEL[current.phase]} phase`}</p>
-        <p className="mt-1 font-display text-4xl leading-none">
-          {index < 0 ? `${plural(total, "week")} planned` : `Week ${Math.min(index + 1, total)} of ${total}`}
-        </p>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-primary-foreground/20" aria-hidden>
-          <div className="h-full rounded-full bg-primary-foreground" style={{ width: `${(Math.min(Math.max(index + 1, 0), total) / total) * 100}%` }} />
+      <section aria-label="Plan progress">
+        <div className="flex items-baseline justify-between">
+          <h2 className="font-semibold">Progress</h2>
+          <span className="text-sm text-muted-foreground">
+            {weeksToRace !== null && weeksToRace >= 0
+              ? weeksToRace === 0
+                ? "Race week"
+                : `${plural(weeksToRace, "week")} to race day`
+              : `${plural(total, "week")} planned`}
+          </span>
         </div>
-        {weeksToRace !== null && weeksToRace >= 0 && (
-          <p className="mt-2 text-sm font-medium opacity-80">{weeksToRace === 0 ? "Race week" : `${plural(weeksToRace, "week")} to race day`}</p>
-        )}
-        <p className="mt-1 text-xs opacity-70">Session stats arrive with check-ins.</p>
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
+          <div
+            className="h-full rounded-full bg-primary"
+            style={{
+              width: `${(Math.min(Math.max(index + 1, 0), total) / total) * 100}%`,
+            }}
+          />
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {index < 0
+            ? `Starts ${formatDate(input.startDate)}`
+            : `Week ${Math.min(index + 1, total)} of ${total} · ${PHASE_LABEL[current.phase]} phase`}
+          . Your session history will show here once you start checking in.
+        </p>
       </section>
 
       {!ctx.isDemo && (
-        <section aria-label="Injuries" className={`rounded-2xl border p-4 ${injury ? "border-hard/40 bg-hard/5" : "bg-card"}`}>
-          <h2 className="font-display text-2xl">Injuries</h2>
+        <section aria-label="Injuries">
+          <h2 className="font-semibold">Injuries</h2>
           {injury ? (
-            <>
-              <p className="mt-2 font-medium capitalize">
+            <div className="mt-3 rounded-2xl bg-hard/10 p-4">
+              <p className="font-medium capitalize">
                 {injury.area} · {injury.painLevel}/10
               </p>
               <p className="text-sm text-muted-foreground">Since {formatDate(injury.since)}</p>
               <p className="mt-2 text-sm">{bandSummary(injury)}</p>
               {injuryBand(injury) !== "mild" && (
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {injuryBand(injury) === "severe" ? "Please see a doctor before training." : "A physio or doctor can help you get back sooner."}
+                  {injuryBand(injury) === "severe"
+                    ? "Please see a doctor before training."
+                    : "A physio or doctor can help you get back sooner."}
                 </p>
               )}
               <div className="mt-4 flex gap-2">
-                <Button asChild variant="secondary" className="h-11 flex-1 rounded-2xl">
+                <Button asChild variant="secondary" className="h-11 flex-1 rounded-xl">
                   <Link href="/you/injury">Update</Link>
                 </Button>
                 <InjuryBetter
@@ -132,21 +153,19 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
                   share={returnShare(Math.max(1, Math.ceil(daysBetween(injury.since, ctx.today) / 7)), injuryBand(injury) === "mild")}
                 />
               </div>
-            </>
+            </div>
           ) : (
             <>
-              <p className="mt-2 text-sm text-muted-foreground">Nothing hurting. If something starts to, tell ede. and your plan adapts from that day.</p>
-              <Button asChild variant="secondary" className="mt-3 h-11 w-full rounded-2xl">
-                <Link href="/you/injury">Report an injury</Link>
-              </Button>
+              <p className="mt-1 text-sm text-muted-foreground">Nothing hurting. If something starts to, your plan adapts from that day.</p>
+              <RowLink href="/you/injury">Report an injury</RowLink>
             </>
           )}
           {pastInjuries.length > 0 && (
-            <div className="mt-4 border-t pt-3">
-              <h3 className="text-xs font-semibold text-muted-foreground">History</h3>
-              <ul className="mt-2 flex flex-col gap-1 text-sm">
+            <>
+              <h3 className="mt-5 text-sm text-muted-foreground">Past injuries</h3>
+              <ul className="mt-1 divide-y border-y text-sm">
                 {pastInjuries.map((p) => (
-                  <li key={p.id} className="flex justify-between gap-4">
+                  <li key={p.id} className="flex justify-between gap-4 py-3">
                     <span className="capitalize">
                       {p.area} · {p.painLevel}/10
                     </span>
@@ -156,16 +175,16 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
                   </li>
                 ))}
               </ul>
-            </div>
+            </>
           )}
         </section>
       )}
 
       {sections.map(({ id, rows }) => (
         <Section key={id} id={id} editable={!ctx.isDemo}>
-          <dl className="divide-y">
+          <dl className="divide-y border-y">
             {rows.map(([label, value]) => (
-              <div key={label} className="flex justify-between gap-4 py-3 text-sm first:pt-0 last:pb-0">
+              <div key={label} className="flex justify-between gap-4 py-3 text-sm">
                 <dt className="text-muted-foreground">{label}</dt>
                 <dd className="text-right font-medium">{value}</dd>
               </div>
@@ -175,49 +194,61 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
       ))}
 
       <Section id="week" editable={!ctx.isDemo}>
-        <ul className="grid grid-cols-7 gap-1.5 text-center">
+        <ul className="grid grid-cols-7 border-y py-3 text-center">
           {input.availability.map((d, i) => (
-            <li key={DAY_NAMES[i]} className={`rounded-xl p-1.5 ${d.minutes === null ? "bg-secondary/50" : "bg-secondary"}`}>
+            <li key={DAY_NAMES[i]}>
               <span className="block text-[11px] text-muted-foreground">{DAY_NAMES[i].slice(0, 3)}</span>
-              <span className="block font-display text-sm">{d.minutes === null ? "Rest" : formatDayMinutes(d.minutes, ultra)}</span>
-              {d.isDouble && <span className="block text-[10px] font-semibold text-primary-strong">×2</span>}
+              <span className={`mt-1 block text-sm tabular-nums ${d.minutes === null ? "text-muted-foreground" : "font-medium"}`}>
+                {d.minutes === null ? "Rest" : formatDayMinutes(d.minutes, ultra)}
+              </span>
+              {d.isDouble && <span className="block text-[11px] text-primary-strong">×2</span>}
             </li>
           ))}
         </ul>
-        <p className="mt-3 text-sm text-muted-foreground">
-          {plural(summary.trainingDays, "training day")}, {plural(summary.doubleDays, "double day")}, {plural(summary.restDays, "full rest day")}.
+        <p className="mt-2 text-sm text-muted-foreground">
+          {plural(summary.trainingDays, "training day")}, {plural(summary.doubleDays, "double day")},{" "}
+          {plural(summary.restDays, "full rest day")}.
         </p>
       </Section>
 
-      {ctx.isDemo ? (
-        <Button asChild className="h-12 rounded-2xl">
-          <Link href="/onboarding">Set up your own plan</Link>
-        </Button>
-      ) : (
-        <section className="flex flex-col gap-2">
-          <Button asChild variant="secondary" className="h-12 rounded-2xl">
-            <Link href="/onboarding">Start a new plan from scratch</Link>
-          </Button>
-          <form action={resetToDemo}>
-            <Button type="submit" variant="ghost" className="h-12 w-full rounded-2xl text-muted-foreground">
-              Show the demo on this device
-            </Button>
-          </form>
-        </section>
-      )}
+      <section aria-label="Account">
+        <h2 className="font-semibold">Account</h2>
+        {ctx.isDemo ? (
+          <RowLink href="/onboarding">Set up your own plan</RowLink>
+        ) : (
+          <div className="mt-2 divide-y border-y">
+            <Link href="/onboarding" className="flex items-center justify-between py-3 text-sm font-medium">
+              Start a new plan from scratch <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+            </Link>
+            <form action={resetToDemo}>
+              <button type="submit" className="flex w-full items-center justify-between py-3 text-sm text-muted-foreground">
+                Switch this device to the demo plan <ChevronRight className="size-4" aria-hidden />
+              </button>
+            </form>
+          </div>
+        )}
+      </section>
 
       <MedicalNotice />
     </main>
   );
 }
 
+function RowLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link href={href} className="mt-2 flex items-center justify-between border-y py-3 text-sm font-medium">
+      {children} <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+    </Link>
+  );
+}
+
 function Section({ id, editable, children }: { id: SectionId; editable: boolean; children: React.ReactNode }) {
   return (
-    <section aria-label={SECTIONS[id].title} className="rounded-2xl border bg-card p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-display text-2xl">{SECTIONS[id].title}</h2>
+    <section aria-label={SECTIONS[id].title}>
+      <div className="mb-2 flex items-baseline justify-between">
+        <h2 className="font-semibold">{SECTIONS[id].title}</h2>
         {editable && (
-          <Link href={`/you/edit/${id}`} className="-mr-2 flex items-center gap-0.5 rounded-full px-2 py-1 text-sm font-medium text-primary-strong hover:bg-accent">
+          <Link href={`/you/edit/${id}`} className="-mr-1 flex items-center text-sm font-medium text-primary-strong">
             Edit <ChevronRight className="size-4" aria-hidden />
           </Link>
         )}

@@ -12,22 +12,21 @@ const EXAMPLES = [
 
 export default function CoachPage() {
   return (
-    <main className="flex flex-col gap-6 pt-8">
+    <main className="flex flex-col gap-6 pt-6">
       <header>
-        <p className="text-sm font-medium text-primary-strong">Coach</p>
-        <h1 className="font-display text-5xl leading-none">Ask your coach</h1>
+        <p className="text-sm text-muted-foreground">Coming soon</p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight">Coach</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Your AI coach knows your plan, your check-ins and your lifts. It can explain sessions and suggest changes,
-          which you approve.
+          Ask about your plan, your sessions or how you feel. Your coach knows your plan, check-ins and lifts, and can
+          suggest changes for you to approve.
         </p>
       </header>
-      <section className="flex flex-col items-center gap-3 rounded-3xl border border-dashed p-8 text-center">
-        <MessageCircle className="size-8 text-primary-strong" aria-hidden />
-        <p className="font-medium">Coming soon</p>
-        <p className="text-sm text-muted-foreground">Questions people will be able to ask:</p>
-        <ul className="flex flex-col gap-2">
+      <section aria-label="Example questions">
+        <h2 className="mb-1 font-semibold">Things you&apos;ll be able to ask</h2>
+        <ul className="divide-y border-y">
           {EXAMPLES.map((q) => (
-            <li key={q} className="rounded-full bg-secondary px-4 py-2 text-sm">
+            <li key={q} className="flex items-center gap-3 py-3 text-sm">
+              <MessageCircle className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               {q}
             </li>
           ))}

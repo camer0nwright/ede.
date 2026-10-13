@@ -70,7 +70,7 @@ export function WeekPlanner({
                 onClick={() => toggleDay(i)}
                 className={cn(
                   "h-12 rounded-full border text-sm font-semibold transition-colors active:scale-[0.95]",
-                  on ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-accent",
+                  on ? "border-foreground bg-foreground text-background" : "bg-card hover:bg-accent",
                 )}
               >
                 {name[0]}
@@ -138,7 +138,7 @@ export function WeekPlanner({
           {editing !== null && (
             <div className="mx-auto w-full max-w-md px-4 pb-8">
               <DrawerHeader className="px-0 text-left">
-                <DrawerTitle className="font-display text-3xl">{DAY_NAMES[editing]}</DrawerTitle>
+                <DrawerTitle className="text-2xl font-semibold">{DAY_NAMES[editing]}</DrawerTitle>
                 <DrawerDescription>How much time do you have?</DrawerDescription>
               </DrawerHeader>
               <div className="flex flex-wrap gap-2">
@@ -177,7 +177,7 @@ export function WeekPlanner({
               <button
                 type="button"
                 onClick={() => setEditing(null)}
-                className="mt-6 h-12 w-full rounded-2xl bg-primary font-semibold text-primary-foreground"
+                className="mt-6 h-12 w-full rounded-xl bg-primary font-semibold text-primary-foreground"
               >
                 Done
               </button>

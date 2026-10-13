@@ -20,14 +20,14 @@ export function InjuryBetter({ area, restart, share }: { area: string; restart: 
 
   return (
     <>
-      <Button className="h-11 flex-1 rounded-2xl" onClick={() => setOpen(true)}>
+      <Button className="h-11 flex-1 rounded-xl" onClick={() => setOpen(true)}>
         It&apos;s better
       </Button>
       <Drawer open={open} onOpenChange={setOpen}>
         <DrawerContent>
           <div className="mx-auto w-full max-w-md px-4 pb-8">
-            <DrawerHeader className="px-0 text-left">
-              <DrawerTitle className="font-display text-3xl">Glad your {area} is better</DrawerTitle>
+            <DrawerHeader className="px-0 text-left! md:text-left">
+              <DrawerTitle className="text-2xl font-semibold">Glad your {area} is better</DrawerTitle>
               <DrawerDescription>Your plan restarts gently {restart}.</DrawerDescription>
             </DrawerHeader>
             <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm">
@@ -41,7 +41,7 @@ export function InjuryBetter({ area, restart, share }: { area: string; restart: 
                 <Note tone="caution">{errors.join(" ")}</Note>
               </div>
             )}
-            <Button size="lg" className="mt-5 h-14 w-full rounded-2xl text-base font-semibold" onClick={confirm} disabled={pending}>
+            <Button size="lg" className="mt-5 h-12 w-full rounded-xl text-base font-semibold" onClick={confirm} disabled={pending}>
               {pending ? (
                 <>
                   <Loader2 className="animate-spin" /> Rebuilding your plan…

@@ -54,7 +54,7 @@ export function InjuryForm({ initial, updating }: { initial: Draft["injury"]; up
       </div>
 
       <div className="sticky bottom-0 -mx-4 mt-6 bg-background/90 px-4 pt-3 pb-4 backdrop-blur pb-safe">
-        <Button size="lg" className="h-14 w-full rounded-2xl text-base font-semibold" onClick={save} disabled={pending || (updating && !changed)}>
+        <Button size="lg" className="h-12 w-full rounded-xl text-base font-semibold" onClick={save} disabled={pending || (updating && !changed)}>
           {pending ? (
             <>
               <Loader2 className="animate-spin" /> Adapting your plan…

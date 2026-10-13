@@ -48,7 +48,7 @@ export function OnboardingFlow() {
             <ArrowLeft className="size-5" />
           </button>
           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={1} aria-valuemax={STEPS.length - 1} aria-valuenow={stepIndex}>
-            <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${(stepIndex / (STEPS.length - 1)) * 100}%` }} />
+            <div className="h-full rounded-full bg-foreground transition-all duration-300" style={{ width: `${(stepIndex / (STEPS.length - 1)) * 100}%` }} />
           </div>
           <span className="w-10 text-right text-xs text-muted-foreground">
             {stepIndex}/{STEPS.length - 1}
@@ -60,7 +60,7 @@ export function OnboardingFlow() {
         {step === "welcome" && (
           <div className="flex flex-1 flex-col justify-center gap-6">
             <Logo />
-            <h1 className="font-display text-6xl leading-[0.9]">Run and lift, as one plan</h1>
+            <h1 className="text-4xl font-semibold tracking-tight">Run and lift, as one plan</h1>
             <p className="text-lg text-muted-foreground">
               ede. builds your weekly running and lifting together, so they help each other instead of clashing. It
               adapts as your weeks go.
@@ -96,7 +96,7 @@ export function OnboardingFlow() {
       <div className="sticky bottom-0 -mx-4 mt-6 bg-background/90 px-4 pt-3 pb-4 backdrop-blur pb-safe">
         {problem && step !== "welcome" && <p className="mb-2 text-center text-sm text-muted-foreground">{problem}</p>}
         {step === "review" ? (
-          <Button size="lg" className="h-14 w-full rounded-2xl text-base font-semibold" onClick={build} disabled={pending}>
+          <Button size="lg" className="h-12 w-full rounded-xl text-base font-semibold" onClick={build} disabled={pending}>
             {pending ? (
               <>
                 <Loader2 className="animate-spin" /> Building your plan…
@@ -106,7 +106,7 @@ export function OnboardingFlow() {
             )}
           </Button>
         ) : (
-          <Button size="lg" className="h-14 w-full rounded-2xl text-base font-semibold" onClick={next} disabled={problem !== null}>
+          <Button size="lg" className="h-12 w-full rounded-xl text-base font-semibold" onClick={next} disabled={problem !== null}>
             {step === "welcome" ? "Get started" : "Continue"}
           </Button>
         )}

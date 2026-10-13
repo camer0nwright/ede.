@@ -55,7 +55,7 @@ export function SectionEditor({ section, initial, started }: { section: SectionI
         <p className="mb-2 text-center text-sm text-muted-foreground">
           {problem ?? (!changed ? "No changes yet" : started ? "Your plan changes from next Monday. This week stays as it is." : "Your plan will be rebuilt with these changes.")}
         </p>
-        <Button size="lg" className="h-14 w-full rounded-2xl text-base font-semibold" onClick={save} disabled={pending || problem !== null || !changed}>
+        <Button size="lg" className="h-12 w-full rounded-xl text-base font-semibold" onClick={save} disabled={pending || problem !== null || !changed}>
           {pending ? (
             <>
               <Loader2 className="animate-spin" /> Updating your plan…

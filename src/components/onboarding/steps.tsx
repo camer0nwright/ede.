@@ -318,7 +318,7 @@ export function StepYou({ draft, update }: StepProps) {
 export function Heading({ title, sub }: { title: string; sub?: string }) {
   return (
     <div>
-      <h1 className="font-display text-4xl leading-none">{title}</h1>
+      <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
       {sub && <p className="mt-2 text-sm text-muted-foreground">{sub}</p>}
     </div>
   );
@@ -351,9 +351,9 @@ export function Review({ draft, caution }: { draft: Draft; caution: string | nul
   return (
     <>
       <Heading title={draft.name.trim() ? `Ready, ${draft.name.trim()}` : "Ready to build"} sub="Check your answers, then ede. builds your whole plan." />
-      <dl className="divide-y rounded-2xl border bg-card">
+      <dl className="divide-y border-y">
         {rows.map(([label, value]) => (
-          <div key={label} className="flex justify-between gap-4 p-4 text-sm">
+          <div key={label} className="flex justify-between gap-4 py-3 text-sm">
             <dt className="text-muted-foreground">{label}</dt>
             <dd className="text-right font-medium">{value}</dd>
           </div>
@@ -391,11 +391,11 @@ export function NumberRow({
           aria-label={`${n} ${label}${n === recommended ? ", recommended" : ""}`}
           onClick={() => onChange(n)}
           className={`relative h-12 flex-1 rounded-xl border font-display text-xl transition-colors active:scale-[0.95] ${
-            value === n ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-accent"
+            value === n ? "border-foreground bg-foreground text-background" : "bg-card hover:bg-accent"
           }`}
         >
           {n}
-          {n === recommended && value !== n && <span className="absolute top-1 right-1 size-1.5 rounded-full bg-primary" aria-hidden />}
+          {n === recommended && value !== n && <span className="absolute top-1 right-1 size-1.5 rounded-full bg-primary-strong" aria-hidden />}
         </button>
       ))}
     </div>
