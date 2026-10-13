@@ -43,6 +43,7 @@ const PROFILES: Record<string, OutlineInput> = {
   "general fitness, no date": { ...base, lastWeekRunMinutes: 100 },
   "half marathon, chosen 4 runs and 3 lifts": { ...base, goalType: "race", raceDistance: "half", targetDate: "2027-02-28", lastWeekRunMinutes: 150, runsPerWeek: 4, liftsPerWeek: 3, availability: Availability.parse([day(null), day(60, 45), day(45, 45), day(60), day(45), day(120), day(null)]) },
   "ultra, chosen 5 runs and 2 lifts": { ...base, goalType: "race", raceDistance: "ultra", ultraDistanceKm: 80.5, terrain: "trail", targetDate: "2027-04-18", experienceLevel: "advanced", lastWeekRunMinutes: 300, runsPerWeek: 5, liftsPerWeek: 2, availability: ultraWeek },
+  "half marathon, 3 runs on 45-minute weekdays": { ...base, goalType: "race", raceDistance: "half", targetDate: "2027-08-20", experienceLevel: "advanced", lastWeekRunMinutes: 300, runsPerWeek: 3, liftsPerWeek: 3, strengthVolume: "moderate", availability: Availability.parse([day(null), day(45, 45), day(45), day(45), day(null), day(90), day(90)]) },
   "beginner, chosen 4 runs from almost nothing": { ...base, goalType: "race", raceDistance: "5k", targetDate: "2027-01-10", experienceLevel: "beginner", lastWeekRunMinutes: 0, runsPerWeek: 4, liftsPerWeek: 2 },
   "strength goal, moderate volume": { ...base, goalType: "strength", strengthVolume: "moderate", lastWeekRunMinutes: 80 },
 };

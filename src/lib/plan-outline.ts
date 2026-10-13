@@ -351,6 +351,8 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
   const uses = new Map<RunKind, number>(); // times each kind has been used at full level
   const lastLevel = new Map<RunKind, number>();
   let qPointer = 0;
+  /** Quality kinds used in the previous week, so fallbacks don't repeat them. */
+  let lastWeekQuality: RunKind[] = [];
   let lPointer = 0;
   let nonRecoveryWeeks = 0;
 
@@ -467,19 +469,31 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
         // level doesn't fit, the next kind in the rotation that does is used,
         // so levels never go backwards in a build week.
         const usable = caps.length > 1 ? caps.slice(1) : caps;
-        const options = [wanted, ...qPool.filter((k) => k !== wanted && !qualityKinds.includes(k))];
-        let pick: { kind: RunKind; index: number } | undefined;
+        // Fallbacks try kinds not used last week first, keeping weeks varied.
+        const others = qPool.filter((k) => k !== wanted && !qualityKinds.includes(k));
+        const options = [wanted, ...others.filter((k) => !lastWeekQuality.includes(k)), ...others.filter((k) => lastWeekQuality.includes(k))];
+        // A kind whose next level is too long for the day holds its current
+        // level instead (never lower), so the rotation keeps moving.
+        const biggest = Math.max(0, ...usable);
+        const fittingLevel = (kind: RunKind) => {
+          const floor = fullLevel ? (lastLevel.get(kind) ?? 1) : 1;
+          for (let l = levelFor(kind); l >= floor; l--) if (minMinutes(kind, l) <= biggest) return l;
+          return undefined;
+        };
+        let pick: { kind: RunKind; index: number; level: number } | undefined;
         for (const kind of options) {
-          const need = minMinutes(kind, levelFor(kind));
+          const level = fittingLevel(kind);
+          if (level === undefined) continue;
+          const need = minMinutes(kind, level);
           const fits = usable.map((c, k) => ({ c, k })).filter(({ c }) => c >= need).sort((a, b) => a.c - b.c)[0];
           if (fits) {
-            pick = { kind, index: fits.k + (caps.length > 1 ? 1 : 0) };
+            pick = { kind, index: fits.k + (caps.length > 1 ? 1 : 0), level };
             break;
           }
         }
         if (!pick) continue; // nothing fits a suitable day: leave it out
         const cap = caps.splice(pick.index, 1)[0];
-        const level = levelFor(pick.kind);
+        const level = pick.level;
         const minutes = Math.min(ceil5(minMinutes(pick.kind, level)), cap);
         qualityRuns.push({ role: "quality", kind: pick.kind, level, minutes });
         qualityTotal += minutes;
@@ -609,6 +623,7 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
     // ----- bookkeeping for rotation and progression -----
     // Move the rotation on even if this week's quality session was dropped, so it can't get stuck.
     if (quality.length > 0) qPointer += 1;
+    lastWeekQuality = weekRuns.filter((r) => r.role === "quality").map((r) => r.kind);
     if (fullLevel && phase !== "base" && !backToBack && !beginner) lPointer += 1;
     for (const r of weekRuns) {
       lastLevel.set(r.kind, r.level);

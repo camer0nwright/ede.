@@ -33,35 +33,42 @@ export async function saveOnboarding(raw: unknown): Promise<SaveResult> {
     return { ok: false, errors: [e instanceof Error ? e.message : "Couldn't build a plan from those answers."] };
   }
 
-  const athlete = await db.athlete.create({
-    data: {
-      name: a.name || null,
-      goalType: a.goalType,
-      goalDetail: a.goalDetail || null,
-      targetDate: input.targetDate ? toDbDate(input.targetDate) : null,
-      raceDistance: input.raceDistance ?? null,
-      ultraDistanceKm: input.ultraDistanceKm ?? null,
-      elevationGainM: a.elevationGainM ?? null,
-      terrain: input.terrain ?? null,
-      experienceLevel: a.experienceLevel,
-      strengthVolume: a.strengthVolume,
-      currentTraining: a.currentTraining || null,
-      lastWeekRunMinutes: a.lastWeekRunMinutes,
-      targetTimeSeconds: a.goalType === "race" && !a.justFinish ? (a.targetTimeSeconds ?? null) : null,
-      justFinish: a.goalType === "race" && (a.justFinish ?? false),
-      runsPerWeek: a.runsPerWeek,
-      liftsPerWeek: a.liftsPerWeek,
-      equipment: a.equipment.join(", "),
-      injuryHistory: a.injuryHistory || null,
-      weightUnit: a.weightUnit,
-      distanceUnit: a.distanceUnit,
-      availability: { create: a.availability.map((d, dayOfWeek) => ({ dayOfWeek, ...d })) },
-      ...(a.injury && {
-        injuries: { create: { area: a.injury.area, painLevel: a.injury.painLevel, painWhen: a.injury.painWhen, notes: a.injury.notes || null } },
-      }),
-      outlines: { create: { input: JSON.stringify(input), outline: JSON.stringify(outline) } },
-    },
-  });
+  let athlete;
+  try {
+    athlete = await db.athlete.create({
+      data: {
+        name: a.name || null,
+        goalType: a.goalType,
+        goalDetail: a.goalDetail || null,
+        targetDate: input.targetDate ? toDbDate(input.targetDate) : null,
+        raceDistance: input.raceDistance ?? null,
+        ultraDistanceKm: input.ultraDistanceKm ?? null,
+        elevationGainM: a.elevationGainM ?? null,
+        terrain: input.terrain ?? null,
+        experienceLevel: a.experienceLevel,
+        strengthVolume: a.strengthVolume,
+        currentTraining: a.currentTraining || null,
+        lastWeekRunMinutes: a.lastWeekRunMinutes,
+        targetTimeSeconds: a.goalType === "race" && !a.justFinish ? (a.targetTimeSeconds ?? null) : null,
+        justFinish: a.goalType === "race" && (a.justFinish ?? false),
+        runsPerWeek: a.runsPerWeek,
+        liftsPerWeek: a.liftsPerWeek,
+        equipment: a.equipment.join(", "),
+        injuryHistory: a.injuryHistory || null,
+        weightUnit: a.weightUnit,
+        distanceUnit: a.distanceUnit,
+        availability: { create: a.availability.map((d, dayOfWeek) => ({ dayOfWeek, ...d })) },
+        ...(a.injury && {
+          injuries: { create: { area: a.injury.area, painLevel: a.injury.painLevel, painWhen: a.injury.painWhen, notes: a.injury.notes || null } },
+        }),
+        outlines: { create: { input: JSON.stringify(input), outline: JSON.stringify(outline) } },
+      },
+    });
+  } catch (e) {
+    // Don't show database details to the user; log them for debugging.
+    console.error("Saving onboarding failed", e);
+    return { ok: false, errors: ["Your plan couldn't be saved just now. Your answers are still here, so try again in a moment."] };
+  }
 
   (await cookies()).set(ATHLETE_COOKIE, athlete.id, {
     httpOnly: true,
