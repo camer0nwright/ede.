@@ -1,4 +1,6 @@
 // Tunable numbers for the plan checker rules. Change them here, not in the rules.
+import { INJURY_BANDS } from "@/lib/injury";
+
 export const CHECKER_CONFIG = {
   /** At least this share of weekly running minutes must be in easy runs. */
   minEasyRunShare: 0.8,
@@ -52,15 +54,8 @@ export const CHECKER_CONFIG = {
   /** Heavy barbell lifts stay at or below this RPE: never to failure. */
   maxBarbellRpe: 9,
 
-  /** Injury bands by pain level (SPEC: prompts/plan-engine.md, Injury and pain handling). */
-  injury: {
-    /** Pain up to this level (during running or specific lifts only): reduced, easy running. */
-    mildMax: 3,
-    /** Pain up to this level: no running. Above it: no running and no lower-body lifting. */
-    moderateMax: 6,
-    /** Mild pain: run minutes at most this share of last week's (a 20-30% cut). */
-    mildRunShare: 0.8,
-  },
+  /** Injury bands by pain level (SPEC: prompts/plan-engine.md, Injury and pain handling). Shared with the plan. */
+  injury: INJURY_BANDS,
 
   /** Recalculation cap: sessions that may be added or made harder at once. */
   maxSessionsIncreasedPerRecalc: 3,

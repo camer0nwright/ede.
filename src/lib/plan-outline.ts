@@ -37,6 +37,12 @@ export type OutlineInput = {
   justFinish?: boolean;
   /** Longest run in the last month, in minutes: the long run grows from here (SPEC decision 37). */
   longestRecentRunMinutes?: number;
+  /**
+   * Coming back from an injury (SPEC decision 42): lastWeekRunMinutes is
+   * already reduced; session levels start again, the first week is easy
+   * running only, and the build rhythm restarts.
+   */
+  returning?: boolean;
   /** The old plan's weeks before this outline starts, when a plan is rebuilt mid-way (SPEC decision 41). */
   priorWeeks?: OutlineWeek[];
   /** Runs and lifts a week the athlete chose. The plan gives exactly these every week (SPEC decision 29). */
@@ -95,6 +101,10 @@ export const OUTLINE_CONFIG = {
   startingRange: { beginner: 60, other: 90 },
   startingBelow: 60,
   /** Weekly run growth: 8% or 10 min, staying inside the checker's 10% / 20 min limit. */
+  /** Coming back from an injury: this many weeks of easy running only, before quality sessions return. */
+  returnEasyWeeks: 1,
+  /** Weeks with less running than this have no quality session: there isn't room for one alongside easy running. */
+  minQualityWeekRunMinutes: 70,
   growthShare: 0.08,
   minGrowthMinutes: 10,
   maxGrowthShare: 0.1,
@@ -365,7 +375,8 @@ function planPhases(n: number, input: OutlineInput, taper: number): Phase[] {
   }
   // Carry the build streak across a rebuild: a recovery week after 3 build
   // weeks in a row, and none after fewer than 2 (checker: recovery-week).
-  const prior = input.priorWeeks ?? [];
+  // Coming back from an injury starts a fresh build (the injury weeks were the rest).
+  const prior = input.returning ? [] : (input.priorWeeks ?? []);
   let streak = 0;
   for (let i = prior.length - 1; i >= 0 && prior[i].phase !== "recovery" && prior[i].phase !== "taper"; i--) streak++;
   for (let i = 0; i < phases.length; i++) {
@@ -423,6 +434,8 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
     const quality = w.runs.filter((r) => r.role === "quality");
     if (quality.length > 0) qPointer += 1;
     lastWeekQuality = quality.map((r) => r.kind);
+    // After an injury, session levels start again from the bottom.
+    if (input.returning) continue;
     for (const r of w.runs) {
       lastLevel.set(r.kind, r.level);
       if (fullLevel && r.kind !== "run_walk") uses.set(r.kind, (uses.get(r.kind) ?? 0) + 1);
@@ -461,7 +474,7 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
       // Starting load (SPEC): under 60 run minutes last week, or unknown, starts at 40-60 / 60-90.
       target = beginner ? O.startingRunMinutes.beginner : O.startingRunMinutes.other;
     } else {
-      const ref = lastBuild?.run ?? prevRun;
+      const ref = lastBuild?.run ?? prevRun ?? 0;
       const growth = Math.min(
         Math.max(ref * O.growthShare, O.minGrowthMinutes),
         Math.max(ref * O.maxGrowthShare, O.maxGrowthMinutes),
@@ -503,7 +516,7 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
 
     let qualityCount = 0;
     if (!beginner && runs >= 2) {
-      if (phase === "recovery") qualityCount = 0;
+      if (phase === "recovery" || (input.returning && (i < O.returnEasyWeeks || target < O.minQualityWeekRunMinutes))) qualityCount = 0;
       else if (phase === "taper") qualityCount = 1;
       else if (isUltra || input.justFinish || distanceKey(input) === "general" || distanceKey(input) === "strength") qualityCount = 1;
       else qualityCount = phase !== "base" && runs >= 4 ? 2 : 1;
@@ -667,6 +680,13 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
     let qualityKinds = quality;
     let long = longKind;
     let weekRuns = allocate(qualityKinds, long);
+    // Quality sessions have a minimum length, so in a light week they can push
+    // running past the week's target: drop quality sessions until it fits.
+    const runTotal = (rs: OutlineRun[]) => rs.reduce((sum, r) => sum + r.minutes, 0);
+    while (runTotal(weekRuns) > target + O.minGrowthMinutes / 2 && qualityKinds.length > 0) {
+      qualityKinds = qualityKinds.slice(0, -1);
+      weekRuns = allocate(qualityKinds, long);
+    }
     while (easyShareOf(weekRuns) < easyTarget) {
       if (qualityKinds.length > 1) qualityKinds = qualityKinds.slice(0, 1);
       else if (long !== "long_easy" && long !== "long_hilly" && long !== "run_walk") long = "long_easy";

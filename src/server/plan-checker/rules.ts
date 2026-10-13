@@ -14,6 +14,7 @@ import { DAY_NAMES, dayCap, EASY_MAX_RPE, easyRunMinutes, isHeavyLowerBody, mayB
 import { failureAllowed, findExercise } from "@/lib/exercise-library";
 import { keyRunFlags, longRunFlags } from "@/lib/key-runs";
 import { addDays, dayOfWeek, daysBetween } from "@/lib/dates";
+import { injuryBand } from "@/lib/injury";
 import { RUN_LIBRARY, runLabel } from "@/lib/session-library";
 import { CHECKER_CONFIG as C } from "./config";
 
@@ -47,6 +48,8 @@ export type PastWeek = {
   phase: Phase;
   /** The week's quality sessions (library kind and level), when known. */
   quality?: { kind: RunKind; level: number }[];
+  /** The week was adapted around an active injury. */
+  injured?: boolean;
 };
 
 export type CheckContext = {
@@ -110,15 +113,17 @@ const isRecovery = (w: { phase: Phase }) => w.phase === "recovery";
 const isTaper = (w: { phase: Phase }) => w.phase === "taper";
 
 /** The most recent full build week: not recovery, not taper. */
+/** The last full week: not recovery or taper, and not cut back for an injury. */
 function lastBuildWeek(history: PastWeek[]) {
-  return history.findLast((w) => !isRecovery(w) && !isTaper(w));
+  return history.findLast((w) => !isRecovery(w) && !isTaper(w) && !w.injured);
 }
 
 /** Build weeks in a row immediately before this one. */
 function buildStreak(history: PastWeek[]) {
   let streak = 0;
   for (let i = history.length - 1; i >= 0; i--) {
-    if (isRecovery(history[i]) || isTaper(history[i])) break;
+    // Weeks cut back for an injury break the build like recovery weeks.
+    if (isRecovery(history[i]) || isTaper(history[i]) || history[i].injured) break;
     streak++;
   }
   return streak;
@@ -374,19 +379,13 @@ export const failureAllowedRule: Rule = (week) => {
   return out;
 };
 
-/** Which injury band applies (SPEC: Injury and pain handling). */
-export function injuryBand(injury: Injury): "mild" | "moderate" | "severe" {
-  const { mildMax, moderateMax } = C.injury;
-  if (injury.painLevel > moderateMax || injury.painWhen === "resting") return "severe";
-  if (injury.painLevel > mildMax || injury.painWhen === "walking") return "moderate";
-  return "mild";
-}
+export { injuryBand };
 
 const HILL_KINDS = new Set(["hills", "hill_hike", "long_hilly"]);
 
 /**
- * Injury rules: mild pain means easy, flat running cut by 20% or more (so never
- * above last week's); moderate pain means no running; severe pain means no
+ * Injury rules: mild pain means easy, flat running cut by 20% or more the first
+ * week, then held (never above last week's); moderate pain means no running; severe pain means no
  * running and no lower-body lifting. Lifts avoid the injured area, and the
  * coach note points to a physio or doctor when the pain is more than mild.
  */
@@ -403,9 +402,13 @@ export const injuryRule: Rule = (week, { injury, history }) => {
         out.push({ rule: "injury", date: r.date, message: `With ${where}, keep running easy and flat: "${r.title}" on ${label(r.date)} must be an easy run with no intervals or hills.` });
       }
     }
-    const last = history.at(-1)?.runMinutes;
-    if (last !== undefined && runMinutes(week) > last * C.injury.mildRunShare) {
-      out.push({ rule: "injury", message: `With ${where}, cut running by at least ${Math.round((1 - C.injury.mildRunShare) * 100)}%: at most ${Math.floor(last * C.injury.mildRunShare)} run minutes, not ${runMinutes(week)}.` });
+    const last = history.at(-1);
+    if (last?.injured) {
+      if (runMinutes(week) > last.runMinutes) {
+        out.push({ rule: "injury", message: `With ${where}, keep running at or below last week's ${last.runMinutes} minutes, not ${runMinutes(week)}.` });
+      }
+    } else if (last !== undefined && runMinutes(week) > last.runMinutes * C.injury.mildRunShare) {
+      out.push({ rule: "injury", message: `With ${where}, cut running by at least ${Math.round((1 - C.injury.mildRunShare) * 100)}%: at most ${Math.floor(last.runMinutes * C.injury.mildRunShare)} run minutes, not ${runMinutes(week)}.` });
     }
   } else if (runs.length > 0) {
     out.push({ rule: "injury", message: `With ${where}${injury.painWhen === "walking" ? " (hurting when walking)" : ""}, there should be no running this week; plan strength sessions that avoid the ${injury.area} instead.` });
@@ -437,11 +440,24 @@ export const injuryRule: Rule = (week, { injury, history }) => {
 /**
  * Run minutes grow by at most about 10% on the last build week (strength
  * minutes don't count). When last week's run minutes are unknown or under 60,
- * the starting-load range applies instead.
+ * the starting-load range applies instead. While injured, the injury rule
+ * governs running; the first week back is at most 80% of the last week before
+ * the injury, or the starting load (SPEC decision 42).
  */
 export const runProgression: Rule = (week, ctx) => {
-  if (isRecovery(week) || isTaper(week) || inTaperWindow(week, ctx)) return [];
+  if (ctx.injury) return [];
   const run = runMinutes(week);
+  if (ctx.history.at(-1)?.injured) {
+    const before = ctx.history.findLast((w) => !w.injured && !isRecovery(w) && !isTaper(w))?.runMinutes ?? ctx.lastWeekRunMinutes;
+    if (before === undefined) return [];
+    // Plans round run minutes to 5. Restarting at the normal starting load is always fine.
+    const range = ctx.experienceLevel === "beginner" ? C.startingRunMinutes.beginner : C.startingRunMinutes.other;
+    const limit = Math.max(Math.ceil((before * C.injury.returnRunShare) / 5) * 5, range.max);
+    return run > limit
+      ? [{ rule: "run-progression", message: `This is the first week back after an injury, so keep running to at most ${Math.floor(limit)} minutes (80% of the ${before} before it, or the starting load), not ${run}.` }]
+      : [];
+  }
+  if (isRecovery(week) || isTaper(week) || inTaperWindow(week, ctx)) return [];
   const last =
     ctx.history.at(-1) ??
     (ctx.lastWeekRunMinutes !== undefined ? { runMinutes: ctx.lastWeekRunMinutes, totalMinutes: ctx.lastWeekRunMinutes, phase: "base" as const } : undefined);
@@ -453,17 +469,20 @@ export const runProgression: Rule = (week, ctx) => {
     const isBeginner = ctx.experienceLevel === "beginner";
     const range = isBeginner ? C.startingRunMinutes.beginner : C.startingRunMinutes.other;
     const who = isBeginner ? "a beginner (run/walk)" : "this athlete";
-    if (run < range.min || run > range.max) {
+    // Coming back from an injury, less than the starting load is fine: only the top matters.
+    const returning = ctx.history.some((w) => w.injured);
+    if ((!returning && run < range.min) || run > range.max) {
       out.push({ rule: "run-progression", message: `This is a starting week, so run minutes should be ${range.min}-${range.max} for ${who}, not ${run}.` });
     }
     const runs = week.sessions.filter((s) => s.type === "run").length;
     const n = C.startingRunSessions;
-    if (runs < n.min || runs > n.max) {
+    if ((!returning && runs < n.min) || runs > n.max) {
       out.push({ rule: "run-progression", message: `This is a starting week, so split running across ${n.min}-${n.max} runs, not ${runs}.` });
     }
     return out;
   }
 
+  if (!lastFull) return [];
   const ref = lastFull;
   const limit = ref.runMinutes + Math.max(ref.runMinutes * C.maxRunIncreaseShare, C.minRunIncreaseMinutes);
   return run > limit
@@ -473,7 +492,8 @@ export const runProgression: Rule = (week, ctx) => {
 
 /** A recovery week every 3-4 weeks, cutting total volume by at least 30%. */
 export const recoveryWeek: Rule = (week, ctx) => {
-  if (isTaper(week) || inTaperWindow(week, ctx)) return [];
+  // While injured, the injury rule governs load and the build rhythm restarts afterwards.
+  if (ctx.injury || isTaper(week) || inTaperWindow(week, ctx)) return [];
   const out: Violation[] = [];
   const streak = buildStreak(ctx.history);
   if (!isRecovery(week) && streak >= C.maxBuildWeeksInRow) {
@@ -508,7 +528,7 @@ export const taper: Rule = (week, ctx) => {
   if (!isTaper(week)) {
     out.push({ rule: "taper", message: `The target date is ${ctx.targetDate}, so this week must be a taper week.` });
   }
-  const ref = lastBuildWeek(ctx.history);
+  const ref = ctx.injury ? undefined : lastBuildWeek(ctx.history);
   if (ref) {
     const share = taperShares(ctx)[weeksOut];
     const limit = ref.totalMinutes * share;
