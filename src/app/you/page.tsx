@@ -83,7 +83,7 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
     <main className="flex flex-col gap-6 pt-8">
       <header>
         <p className="text-sm font-medium text-primary-strong">You</p>
-        <h1 className="font-display text-5xl leading-none uppercase">{ctx.name}</h1>
+        <h1 className="font-display text-5xl leading-none">{ctx.name}</h1>
       </header>
 
       {ctx.isDemo && <DemoBanner />}
@@ -94,8 +94,8 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
       {typeof query.injury === "string" && INJURY_NOTES[query.injury] && <Note>{INJURY_NOTES[query.injury]}</Note>}
 
       <section aria-label="Plan progress" className="rounded-3xl bg-primary p-5 text-primary-foreground">
-        <p className="text-xs font-semibold tracking-widest uppercase opacity-70">{index < 0 ? "Starts soon" : `${PHASE_LABEL[current.phase]} phase`}</p>
-        <p className="mt-1 font-display text-4xl leading-none uppercase">
+        <p className="text-xs font-semibold opacity-70">{index < 0 ? "Starts soon" : `${PHASE_LABEL[current.phase]} phase`}</p>
+        <p className="mt-1 font-display text-4xl leading-none">
           {index < 0 ? `${plural(total, "week")} planned` : `Week ${Math.min(index + 1, total)} of ${total}`}
         </p>
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-primary-foreground/20" aria-hidden>
@@ -109,7 +109,7 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
 
       {!ctx.isDemo && (
         <section aria-label="Injuries" className={`rounded-2xl border p-4 ${injury ? "border-hard/40 bg-hard/5" : "bg-card"}`}>
-          <h2 className="font-display text-2xl uppercase">Injuries</h2>
+          <h2 className="font-display text-2xl">Injuries</h2>
           {injury ? (
             <>
               <p className="mt-2 font-medium capitalize">
@@ -143,7 +143,7 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
           )}
           {pastInjuries.length > 0 && (
             <div className="mt-4 border-t pt-3">
-              <h3 className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">History</h3>
+              <h3 className="text-xs font-semibold text-muted-foreground">History</h3>
               <ul className="mt-2 flex flex-col gap-1 text-sm">
                 {pastInjuries.map((p) => (
                   <li key={p.id} className="flex justify-between gap-4">
@@ -215,7 +215,7 @@ function Section({ id, editable, children }: { id: SectionId; editable: boolean;
   return (
     <section aria-label={SECTIONS[id].title} className="rounded-2xl border bg-card p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-display text-2xl uppercase">{SECTIONS[id].title}</h2>
+        <h2 className="font-display text-2xl">{SECTIONS[id].title}</h2>
         {editable && (
           <Link href={`/you/edit/${id}`} className="-mr-2 flex items-center gap-0.5 rounded-full px-2 py-1 text-sm font-medium text-primary-strong hover:bg-accent">
             Edit <ChevronRight className="size-4" aria-hidden />

@@ -29,7 +29,7 @@ async function Plan() {
     <main className="flex flex-col gap-6 pt-8">
       <header>
         <p className="text-sm font-medium text-primary-strong">Your plan</p>
-        <h1 className="font-display text-5xl leading-none uppercase">{ctx.title}</h1>
+        <h1 className="font-display text-5xl leading-none">{ctx.title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {ctx.input.targetDate ? `${formatDate(ctx.input.targetDate)} · ` : `${weeks.length}-week block · `}
           {ctx.goal}

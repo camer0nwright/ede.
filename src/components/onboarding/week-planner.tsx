@@ -138,7 +138,7 @@ export function WeekPlanner({
           {editing !== null && (
             <div className="mx-auto w-full max-w-md px-4 pb-8">
               <DrawerHeader className="px-0 text-left">
-                <DrawerTitle className="font-display text-3xl uppercase">{DAY_NAMES[editing]}</DrawerTitle>
+                <DrawerTitle className="font-display text-3xl">{DAY_NAMES[editing]}</DrawerTitle>
                 <DrawerDescription>How much time do you have?</DrawerDescription>
               </DrawerHeader>
               <div className="flex flex-wrap gap-2">

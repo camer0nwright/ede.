@@ -26,7 +26,7 @@ export function WeekCard({ week, current, injured }: { week: WeekPlan; current?:
       )}
     >
       <div className="flex w-10 shrink-0 flex-col items-center">
-        <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">Wk</span>
+        <span className="text-[10px] font-semibold text-muted-foreground">Wk</span>
         <span className="font-display text-3xl leading-none">{week.weekNumber}</span>
       </div>
       <div className="min-w-0 flex-1">

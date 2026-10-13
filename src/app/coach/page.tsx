@@ -15,7 +15,7 @@ export default function CoachPage() {
     <main className="flex flex-col gap-6 pt-8">
       <header>
         <p className="text-sm font-medium text-primary-strong">Coach</p>
-        <h1 className="font-display text-5xl leading-none uppercase">Ask your coach</h1>
+        <h1 className="font-display text-5xl leading-none">Ask your coach</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Your AI coach knows your plan, your check-ins and your lifts. It can explain sessions and suggest changes,
           which you approve.
