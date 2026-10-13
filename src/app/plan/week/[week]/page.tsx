@@ -103,7 +103,7 @@ async function WeekContent({ params }: { params: PageProps<"/plan/week/[week]">[
 
       <section aria-label="Sessions by day" className="flex flex-col gap-4">
         <WeekStrip days={days} today={ctx.today} />
-        <WeekDays days={days} options={{ canCheckIn: !ctx.isDemo, today: ctx.today, unit: ctx.paces.unit }} showRest />
+        <WeekDays days={days} options={{ canCheckIn: !ctx.isDemo, today: ctx.today, unit: ctx.paces.unit, week: days }} showRest />
       </section>
     </>
   );

@@ -28,7 +28,7 @@ async function Today({ searchParams }: { searchParams: PageProps<"/">["searchPar
   const notStarted = index < 0;
   const { week } = weeks[Math.min(Math.max(index, 0), weeks.length - 1)];
   const days = weekDays(week, ctx.paces, ctx.checkIns, ctx.workouts);
-  const options = { canCheckIn: !ctx.isDemo, today: ctx.today, unit: ctx.paces.unit };
+  const options = { canCheckIn: !ctx.isDemo, today: ctx.today, unit: ctx.paces.unit, week: days };
   const today = days.find((d) => d.date === ctx.today);
   const upcoming = notStarted ? days : days.filter((d) => d.date > ctx.today);
   // Earlier this week, sessions not yet marked done or skipped.
