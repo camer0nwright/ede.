@@ -47,7 +47,7 @@ async function Plan() {
             {ctx.input.targetDate ? `${plural(weeksToGo, "week")} to go` : `Started ${formatDate(ctx.input.startDate)}`}
           </span>
         </p>
-        <PhaseStrip weeks={weeks} currentWeek={currentWeek} />
+        <PhaseStrip weeks={weeks} currentWeek={currentWeek} race={!!ctx.input.targetDate} />
       </section>
 
       {notes.length > 0 && (
