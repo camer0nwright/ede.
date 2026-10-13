@@ -292,3 +292,43 @@ export function buildRunSteps(kind: RunKind, level: number, minutes: number): Ru
 }
 
 export const runLabel = (kind: RunKind) => RUN_LIBRARY[kind].label;
+
+/** Why each kind of run is in the plan, in one line (shown on every session). */
+export const RUN_PURPOSE: Record<RunKind, string> = {
+  easy: "Builds your aerobic base while you recover from harder days.",
+  recovery: "Loosens your legs and helps you recover.",
+  strides: "Easy running plus a few quick strides to keep your legs sharp.",
+  run_walk: "Builds running fitness gently, mixing running with walking.",
+  long_easy: "Builds the endurance to go the distance on race day.",
+  long_fast_finish: "Teaches you to run strong on tired legs.",
+  long_race_pace: "Practises your race pace when you're already tired.",
+  long_hilly: "Builds endurance and leg strength for hilly race terrain.",
+  intervals_short: "Raises your top-end fitness so race pace feels easier.",
+  intervals_long: "Lifts your threshold so you can hold a faster pace for longer.",
+  tempo: "Teaches you to hold a strong, steady pace for longer.",
+  hills: "Builds leg strength and power with less impact than speedwork.",
+  fartlek: "Mixes faster bursts into a run to build speed in a relaxed way.",
+  progression: "Finishes faster than it starts, teaching you to push late.",
+  aerobic_power: "Steady running just below your limit, building ultra stamina.",
+  hill_hike: "Practises efficient uphill hiking for steep race sections.",
+};
+
+/** One practical tip for each kind of run. */
+export const RUN_TIP: Record<RunKind, string> = {
+  easy: "Conversational pace: you should be able to talk in full sentences.",
+  recovery: "Slower than feels necessary. This run is about recovery, not fitness.",
+  strides: "Strides are fast but relaxed, not a sprint. Walk or jog back to recover.",
+  run_walk: "Keep the running gentle. The walking breaks are part of the plan.",
+  long_easy: "Start slower than you think. Practise drinking and fuelling on longer runs.",
+  long_fast_finish: "Keep the early part truly easy so you can finish strong.",
+  long_race_pace: "Keep the easy parts easy, so the race-pace sections feel controlled.",
+  long_hilly: "Power hike anything steep; it's often as fast as running and saves your legs.",
+  intervals_short: "Run each rep hard but even: the last should match the first.",
+  intervals_long: "Aim for even reps. If you can't hold the effort, slow the next one slightly.",
+  tempo: "You should be able to say a few words, but not hold a conversation.",
+  hills: "Drive with your arms and stay tall. Jog down easy.",
+  fartlek: "Make the fast bits fast but controlled, then recover fully before the next.",
+  progression: "Start easy and only build in the last section.",
+  aerobic_power: "Steady and controlled: comfortably hard, never straining.",
+  hill_hike: "Short steps, hands on knees when it's steep, and keep moving.",
+};

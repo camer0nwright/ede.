@@ -7,7 +7,6 @@ import {
   buildPlanOutline,
   easyShareOf,
   qualityOf,
-  type OutlineInput,
   type OutlineWeek,
   type PlanOutline,
 } from "./plan-outline";

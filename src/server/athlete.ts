@@ -6,9 +6,11 @@ import { cookies } from "next/headers";
 import { connection } from "next/server";
 import { db } from "@/lib/db";
 import { DEMO_ATHLETE, DEMO_TODAY, demoOutline, demoOutlineInput } from "@/lib/demo-athlete";
-import type { StrengthVolume } from "@/lib/domain";
+import type { BodyArea, StrengthVolume } from "@/lib/domain";
 import { formatDuration } from "@/lib/format";
 import type { OutlineInput, PlanOutline } from "@/lib/plan-outline";
+import { equipmentFromAnswers } from "@/lib/strength-builder";
+import { buildPlanWeeks, type BuiltWeek, type WeekBuildInput } from "@/lib/week-builder";
 
 export const ATHLETE_COOKIE = "ede_athlete";
 
@@ -22,7 +24,23 @@ export type PlanContext = {
   strengthVolume: StrengthVolume;
   /** "Today" as YYYY-MM-DD: fixed for the demo, the real date otherwise. */
   today: string;
+  /** What the week builder needs: availability, equipment and any injured area. */
+  build: WeekBuildInput;
 };
+
+/** Every week of the plan with sessions on days (src/lib/week-builder.ts). */
+export function builtWeeks(ctx: PlanContext): BuiltWeek[] {
+  return buildPlanWeeks(ctx.outline, ctx.build);
+}
+
+const buildInput = (input: OutlineInput, equipment: string[], avoid?: BodyArea): WeekBuildInput => ({
+  availability: input.availability,
+  ultra: input.raceDistance === "ultra",
+  strengthVolume: input.strengthVolume,
+  experienceLevel: input.experienceLevel,
+  equipment: equipmentFromAnswers(equipment),
+  ...(avoid && { avoid }),
+});
 
 const RACE_TITLE: Record<string, string> = {
   "5k": "5K",
@@ -41,6 +59,7 @@ const demoContext = (): PlanContext => ({
   outline: demoOutline,
   strengthVolume: demoOutlineInput.strengthVolume,
   today: DEMO_TODAY,
+  build: buildInput(demoOutlineInput, ["Full gym"]),
 });
 
 /** Today's date at request time (not when the page is pre-built). */
@@ -55,7 +74,10 @@ export async function getPlanContext(): Promise<PlanContext> {
 
   const athlete = await db.athlete.findUnique({
     where: { id },
-    include: { outlines: { where: { active: true }, orderBy: { createdAt: "desc" }, take: 1 } },
+    include: {
+      outlines: { where: { active: true }, orderBy: { createdAt: "desc" }, take: 1 },
+      injuries: { where: { resolvedAt: null }, orderBy: { startedAt: "desc" }, take: 1 },
+    },
   });
   const current = athlete?.outlines[0];
   if (!athlete || !current) return demoContext();
@@ -84,5 +106,6 @@ export async function getPlanContext(): Promise<PlanContext> {
     outline: JSON.parse(current.outline) as PlanOutline,
     strengthVolume: athlete.strengthVolume as StrengthVolume,
     today: await requestDate(),
+    build: buildInput(input, (athlete.equipment ?? "Full gym").split(", "), athlete.injuries[0]?.area as BodyArea | undefined),
   };
 }

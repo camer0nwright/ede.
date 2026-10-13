@@ -3,11 +3,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import { SessionList } from "@/components/plan/session-list";
+import { WeekDays, WeekStrip } from "@/components/plan/week-days";
 import { Badge } from "@/components/ui/badge";
-import { getPlanContext } from "@/server/athlete";
+import { builtWeeks, getPlanContext } from "@/server/athlete";
 import { formatMinutes, formatWeekRange, PHASE_COLOR, PHASE_LABEL } from "@/lib/format";
-import { sessionItems } from "@/lib/outline-view";
+import { weekDays } from "@/lib/week-view";
 import type { Phase } from "@/lib/domain";
 import { cn } from "@/lib/utils";
 
@@ -59,7 +59,7 @@ async function WeekContent({ params }: { params: PageProps<"/plan/week/[week]">[
   const week = ctx.outline.weeks.find((w) => String(w.weekNumber) === param);
   if (!week) notFound();
 
-  const items = sessionItems(week, ctx.strengthVolume);
+  const days = weekDays(builtWeeks(ctx)[week.weekNumber - 1].week);
   const prev = week.weekNumber > 1 ? week.weekNumber - 1 : null;
   const next = week.weekNumber < ctx.outline.weeks.length ? week.weekNumber + 1 : null;
 
@@ -100,12 +100,9 @@ async function WeekContent({ params }: { params: PageProps<"/plan/week/[week]">[
         ))}
       </dl>
 
-      <section aria-label="Sessions" className="flex flex-col gap-3">
-        <h2 className="font-display text-2xl uppercase">Sessions</h2>
-        <SessionList items={items} />
-        <p className="text-xs text-muted-foreground">
-          Your coach places these on days when this week&apos;s plan is generated, fitted to your availability.
-        </p>
+      <section aria-label="Sessions by day" className="flex flex-col gap-3">
+        <WeekStrip days={days} today={ctx.today} />
+        <WeekDays days={days} today={ctx.today} />
       </section>
     </>
   );
