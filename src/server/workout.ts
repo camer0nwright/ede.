@@ -4,9 +4,11 @@ import "server-only";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { exerciseToRow, fromDbDate } from "@/lib/db-mapping";
-import { SetType, StrengthExercise } from "@/lib/domain";
+import { SetType, StrengthExercise, type BodyArea } from "@/lib/domain";
 import { findExercise } from "@/lib/exercise-library";
-import type { LoggedSet, WeightUnit } from "@/lib/workout";
+import { holdReason, suggestNext } from "@/lib/progression";
+import { equipmentFromAnswers } from "@/lib/strength-builder";
+import { buildWorkout, type LoggedSet, type WeightUnit } from "@/lib/workout";
 import { sessionAthleteId } from "@/server/auth";
 
 const toLogged = (row: { setNumber: number; setType: string; weightKg: number | null; reps: number | null; rpe: number | null; exercise: { name: string } }): LoggedSet => ({
@@ -24,7 +26,15 @@ export async function ownSession(sessionId: string) {
   if (!athleteId) return null;
   const session = await db.session.findFirst({
     where: { id: sessionId, week: { athleteId } },
-    include: { week: { select: { athleteId: true, athlete: { select: { weightUnit: true } } } } },
+    include: {
+      week: {
+        select: {
+          athleteId: true,
+          phase: true,
+          athlete: { select: { weightUnit: true, equipment: true, injuries: { where: { resolvedAt: null }, select: { area: true }, take: 1 } } },
+        },
+      },
+    },
   });
   return session ? { ...session, athleteId } : null;
 }
@@ -57,14 +67,46 @@ async function previousSets(athleteId: string, sessionId: string, names: string[
   return out;
 }
 
+type OwnSession = NonNullable<Awaited<ReturnType<typeof ownSession>>>;
+
+/** The athlete's equipment, unit and any injured area, for choosing and progressing exercises. */
+export function workoutSettings(session: OwnSession) {
+  const athlete = session.week.athlete;
+  return {
+    unit: (athlete.weightUnit === "lb" ? "lb" : "kg") as WeightUnit,
+    equipment: equipmentFromAnswers((athlete.equipment ?? "Full gym").split(", ")),
+    avoid: athlete.injuries[0]?.area as BodyArea | undefined,
+  };
+}
+
+export const plannedExercises = (session: { exercises: string | null }) => z.array(StrengthExercise).parse(JSON.parse(session.exercises ?? "[]"));
+
+/** This time's targets from last time's sets, held back in lighter weeks or while injured. */
+export function suggestionsFor(session: OwnSession, planned: StrengthExercise[], previous: Record<string, LoggedSet[]>) {
+  const { unit, avoid } = workoutSettings(session);
+  const hold = holdReason({ phase: session.week.phase, injuryArea: avoid, light: planned.every((e) => e.targetRpe <= 7) });
+  return Object.fromEntries(planned.map((e) => [e.name, suggestNext(e, previous[e.name] ?? [], unit, hold)]));
+}
+
+/** One exercise laid out for the workout screen, with last time's sets and this time's target. */
+export async function blockFor(session: OwnSession, exercise: StrengthExercise) {
+  const { unit } = workoutSettings(session);
+  const previous = await previousSets(session.athleteId, session.id, [exercise.name]);
+  return buildWorkout([exercise], [], previous, unit, suggestionsFor(session, [exercise], previous))[0];
+}
+
 export async function loadWorkout(sessionId: string) {
   const session = await ownSession(sessionId);
   if (!session || session.type !== "strength") return null;
-  const planned = z.array(StrengthExercise).parse(JSON.parse(session.exercises ?? "[]"));
+  const planned = plannedExercises(session);
   const logs = await db.setLog.findMany({ where: { sessionId }, include: { exercise: { select: { name: true } } } });
   const logged = logs.map(toLogged);
   const previous = await previousSets(session.athleteId, sessionId, planned.map((e) => e.name));
+  const settings = workoutSettings(session);
   return {
+    equipment: settings.equipment,
+    avoid: settings.avoid,
+    suggestions: suggestionsFor(session, planned, previous),
     id: session.id,
     title: session.title,
     date: fromDbDate(session.date),
@@ -76,7 +118,7 @@ export async function loadWorkout(sessionId: string) {
     planned,
     logged,
     previous,
-    unit: (session.week.athlete.weightUnit === "lb" ? "lb" : "kg") as WeightUnit,
+    unit: settings.unit,
   };
 }
 export type Workout = NonNullable<Awaited<ReturnType<typeof loadWorkout>>>;

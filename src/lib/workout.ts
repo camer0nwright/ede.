@@ -22,9 +22,21 @@ export type SetRow = {
   done: boolean;
   /** Last time's numbers for the matching set, if any. */
   previous?: { weight: string; reps: number };
+  /** Reps to aim for this time (from progression). */
+  targetReps?: number;
 };
 
-export type ExerciseBlock = { name: string; restSeconds: number; failureAllowed: boolean; isMainLift: boolean; sets: SetRow[] };
+/** This time's target from progression (src/lib/progression.ts). */
+export type BlockSuggestion = { weight?: string; reps: number; note: string };
+
+export type ExerciseBlock = {
+  name: string;
+  restSeconds: number;
+  failureAllowed: boolean;
+  isMainLift: boolean;
+  sets: SetRow[];
+  suggestion?: BlockSuggestion;
+};
 
 /** A weight for display: kg to the nearest 0.25, lb to the nearest 0.5, without trailing zeros. */
 export function formatWeight(kg: number, unit: WeightUnit): string {
@@ -41,7 +53,13 @@ const isWarmup = (t: SetType) => t === "warmup";
  * last time's numbers matched set by set (warm-ups to warm-ups, working sets
  * to working sets, in order).
  */
-export function buildWorkout(planned: StrengthExercise[], logged: LoggedSet[], previous: Record<string, LoggedSet[]>, unit: WeightUnit): ExerciseBlock[] {
+export function buildWorkout(
+  planned: StrengthExercise[],
+  logged: LoggedSet[],
+  previous: Record<string, LoggedSet[]>,
+  unit: WeightUnit,
+  suggestions: Record<string, BlockSuggestion | undefined> = {},
+): ExerciseBlock[] {
   return planned.map((e) => {
     const info = findExercise(e.name);
     const rows: SetRow[] = [
@@ -80,8 +98,19 @@ export function buildWorkout(planned: StrengthExercise[], logged: LoggedSet[], p
       if (match) row.previous = { weight: formatWeight(match.weightKg!, unit), reps: match.reps! };
     }
 
+    // Progression pre-fills this time's weight and target reps on working sets not yet logged.
+    const suggestion = suggestions[e.name];
+    if (suggestion) {
+      for (const row of rows) {
+        if (row.setType !== "working" || row.done) continue;
+        row.targetReps = suggestion.reps;
+        if (suggestion.weight) row.weight = suggestion.weight;
+      }
+    }
+
     return {
       name: e.name,
+      ...(suggestion && { suggestion }),
       restSeconds: info ? defaultRestSeconds(info) : 90,
       failureAllowed: e.failureAllowed,
       isMainLift: info?.isMainLift ?? false,

@@ -4,9 +4,12 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { toKg } from "@/lib/db-mapping";
-import { IsoDate, SetType } from "@/lib/domain";
+import { IsoDate, SetType, type StrengthExercise } from "@/lib/domain";
+import { failureAllowed } from "@/lib/exercise-library";
+import { addOptions, plannedFromLibrary, swapOptions } from "@/lib/progression";
+import type { ExerciseBlock } from "@/lib/workout";
 import { signedInContext, storedSessionId } from "@/server/sessions";
-import { exerciseId, ownSession } from "@/server/workout";
+import { blockFor, exerciseId, ownSession, plannedExercises, workoutSettings } from "@/server/workout";
 
 export type WorkoutResult = { ok: true } | { ok: false; errors: string[] };
 const fail = (message: string): WorkoutResult => ({ ok: false, errors: [message] });
@@ -114,4 +117,66 @@ export async function discardWorkout(raw: unknown): Promise<WorkoutResult> {
   await db.setLog.deleteMany({ where: { sessionId: session.id } });
   await db.session.update({ where: { id: session.id }, data: { status: "planned", startedAt: null } });
   redirect("/");
+}
+
+export type ExerciseResult = { ok: true; block?: ExerciseBlock } | { ok: false; errors: string[] };
+
+async function changeExercises(
+  raw: unknown,
+  shape: z.ZodType<{ sessionId: string }>,
+  change: (args: { session: NonNullable<Awaited<ReturnType<typeof workoutInProgress>>>; planned: StrengthExercise[] }) => Promise<
+    { planned: StrengthExercise[]; added?: StrengthExercise } | string
+  >,
+): Promise<ExerciseResult> {
+  const parsed = shape.safeParse(raw);
+  if (!parsed.success) return { ok: false, errors: ["Something went wrong. Try again."] };
+  const session = await workoutInProgress(parsed.data.sessionId);
+  if (!session) return { ok: false, errors: ["This workout isn't in progress any more."] };
+  const result = await change({ session, planned: plannedExercises(session) });
+  if (typeof result === "string") return { ok: false, errors: [result] };
+  await db.session.update({ where: { id: session.id }, data: { exercises: JSON.stringify(result.planned) } });
+  return { ok: true, ...(result.added && { block: await blockFor(session, result.added) }) };
+}
+
+const loggedFor = (sessionId: string, name: string) => db.setLog.count({ where: { sessionId, exercise: { name } } });
+
+/** Swaps an exercise (nothing logged for it yet) for an alternative that suits the athlete's equipment and injuries. */
+export async function swapExercise(raw: unknown): Promise<ExerciseResult> {
+  const shape = z.object({ sessionId: z.string().min(1), from: z.string().min(1), to: z.string().min(1) });
+  return changeExercises(raw, shape, async ({ session, planned }) => {
+    const { from, to } = shape.parse(raw);
+    const index = planned.findIndex((e) => e.name === from);
+    if (index < 0) return "That exercise isn't in this workout.";
+    if (await loggedFor(session.id, from)) return `Untick the ${from.toLowerCase()} sets first, then swap it.`;
+    const { equipment, avoid } = workoutSettings(session);
+    const choice = swapOptions(from, equipment, avoid, planned.map((e) => e.name)).find((e) => e.name === to);
+    if (!choice) return `${to} isn't a swap that suits your equipment.`;
+    const swapped = { ...planned[index], name: choice.name, failureAllowed: planned[index].failureAllowed && failureAllowed(choice) };
+    return { planned: planned.map((e, i) => (i === index ? swapped : e)), added: swapped };
+  });
+}
+
+/** Adds a library exercise to the end of the workout. */
+export async function addExercise(raw: unknown): Promise<ExerciseResult> {
+  const shape = z.object({ sessionId: z.string().min(1), name: z.string().min(1) });
+  return changeExercises(raw, shape, async ({ session, planned }) => {
+    const { name } = shape.parse(raw);
+    const { equipment, avoid } = workoutSettings(session);
+    const choice = addOptions("", equipment, avoid, planned.map((e) => e.name)).find((e) => e.name === name);
+    if (!choice) return `${name} can't be added with your equipment.`;
+    const added = plannedFromLibrary(choice);
+    return { planned: [...planned, added], added };
+  });
+}
+
+/** Removes an exercise that has nothing logged yet. */
+export async function removeExercise(raw: unknown): Promise<ExerciseResult> {
+  const shape = z.object({ sessionId: z.string().min(1), name: z.string().min(1) });
+  return changeExercises(raw, shape, async ({ session, planned }) => {
+    const { name } = shape.parse(raw);
+    if (!planned.some((e) => e.name === name)) return "That exercise isn't in this workout.";
+    if (await loggedFor(session.id, name)) return `Untick the ${name.toLowerCase()} sets first, then remove it.`;
+    if (planned.length === 1) return "A workout needs at least one exercise. Discard the workout instead.";
+    return { planned: planned.filter((e) => e.name !== name) };
+  });
 }

@@ -2,16 +2,18 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, ChevronLeft, Loader2, Plus, Timer, X } from "lucide-react";
+import { ArrowLeftRight, Check, ChevronLeft, Loader2, MoreHorizontal, Plus, Search, Timer, Trash2, TrendingUp, X } from "lucide-react";
 import { toast } from "sonner";
-import { discardWorkout, finishWorkout, logSet, unlogSet } from "@/app/workout/actions";
+import { addExercise, discardWorkout, finishWorkout, logSet, removeExercise, swapExercise, unlogSet } from "@/app/workout/actions";
 import { Note } from "@/components/onboarding/choices";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { EFFORT_LABEL } from "@/lib/checkin";
 import { plural } from "@/lib/format";
-import type { SetType } from "@/lib/domain";
+import type { BodyArea, Equipment, SetType } from "@/lib/domain";
+import { addOptions, swapOptions } from "@/lib/progression";
 import { cn } from "@/lib/utils";
 import type { ExerciseBlock, SetRow, WeightUnit } from "@/lib/workout";
 
@@ -92,18 +94,39 @@ export function WorkoutLogger({
   startedAt,
   unit,
   initial,
+  equipment,
+  avoid,
 }: {
   sessionId: string;
   title: string;
   startedAt: string | null;
   unit: WeightUnit;
   initial: ExerciseBlock[];
+  equipment: Equipment[];
+  avoid?: BodyArea;
 }) {
   const [blocks, setBlocks] = useState(initial);
   const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
   const [finishing, setFinishing] = useState(false);
   // Sets beyond the plan's count were added during the workout and can be removed.
-  const [plannedCounts] = useState(() => initial.map((b) => b.sets.length));
+  const [plannedCounts, setPlannedCounts] = useState(() => initial.map((b) => b.sets.length));
+  const [menu, setMenu] = useState<number | null>(null);
+  const [adding, setAdding] = useState(false);
+
+  /** Puts a block from the server in place (a swap) or at the end (an add). */
+  const placeBlock = (block: ExerciseBlock, at?: number) => {
+    if (at === undefined) {
+      setBlocks((all) => [...all, block]);
+      setPlannedCounts((counts) => [...counts, block.sets.length]);
+    } else {
+      setBlocks((all) => all.map((x, i) => (i === at ? block : x)));
+      setPlannedCounts((counts) => counts.map((c, i) => (i === at ? block.sets.length : c)));
+    }
+  };
+  const dropBlock = (at: number) => {
+    setBlocks((all) => all.filter((_, i) => i !== at));
+    setPlannedCounts((counts) => counts.filter((_, i) => i !== at));
+  };
 
   const update = (b: number, i: number, patch: Partial<SetRow>) =>
     setBlocks((all) => all.map((block, bi) => (bi !== b ? block : { ...block, sets: block.sets.map((s, si) => (si === i ? { ...s, ...patch } : s)) })));
@@ -181,14 +204,25 @@ export function WorkoutLogger({
       <div className="mt-4 flex flex-col gap-4">
         {blocks.map((block, b) => (
           <section key={block.name} aria-label={block.name} className="rounded-2xl border bg-card p-3">
-            <div className="flex items-baseline justify-between gap-2">
-              <h2 className="font-semibold">{block.name}</h2>
-              {block.isMainLift && <span className="shrink-0 text-xs font-medium text-primary-strong">Main lift</span>}
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h2 className="font-semibold">{block.name}</h2>
+                <p className="text-xs text-muted-foreground">
+                  {block.isMainLift && <span className="font-medium text-primary-strong">Main lift · </span>}
+                  Rest {block.restSeconds >= 120 ? `${Math.round(block.restSeconds / 60)} min` : `${block.restSeconds}s`}
+                  {block.failureAllowed && " · last set to failure is fine"}
+                </p>
+              </div>
+              <button type="button" onClick={() => setMenu(b)} aria-label={`More for ${block.name}`} className="-mt-1 -mr-1 grid size-9 shrink-0 place-items-center rounded-full hover:bg-accent">
+                <MoreHorizontal className="size-5" />
+              </button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Rest {block.restSeconds >= 120 ? `${Math.round(block.restSeconds / 60)} min` : `${block.restSeconds}s`}
-              {block.failureAllowed && " · last set to failure is fine"}
-            </p>
+            {block.suggestion && (
+              <p className="mt-2 rounded-lg bg-secondary px-3 py-2 text-xs">
+                <TrendingUp className="mr-1 inline size-3.5 align-[-2px] text-primary-strong" aria-hidden />
+                {block.suggestion.note}
+              </p>
+            )}
 
             <div className="mt-3 grid grid-cols-[1.75rem_minmax(0,1fr)_4rem_3rem_2.75rem_2.5rem] items-center gap-x-1.5 gap-y-2 text-xs text-muted-foreground">
               <span className="text-center">Set</span>
@@ -220,6 +254,31 @@ export function WorkoutLogger({
         ))}
       </div>
 
+      <button type="button" onClick={() => setAdding(true)} className="mt-4 flex h-12 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed text-sm font-medium hover:bg-accent">
+        <Plus className="size-4" aria-hidden /> Add exercise
+      </button>
+
+      {menu !== null && blocks[menu] && (
+        <ExerciseMenu
+          sessionId={sessionId}
+          block={blocks[menu]}
+          others={blocks.map((x) => x.name)}
+          equipment={equipment}
+          avoid={avoid}
+          onClose={() => setMenu(null)}
+          onSwapped={(block) => placeBlock(block, menu)}
+          onRemoved={() => dropBlock(menu)}
+        />
+      )}
+      <AddExercise
+        open={adding}
+        onOpenChange={setAdding}
+        sessionId={sessionId}
+        present={blocks.map((x) => x.name)}
+        equipment={equipment}
+        avoid={avoid}
+        onAdded={(block) => placeBlock(block)}
+      />
       {restEndsAt && <RestTimer key={restEndsAt} endsAt={restEndsAt} onChange={setRestEndsAt} onDone={() => setRestEndsAt(null)} />}
       <FinishSheet open={finishing} onOpenChange={setFinishing} sessionId={sessionId} setsDone={done} />
     </div>
@@ -265,7 +324,7 @@ function SetRowInputs({
         )}
       </span>
       <input aria-label="Weight" inputMode="decimal" className={input} value={row.weight} disabled={row.done} onChange={(e) => onChange({ weight: e.target.value })} placeholder="–" />
-      <input aria-label="Reps" inputMode="numeric" className={input} value={row.reps} disabled={row.done} onChange={(e) => onChange({ reps: e.target.value })} placeholder={row.plannedReps?.split("-")[0] ?? "–"} />
+      <input aria-label="Reps" inputMode="numeric" className={input} value={row.reps} disabled={row.done} onChange={(e) => onChange({ reps: e.target.value })} placeholder={row.targetReps ? String(row.targetReps) : (row.plannedReps?.split("-")[0] ?? "–")} />
       <input aria-label="RPE (optional)" inputMode="decimal" className={input} value={row.rpe} disabled={row.done} onChange={(e) => onChange({ rpe: e.target.value })} placeholder={row.plannedRpe ? String(row.plannedRpe) : "–"} />
       {extra && !row.done ? (
         <button type="button" onClick={onRemove} aria-label="Remove this set" className="grid h-10 place-items-center rounded-lg text-muted-foreground hover:bg-accent">
@@ -354,6 +413,150 @@ function FinishSheet({ open, onOpenChange, sessionId, setsDone }: { open: boolea
               Discard this workout
             </button>
           )}
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
+/** An exercise's menu: swap it for an alternative, or remove it (only before any of its sets are logged). */
+function ExerciseMenu({
+  sessionId,
+  block,
+  others,
+  equipment,
+  avoid,
+  onClose,
+  onSwapped,
+  onRemoved,
+}: {
+  sessionId: string;
+  block: ExerciseBlock;
+  others: string[];
+  equipment: Equipment[];
+  avoid?: BodyArea;
+  onClose: () => void;
+  onSwapped: (block: ExerciseBlock) => void;
+  onRemoved: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const logged = block.sets.some((s) => s.done);
+  const options = swapOptions(block.name, equipment, avoid, others);
+  const run = (action: () => ReturnType<typeof swapExercise>, done: (block?: ExerciseBlock) => void, message: string) =>
+    startTransition(async () => {
+      const result = await action();
+      if (!result.ok) return void toast(result.errors[0]);
+      done(result.block);
+      toast(message);
+      onClose();
+    });
+
+  return (
+    <Drawer open onOpenChange={(o) => !o && onClose()}>
+      <DrawerContent className="max-h-[85dvh]">
+        <div className="mx-auto w-full max-w-md overflow-y-auto px-4 pb-8">
+          <DrawerHeader className="px-0 text-left! md:text-left">
+            <DrawerTitle className="text-2xl font-semibold">{block.name}</DrawerTitle>
+            <DrawerDescription>{logged ? "Untick its sets to swap or remove it." : "Swap it for another exercise, or remove it from today."}</DrawerDescription>
+          </DrawerHeader>
+          {!logged && (
+            <>
+              <h3 className="flex items-center gap-2 text-sm font-semibold">
+                <ArrowLeftRight className="size-4" aria-hidden /> Swap for
+              </h3>
+              {options.length === 0 ? (
+                <p className="mt-2 text-sm text-muted-foreground">No alternatives suit your equipment.</p>
+              ) : (
+                <ul className="mt-2 flex flex-col gap-1.5">
+                  {options.slice(0, 8).map((e) => (
+                    <li key={e.name}>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => run(() => swapExercise({ sessionId, from: block.name, to: e.name }), (b) => b && onSwapped(b), `Swapped to ${e.name}.`)}
+                        className="flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left hover:bg-accent disabled:opacity-50"
+                      >
+                        <span className="font-medium">{e.name}</span>
+                        <span className="text-xs text-muted-foreground capitalize">{e.equipment}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => run(() => removeExercise({ sessionId, name: block.name }), () => onRemoved(), `${block.name} removed.`)}
+                className="mt-5 flex w-full items-center justify-center gap-2 py-2 text-sm font-medium text-destructive"
+              >
+                <Trash2 className="size-4" aria-hidden /> Remove from today
+              </button>
+            </>
+          )}
+          {pending && <Loader2 className="mx-auto mt-3 size-5 animate-spin text-muted-foreground" aria-label="Saving" />}
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
+/** Search the exercise library (filtered to the athlete's equipment) and add one to the workout. */
+function AddExercise({
+  open,
+  onOpenChange,
+  sessionId,
+  present,
+  equipment,
+  avoid,
+  onAdded,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  sessionId: string;
+  present: string[];
+  equipment: Equipment[];
+  avoid?: BodyArea;
+  onAdded: (block: ExerciseBlock) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [pending, startTransition] = useTransition();
+  const results = addOptions(query, equipment, avoid, present).slice(0, 30);
+  const add = (name: string) =>
+    startTransition(async () => {
+      const result = await addExercise({ sessionId, name });
+      if (!result.ok || !result.block) return void toast(result.ok ? "Something went wrong." : result.errors[0]);
+      onAdded(result.block);
+      toast(`${name} added.`);
+      setQuery("");
+      onOpenChange(false);
+    });
+
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent className="max-h-[85dvh]">
+        <div className="mx-auto flex w-full max-w-md flex-col overflow-hidden px-4 pb-8">
+          <DrawerHeader className="px-0 text-left! md:text-left">
+            <DrawerTitle className="text-2xl font-semibold">Add exercise</DrawerTitle>
+            <DrawerDescription>From the exercise library, matched to your equipment.</DrawerDescription>
+          </DrawerHeader>
+          <label className="relative">
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search, e.g. curl or shoulders" aria-label="Search exercises" className="h-11 pl-9" />
+          </label>
+          <ul className="mt-3 flex flex-col gap-1.5 overflow-y-auto">
+            {results.length === 0 && <li className="py-3 text-center text-sm text-muted-foreground">No exercises match.</li>}
+            {results.map((e) => (
+              <li key={e.name}>
+                <button type="button" disabled={pending} onClick={() => add(e.name)} className="flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left hover:bg-accent disabled:opacity-50">
+                  <span>
+                    <span className="block font-medium">{e.name}</span>
+                    <span className="block text-xs text-muted-foreground">{e.muscleGroup}</span>
+                  </span>
+                  <span className="text-xs text-muted-foreground capitalize">{e.equipment}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       </DrawerContent>
     </Drawer>

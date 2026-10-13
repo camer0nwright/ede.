@@ -29,7 +29,9 @@ async function WorkoutContent({ params }: { params: PageProps<"/workout/[id]">["
         title={workout.title}
         startedAt={workout.startedAt}
         unit={workout.unit}
-        initial={buildWorkout(workout.planned, workout.logged, workout.previous, workout.unit)}
+        initial={buildWorkout(workout.planned, workout.logged, workout.previous, workout.unit, workout.suggestions)}
+        equipment={workout.equipment}
+        avoid={workout.avoid}
       />
     );
   }
