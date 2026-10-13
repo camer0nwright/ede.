@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { athleteToDraft, isSection, toAnswers } from "@/components/onboarding/draft";
@@ -11,7 +12,7 @@ import { injuryBand } from "@/lib/injury";
 import { OnboardingAnswers, targetDateProblem, toOutlineInput } from "@/lib/onboarding";
 import { continuityFromWeeks, returnFromInjury } from "@/lib/plan-rebuild";
 import { mergeSection } from "@/lib/plan-settings";
-import { builtWeeks, getPlanContext, getSavedAthlete } from "@/server/athlete";
+import { ATHLETE_COOKIE, builtWeeks, getPlanContext, getSavedAthlete } from "@/server/athlete";
 import { saveRebuiltPlan } from "@/server/plan-save";
 
 export type ActionResult = { ok: false; errors: string[] };
@@ -106,4 +107,43 @@ export async function markInjuryBetter(): Promise<ActionResult> {
   });
   if (!result.ok) return result;
   redirect("/you?injury=better");
+}
+
+const AccountSettings = z.object({
+  name: z.string().trim().min(1, "Tell us what to call you").max(60),
+  weightUnit: z.enum(["kg", "lb"]),
+  distanceUnit: z.enum(["km", "mi"]),
+});
+
+/** Saves the name and units. Nothing about the plan changes, so there's no rebuild. */
+export async function updateAccount(raw: unknown): Promise<ActionResult | { ok: true }> {
+  const parsed = AccountSettings.safeParse(raw);
+  if (!parsed.success) return { ok: false, errors: parsed.error.issues.map((i) => i.message) };
+  const ctx = await getPlanContext();
+  if (ctx.isDemo || !ctx.athleteId) return NOT_SET_UP;
+  try {
+    await db.athlete.update({ where: { id: ctx.athleteId }, data: parsed.data });
+  } catch (e) {
+    console.error("Saving account settings failed", e);
+    return { ok: false, errors: ["That couldn't be saved just now. Try again in a moment."] };
+  }
+  return { ok: true };
+}
+
+/**
+ * Deletes everything ede. holds about this athlete: profile, plans, weeks,
+ * sessions, logs, injuries and coach messages (all cascade from the athlete),
+ * then forgets them on this device.
+ */
+export async function deleteMyData(): Promise<ActionResult> {
+  const ctx = await getPlanContext();
+  if (ctx.isDemo || !ctx.athleteId) return NOT_SET_UP;
+  try {
+    await db.athlete.delete({ where: { id: ctx.athleteId } });
+  } catch (e) {
+    console.error("Deleting athlete data failed", e);
+    return { ok: false, errors: ["Your data couldn't be deleted just now. Try again in a moment."] };
+  }
+  (await cookies()).delete(ATHLETE_COOKIE);
+  redirect("/?deleted=1");
 }

@@ -5,6 +5,7 @@ import { DemoBanner } from "@/components/demo-banner";
 import { InjuryBanner } from "@/components/injury-banner";
 import { Logo } from "@/components/logo";
 import { MedicalNotice } from "@/components/medical-notice";
+import { Note } from "@/components/onboarding/choices";
 import { PageSkeleton } from "@/components/page-skeleton";
 import { TodaySessions, WeekDays, WeekStrip } from "@/components/plan/week-days";
 import { daysBetween } from "@/lib/dates";
@@ -12,16 +13,16 @@ import { formatLongDate, formatMinutes, PHASE_LABEL, plural } from "@/lib/format
 import { weekDays } from "@/lib/week-view";
 import { builtWeeks, getPlanContext } from "@/server/athlete";
 
-export default function TodayPage() {
+export default function TodayPage({ searchParams }: PageProps<"/">) {
   return (
     <Suspense fallback={<PageSkeleton />}>
-      <Today />
+      <Today searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function Today() {
-  const ctx = await getPlanContext();
+async function Today({ searchParams }: { searchParams: PageProps<"/">["searchParams"] }) {
+  const [ctx, query] = await Promise.all([getPlanContext(), searchParams]);
   const weeks = builtWeeks(ctx);
   const index = Math.floor(daysBetween(ctx.input.startDate, ctx.today) / 7);
   const notStarted = index < 0;
@@ -43,6 +44,7 @@ async function Today() {
         <h1 className="mt-1 text-3xl font-semibold tracking-tight">{notStarted ? "Your first week" : "Today"}</h1>
       </header>
 
+      {query.deleted && <Note>Your data has been deleted. This is the demo plan.</Note>}
       {ctx.isDemo && <DemoBanner />}
       {ctx.injury && <InjuryBanner injury={ctx.injury} />}
 

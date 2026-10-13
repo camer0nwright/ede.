@@ -14,6 +14,7 @@ import { formatDate, formatDayMinutes, formatDuration, PHASE_LABEL, plural } fro
 import { bandSummary, injuryBand } from "@/lib/injury";
 import { mondayOf, returnShare } from "@/lib/plan-rebuild";
 import { getInjuryHistory, getPlanContext, getSavedAthlete } from "@/server/athlete";
+import { AccountSettings, DeleteMyData } from "@/components/you/account-settings";
 import { InjuryBetter } from "@/components/you/injury-better";
 
 export const metadata = { title: "You · ede." };
@@ -211,6 +212,15 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
         </p>
       </Section>
 
+      {saved && (
+        <section aria-label="Settings" className="rounded-2xl border bg-card p-4">
+          <h2 className="mb-3 font-semibold">Settings</h2>
+          <AccountSettings
+            initial={{ name: saved.name ?? "", weightUnit: saved.weightUnit === "lb" ? "lb" : "kg", distanceUnit: saved.distanceUnit === "mi" ? "mi" : "km" }}
+          />
+        </section>
+      )}
+
       <section aria-label="Account" className="rounded-2xl border bg-card p-4">
         <h2 className="font-semibold">Account</h2>
         {ctx.isDemo ? (
@@ -221,10 +231,11 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
               Start a new plan from scratch <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
             </Link>
             <form action={resetToDemo}>
-              <button type="submit" className="flex w-full items-center justify-between pt-3 text-sm text-muted-foreground">
-                Switch this device to the demo plan <ChevronRight className="size-4" aria-hidden />
+              <button type="submit" className="flex w-full items-center justify-between py-3 text-sm font-medium">
+                Switch this device to the demo plan <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
               </button>
             </form>
+            <DeleteMyData />
           </div>
         )}
       </section>
