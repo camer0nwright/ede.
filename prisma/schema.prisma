@@ -14,6 +14,9 @@ datasource db {
 // One person using ede. and their onboarding answers.
 model Athlete {
   id                      String    @id @default(cuid())
+  /// Sign-in: lowercase email and a scrypt password hash. Null until the plan is claimed by an account.
+  email                   String?   @unique
+  passwordHash            String?
   name                    String?
   goalType                String // "race" | "strength" | "general"
   goalDetail              String? // e.g. "Half marathon under 1:50"
@@ -44,6 +47,19 @@ model Athlete {
   outlines      PlanOutline[]
   weeks         PlanWeek[]
   coachMessages CoachMessage[]
+  authSessions  AuthSession[]
+}
+
+/// A signed-in device. The cookie holds a random token; only its SHA-256 hash is stored here.
+model AuthSession {
+  id        String   @id // SHA-256 of the session token
+  athleteId String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId])
 }
 
 // The weekly availability grid: one row per weekday.

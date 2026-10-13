@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { resetToDemo } from "@/app/onboarding/actions";
+import { logOut } from "@/app/signup/actions";
 import { DemoBanner } from "@/components/demo-banner";
 import { MedicalNotice } from "@/components/medical-notice";
 import { Note } from "@/components/onboarding/choices";
@@ -224,19 +224,29 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
       <section aria-label="Account" className="rounded-2xl border bg-card p-4">
         <h2 className="font-semibold">Account</h2>
         {ctx.isDemo ? (
-          <RowLink href="/onboarding">Set up your own plan</RowLink>
-        ) : (
           <div className="mt-3 divide-y border-t">
             <Link href="/onboarding" className="flex items-center justify-between py-3 text-sm font-medium">
-              Start a new plan from scratch <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+              Set up your own plan <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
             </Link>
-            <form action={resetToDemo}>
-              <button type="submit" className="flex w-full items-center justify-between py-3 text-sm font-medium">
-                Switch this device to the demo plan <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
-              </button>
-            </form>
-            <DeleteMyData />
+            <Link href="/login" className="flex items-center justify-between pt-3 text-sm font-medium">
+              Log in <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+            </Link>
           </div>
+        ) : (
+          <>
+            {ctx.email && <p className="mt-1 text-sm text-muted-foreground">Signed in as {ctx.email}</p>}
+            <div className="mt-3 divide-y border-t">
+              <Link href="/onboarding" className="flex items-center justify-between py-3 text-sm font-medium">
+                Start a new plan from scratch <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+              </Link>
+              <form action={logOut}>
+                <button type="submit" className="flex w-full items-center justify-between py-3 text-sm font-medium">
+                  Log out <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+                </button>
+              </form>
+              <DeleteMyData />
+            </div>
+          </>
         )}
       </section>
 

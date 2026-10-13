@@ -13,6 +13,7 @@ import { OnboardingAnswers, targetDateProblem, toOutlineInput } from "@/lib/onbo
 import { continuityFromWeeks, returnFromInjury } from "@/lib/plan-rebuild";
 import { mergeSection } from "@/lib/plan-settings";
 import { ATHLETE_COOKIE, builtWeeks, getPlanContext, getSavedAthlete } from "@/server/athlete";
+import { SESSION_COOKIE } from "@/server/auth";
 import { saveRebuiltPlan } from "@/server/plan-save";
 
 export type ActionResult = { ok: false; errors: string[] };
@@ -131,9 +132,9 @@ export async function updateAccount(raw: unknown): Promise<ActionResult | { ok: 
 }
 
 /**
- * Deletes everything ede. holds about this athlete: profile, plans, weeks,
- * sessions, logs, injuries and coach messages (all cascade from the athlete),
- * then forgets them on this device.
+ * Deletes everything ede. holds about this athlete: account, sign-ins,
+ * profile, plans, weeks, sessions, logs, injuries and coach messages (all
+ * cascade from the athlete), then signs this device out.
  */
 export async function deleteMyData(): Promise<ActionResult> {
   const ctx = await getPlanContext();
@@ -144,6 +145,8 @@ export async function deleteMyData(): Promise<ActionResult> {
     console.error("Deleting athlete data failed", e);
     return { ok: false, errors: ["Your data couldn't be deleted just now. Try again in a moment."] };
   }
-  (await cookies()).delete(ATHLETE_COOKIE);
+  const jar = await cookies();
+  jar.delete(ATHLETE_COOKIE);
+  jar.delete(SESSION_COOKIE);
   redirect("/?deleted=1");
 }

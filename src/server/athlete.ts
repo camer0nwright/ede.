@@ -1,9 +1,12 @@
-// Loads the current athlete and their active plan for the screens. Until
-// sign-in exists, a cookie remembers which athlete "you" are; without one,
-// the screens show the demo athlete.
+// Loads the current athlete and their active plan for the screens. "You" are
+// the signed-in account; a plan made during setup but not yet claimed by an
+// account is remembered by a device cookie and sent to sign-up. Without
+// either, the screens show the demo athlete.
 import "server-only";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { connection } from "next/server";
+import { sessionAthleteId } from "@/server/auth";
 import { db } from "@/lib/db";
 import type { SavedAthlete } from "@/components/onboarding/draft";
 import { fromDbDate, rowToWeekPlan } from "@/lib/db-mapping";
@@ -16,11 +19,27 @@ import { equipmentFromAnswers } from "@/lib/strength-builder";
 import { buildPlanWeeks, type BuiltWeek, type WeekBuildInput } from "@/lib/week-builder";
 import type { PaceOptions } from "@/lib/week-view";
 
+/** A plan made during setup, before its account is created (see /signup). */
 export const ATHLETE_COOKIE = "ede_athlete";
+
+/**
+ * Who "you" are: the signed-in athlete, or a plan made on this device that no
+ * account has claimed yet. A claimed plan always needs a log-in.
+ */
+export async function currentAthlete(): Promise<{ id: string; signedIn: boolean } | null> {
+  const signedIn = await sessionAthleteId();
+  if (signedIn) return { id: signedIn, signedIn: true };
+  const pending = (await cookies()).get(ATHLETE_COOKIE)?.value;
+  if (!pending) return null;
+  const athlete = await db.athlete.findUnique({ where: { id: pending }, select: { email: true } });
+  return athlete && !athlete.email ? { id: pending, signedIn: false } : null;
+}
 
 export type PlanContext = {
   isDemo: boolean;
   athleteId?: string;
+  /** The account's email, when signed in. */
+  email?: string;
   name: string;
   goal: string;
   title: string;
@@ -102,8 +121,11 @@ async function requestDate() {
 }
 
 export async function getPlanContext(): Promise<PlanContext> {
-  const id = (await cookies()).get(ATHLETE_COOKIE)?.value;
-  if (!id) return demoContext();
+  const who = await currentAthlete();
+  if (!who) return demoContext();
+  // A plan nobody has claimed yet: create the account to see it.
+  if (!who.signedIn) redirect("/signup");
+  const id = who.id;
 
   const athlete = await db.athlete.findUnique({
     where: { id },
@@ -129,6 +151,7 @@ export async function getPlanContext(): Promise<PlanContext> {
   return {
     isDemo: false,
     athleteId: athlete.id,
+    email: athlete.email ?? undefined,
     name: athlete.name || "You",
     goal:
       athlete.goalType === "race"
@@ -161,8 +184,9 @@ export async function getPlanContext(): Promise<PlanContext> {
 
 /** The current athlete's saved settings, for editing a section in the You section. Null for the demo. */
 export async function getSavedAthlete(): Promise<{ id: string; saved: SavedAthlete } | null> {
-  const id = (await cookies()).get(ATHLETE_COOKIE)?.value;
-  if (!id) return null;
+  const who = await currentAthlete();
+  if (!who?.signedIn) return null;
+  const id = who.id;
   const a = await db.athlete.findUnique({
     where: { id },
     include: {

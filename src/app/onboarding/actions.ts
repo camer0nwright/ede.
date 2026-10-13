@@ -7,12 +7,15 @@ import { answersToAthleteRow } from "@/lib/db-mapping";
 import { OnboardingAnswers, targetDateProblem, toOutlineInput } from "@/lib/onboarding";
 import { buildPlanOutline } from "@/lib/plan-outline";
 import { ATHLETE_COOKIE } from "@/server/athlete";
+import { sessionAthleteId } from "@/server/auth";
 
 export type SaveResult = { ok: false; errors: string[] };
 
 /**
  * Saves onboarding answers and builds the athlete's plan outline. Answers are
- * validated again here: never trust what the browser sends.
+ * validated again here: never trust what the browser sends. Signed in, the new
+ * plan replaces the account's plan. Otherwise the plan is kept for this device
+ * and the next step is creating the account (SPEC decision 45).
  */
 export async function saveOnboarding(raw: unknown): Promise<SaveResult> {
   const parsed = OnboardingAnswers.safeParse(raw);
@@ -33,22 +36,45 @@ export async function saveOnboarding(raw: unknown): Promise<SaveResult> {
     return { ok: false, errors: [e instanceof Error ? e.message : "Couldn't build a plan from those answers."] };
   }
 
+  const profile = {
+    name: a.name || null,
+    ...answersToAthleteRow(a, input),
+    currentTraining: a.currentTraining || null,
+    lastWeekRunMinutes: a.lastWeekRunMinutes,
+    longestRecentRunMinutes: a.longestRecentRunMinutes,
+    injuryHistory: a.injuryHistory || null,
+    weightUnit: a.weightUnit,
+    distanceUnit: a.distanceUnit,
+  };
+  const injury = a.injury && { area: a.injury.area, painLevel: a.injury.painLevel, painWhen: a.injury.painWhen, notes: a.injury.notes || null };
+
+  const signedIn = await sessionAthleteId();
+  if (signedIn) {
+    try {
+      await db.$transaction(async (tx) => {
+        await tx.athlete.update({ where: { id: signedIn }, data: profile });
+        await tx.availabilityDay.deleteMany({ where: { athleteId: signedIn } });
+        await tx.availabilityDay.createMany({ data: a.availability.map((d, dayOfWeek) => ({ athleteId: signedIn, dayOfWeek, ...d })) });
+        await tx.planOutline.updateMany({ where: { athleteId: signedIn, active: true }, data: { active: false } });
+        await tx.planOutline.create({ data: { athleteId: signedIn, input: JSON.stringify(input), outline: JSON.stringify(outline) } });
+        await tx.planWeek.deleteMany({ where: { athleteId: signedIn } });
+        const active = await tx.injury.count({ where: { athleteId: signedIn, resolvedAt: null } });
+        if (injury && active === 0) await tx.injury.create({ data: { ...injury, athleteId: signedIn } });
+      });
+    } catch (e) {
+      console.error("Saving a new plan failed", e);
+      return { ok: false, errors: ["Your plan couldn't be saved just now. Your answers are still here, so try again in a moment."] };
+    }
+    redirect("/plan");
+  }
+
   let athlete;
   try {
     athlete = await db.athlete.create({
       data: {
-        name: a.name || null,
-        ...answersToAthleteRow(a, input),
-        currentTraining: a.currentTraining || null,
-        lastWeekRunMinutes: a.lastWeekRunMinutes,
-        longestRecentRunMinutes: a.longestRecentRunMinutes,
-        injuryHistory: a.injuryHistory || null,
-        weightUnit: a.weightUnit,
-        distanceUnit: a.distanceUnit,
+        ...profile,
         availability: { create: a.availability.map((d, dayOfWeek) => ({ dayOfWeek, ...d })) },
-        ...(a.injury && {
-          injuries: { create: { area: a.injury.area, painLevel: a.injury.painLevel, painWhen: a.injury.painWhen, notes: a.injury.notes || null } },
-        }),
+        ...(injury && { injuries: { create: injury } }),
         outlines: { create: { input: JSON.stringify(input), outline: JSON.stringify(outline) } },
       },
     });
@@ -62,13 +88,13 @@ export async function saveOnboarding(raw: unknown): Promise<SaveResult> {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24 * 365,
+    maxAge: 60 * 60 * 24 * 30,
     path: "/",
   });
-  redirect("/plan");
+  redirect("/signup");
 }
 
-/** Forgets the current athlete on this device, so the demo shows again. */
+/** Forgets a plan on this device that no account has claimed, so the demo shows again. */
 export async function resetToDemo() {
   (await cookies()).delete(ATHLETE_COOKIE);
   redirect("/");

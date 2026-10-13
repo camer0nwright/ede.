@@ -44,7 +44,7 @@ export function NavBar({ active }: { active: string | null }) {
 export function BottomNav() {
   const pathname = usePathname();
   // Full-screen flows with their own buttons at the bottom.
-  if (pathname.startsWith("/onboarding") || pathname.startsWith("/you/edit") || pathname.startsWith("/you/injury")) return null;
+  if (pathname.startsWith("/onboarding") || pathname.startsWith("/you/edit") || pathname.startsWith("/you/injury") || pathname === "/signup" || pathname === "/login") return null;
   const active = ITEMS.find(({ href }) => (href === "/" ? pathname === "/" : pathname.startsWith(href)))?.href ?? null;
   return <NavBar active={active} />;
 }
