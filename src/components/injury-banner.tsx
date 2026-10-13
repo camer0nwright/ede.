@@ -8,7 +8,7 @@ export function InjuryBanner({ injury }: { injury: Injury }) {
   return (
     <Link href="/you" className="flex items-center justify-between gap-3 rounded-2xl border border-hard/40 bg-hard/10 p-4 transition-colors hover:bg-hard/20">
       <span>
-        <span className="block text-sm font-semibold capitalize">
+        <span className="block text-sm font-semibold">
           Adapted for your {injury.area === "other" ? "injury" : injury.area} ({injury.painLevel}/10)
         </span>
         <span className="block text-sm text-muted-foreground">{bandSummary(injury)} Update it or mark it better in You.</span>

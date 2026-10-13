@@ -546,8 +546,14 @@ describe("injury", () => {
       expect(messages(week())).toMatch(/"Intervals" .* must be an easy run/);
     });
 
-    it("cuts running by at least 20% on last week", () => {
-      expect(messages(week())).toMatch(/at most 176 run minutes, not 230/);
+    it("cuts running by at least 20% on the week before the injury", () => {
+      expect(messages(week())).toMatch(/at most 176, not 230/);
+    });
+
+    it("measures against the week before the injury, not an injured week with no running", () => {
+      const ctx = { ...c, history: [...c.history, { totalMinutes: 60, runMinutes: 0, phase: "base" as const, injured: true }] };
+      const w = week({ sessions: [easyRun("2026-10-13", 40), easyRun("2026-10-15", 40), easyRun("2026-10-17", 60), ...upperOnly.sessions] });
+      expect(injuryRule(w, ctx)).toEqual([]);
     });
 
     it("swaps exercises that load the injured area", () => {

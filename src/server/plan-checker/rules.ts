@@ -384,12 +384,13 @@ export { injuryBand };
 const HILL_KINDS = new Set(["hills", "hill_hike", "long_hilly"]);
 
 /**
- * Injury rules: mild pain means easy, flat running cut by 20% or more the first
- * week, then held (never above last week's); moderate pain means no running; severe pain means no
+ * Injury rules: mild pain means easy, flat running at least 20% below the last
+ * week before the injury; moderate pain means no running; severe pain means no
  * running and no lower-body lifting. Lifts avoid the injured area, and the
  * coach note points to a physio or doctor when the pain is more than mild.
  */
-export const injuryRule: Rule = (week, { injury, history }) => {
+export const injuryRule: Rule = (week, ctx) => {
+  const { injury, history } = ctx;
   if (!injury) return [];
   const out: Violation[] = [];
   const band = injuryBand(injury);
@@ -402,13 +403,9 @@ export const injuryRule: Rule = (week, { injury, history }) => {
         out.push({ rule: "injury", date: r.date, message: `With ${where}, keep running easy and flat: "${r.title}" on ${label(r.date)} must be an easy run with no intervals or hills.` });
       }
     }
-    const last = history.at(-1);
-    if (last?.injured) {
-      if (runMinutes(week) > last.runMinutes) {
-        out.push({ rule: "injury", message: `With ${where}, keep running at or below last week's ${last.runMinutes} minutes, not ${runMinutes(week)}.` });
-      }
-    } else if (last !== undefined && runMinutes(week) > last.runMinutes * C.injury.mildRunShare) {
-      out.push({ rule: "injury", message: `With ${where}, cut running by at least ${Math.round((1 - C.injury.mildRunShare) * 100)}%: at most ${Math.floor(last.runMinutes * C.injury.mildRunShare)} run minutes, not ${runMinutes(week)}.` });
+    const before = history.findLast((w) => !w.injured)?.runMinutes ?? ctx.lastWeekRunMinutes;
+    if (before !== undefined && runMinutes(week) > before * C.injury.mildRunShare) {
+      out.push({ rule: "injury", message: `With ${where}, keep running at least ${Math.round((1 - C.injury.mildRunShare) * 100)}% below the ${before} minutes before the injury: at most ${Math.floor(before * C.injury.mildRunShare)}, not ${runMinutes(week)}.` });
     }
   } else if (runs.length > 0) {
     out.push({ rule: "injury", message: `With ${where}${injury.painWhen === "walking" ? " (hurting when walking)" : ""}, there should be no running this week; plan strength sessions that avoid the ${injury.area} instead.` });

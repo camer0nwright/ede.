@@ -1,6 +1,6 @@
 // Injuries: how bad one is (its band), and how a week changes around it from
 // the day it's reported (SPEC: Injury and pain handling). Mild pain keeps easy,
-// flat running, cut by 20% the first week and held after that. Moderate pain
+// flat running at no more than 80% of the week before the injury. Moderate pain
 // pauses running. Severe pain pauses running and leg work: upper body only.
 // Lifts always avoid the injured area. The plan checker's injury rule checks
 // the result.
@@ -16,7 +16,7 @@ export const INJURY_BANDS = {
   mildMax: 3,
   /** Pain up to this level: no running. Above it: no running and no lower-body lifting. */
   moderateMax: 6,
-  /** Mild pain: run minutes at most this share of last week's (a 20-30% cut). */
+  /** Mild pain: run minutes at most this share of the last week before the injury (a 20-30% cut). */
   mildRunShare: 0.8,
   /** The first week back after an injury: at most this share of the last week before it. */
   returnRunShare: 0.8,
@@ -60,10 +60,8 @@ export type InjuryAdaptInput = {
   injury: Injury;
   /** Sessions on or after this date change; earlier ones stay as they were. */
   from: string;
-  /** Run minutes the week before (as adapted, if the injury was active then). */
-  lastWeekRunMinutes?: number;
-  /** The injury was already active last week, so running holds rather than being cut again. */
-  ongoing: boolean;
+  /** Run minutes in the last week before the injury. */
+  beforeRunMinutes?: number;
   /** For rebuilding gym sessions. */
   strength: { volume: StrengthVolume; equipment: Equipment[]; block: number; avoidBarbell?: boolean };
 };
@@ -93,8 +91,8 @@ function easyVersion(r: Run, minutes: number): Run {
 
 /** Mild pain: easy, flat runs within the week's budget, dropping the shortest if they'd get too short. */
 function mildRuns(past: Run[], future: Run[], input: InjuryAdaptInput): Run[] {
-  const last = input.lastWeekRunMinutes;
-  const cap = last === undefined ? Infinity : Math.floor(last * (input.ongoing ? 1 : INJURY_BANDS.mildRunShare));
+  const before = input.beforeRunMinutes;
+  const cap = before === undefined ? Infinity : Math.floor(before * INJURY_BANDS.mildRunShare);
   const budget = cap - past.reduce((sum, r) => sum + r.plannedMinutes, 0);
   let runs = [...future];
   let minutes = runs.map((r) => r.plannedMinutes);
@@ -208,16 +206,15 @@ export function adaptWeeksForInjury(
     experienceLevel: ExperienceLevel;
   },
 ): { week: WeekPlan; injured: boolean }[] {
-  let lastRun = opts.lastWeekRunMinutes;
-  let lastInjured = false;
+  // The last week before the injury: mild pain keeps running below it.
+  let beforeRun = opts.lastWeekRunMinutes;
   return weeks.map((week, i) => {
     const injured = addDays(week.weekStart, 6) >= opts.since;
     const adapted = injured
       ? adaptWeekForInjury(week, {
           injury: opts.injury,
           from: opts.since > week.weekStart ? opts.since : week.weekStart,
-          lastWeekRunMinutes: lastRun,
-          ongoing: lastInjured,
+          beforeRunMinutes: beforeRun,
           strength: {
             volume: opts.volume,
             equipment: opts.equipment,
@@ -226,8 +223,7 @@ export function adaptWeeksForInjury(
           },
         })
       : week;
-    lastRun = weekRunMinutes(adapted);
-    lastInjured = injured;
+    if (!injured) beforeRun = weekRunMinutes(week);
     return { week: adapted, injured };
   });
 }

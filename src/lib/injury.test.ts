@@ -49,7 +49,7 @@ describe("adapting a week", () => {
   const lastWeek = runMinutes(weeks[1]);
 
   it("mild pain: easy, flat runs, cut by at least 20%", () => {
-    const w = adaptWeekForInjury(week, { injury: INJURIES["mild knee"], from: week.weekStart, lastWeekRunMinutes: lastWeek, ongoing: false, strength });
+    const w = adaptWeekForInjury(week, { injury: INJURIES["mild knee"], from: week.weekStart, beforeRunMinutes: lastWeek, strength });
     const runs = w.sessions.filter((s) => s.type === "run");
     expect(runs.length).toBeGreaterThan(0);
     expect(runs.every((r) => r.intensity === "easy" && r.kind !== "long_hilly")).toBe(true);
@@ -57,14 +57,15 @@ describe("adapting a week", () => {
     expect(w.coachNote).toMatch(/knee/);
   });
 
-  it("mild pain that carries on: running holds at last week's level", () => {
-    const w = adaptWeekForInjury(week, { injury: INJURIES["mild knee"], from: week.weekStart, lastWeekRunMinutes: 100, ongoing: true, strength });
-    expect(runMinutes(w)).toBeLessThanOrEqual(100);
-    expect(runMinutes(w)).toBeGreaterThan(80);
+  it("mild pain after time off: running comes back below the week before the injury, not stuck at zero", () => {
+    const off = { ...week, sessions: week.sessions.filter((x) => x.type !== "run") };
+    const adapted = adaptWeeksForInjury([weeks[1], off, week], { injury: INJURIES["mild knee"], since: off.weekStart, lastWeekRunMinutes: input.lastWeekRunMinutes, blocks: [1, 1, 1], volume: input.strengthVolume, equipment, experienceLevel: input.experienceLevel });
+    expect(runMinutes(adapted[2].week)).toBeGreaterThan(0);
+    expect(runMinutes(adapted[2].week)).toBeLessThanOrEqual(lastWeek * 0.8);
   });
 
   it("moderate pain: no running, a physio or doctor in the note, lifts avoid the area", () => {
-    const w = adaptWeekForInjury(week, { injury: INJURIES["moderate ankle"], from: week.weekStart, lastWeekRunMinutes: lastWeek, ongoing: false, strength });
+    const w = adaptWeekForInjury(week, { injury: INJURIES["moderate ankle"], from: week.weekStart, beforeRunMinutes: lastWeek, strength });
     expect(w.sessions.some((s) => s.type === "run")).toBe(false);
     expect(w.sessions.filter((s) => s.type === "strength")).toHaveLength(week.sessions.filter((s) => s.type === "strength").length);
     expect(w.coachNote).toMatch(/physio or doctor/);
@@ -72,7 +73,7 @@ describe("adapting a week", () => {
   });
 
   it("severe pain: upper body only, and see a doctor", () => {
-    const w = adaptWeekForInjury(week, { injury: INJURIES["severe knee"], from: week.weekStart, lastWeekRunMinutes: lastWeek, ongoing: false, strength });
+    const w = adaptWeekForInjury(week, { injury: INJURIES["severe knee"], from: week.weekStart, beforeRunMinutes: lastWeek, strength });
     expect(w.sessions.every((s) => s.type === "strength" && s.bodyFocus === "upper")).toBe(true);
     for (const s of w.sessions) if (s.type === "strength") expect(isHeavyLowerBody(s) || s.exercises.some((e) => mayBeLowerBody(e.name))).toBe(false);
     expect(w.coachNote).toMatch(/doctor/);
@@ -80,7 +81,7 @@ describe("adapting a week", () => {
 
   it("reported mid-week: earlier sessions stay as they were", () => {
     const from = addDays(week.weekStart, 3);
-    const w = adaptWeekForInjury(week, { injury: INJURIES["moderate ankle"], from, lastWeekRunMinutes: lastWeek, ongoing: false, strength });
+    const w = adaptWeekForInjury(week, { injury: INJURIES["moderate ankle"], from, beforeRunMinutes: lastWeek, strength });
     expect(w.sessions.filter((s) => s.date < from)).toEqual(week.sessions.filter((s) => s.date < from));
     expect(w.sessions.some((s) => s.type === "run" && s.date >= from)).toBe(false);
   });
