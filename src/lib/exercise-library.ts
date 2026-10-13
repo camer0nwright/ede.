@@ -82,6 +82,15 @@ export const EXERCISES: ExerciseInfo[] = [
   ex({ name: "Triceps pushdown", aliases: ["Cable pushdown", "Tricep pushdown"], muscleGroup: "Triceps", equipment: "cable", category: "isolation", isLowerBody: false, loads: ["elbow"], alternatives: ["Overhead triceps extension"] }),
   ex({ name: "Overhead triceps extension", muscleGroup: "Triceps", equipment: "dumbbell", category: "isolation", isLowerBody: false, loads: ["elbow", "shoulder"], alternatives: ["Triceps pushdown"] }),
 
+  // ----- Bodyweight and band options (for home or minimal equipment) -----
+  ex({ name: "Bodyweight squat", aliases: ["Air squat"], muscleGroup: "Quads", equipment: "bodyweight", category: "compound", isLowerBody: true, loads: ["knee", "hip"], alternatives: ["Goblet squat", "Wall sit"] }),
+  ex({ name: "Split squat", aliases: ["Static lunge"], muscleGroup: "Quads", equipment: "bodyweight", category: "compound", isLowerBody: true, loads: ["knee", "hip"], alternatives: ["Bulgarian split squat", "Reverse lunge"] }),
+  ex({ name: "Single-leg Romanian deadlift", aliases: ["Single-leg RDL"], muscleGroup: "Hamstrings", equipment: "bodyweight", category: "compound", isLowerBody: true, loads: ["hip"], alternatives: ["Dumbbell Romanian deadlift", "Glute bridge"] }),
+  ex({ name: "Inverted row", aliases: ["Bodyweight row"], muscleGroup: "Back", equipment: "bodyweight", category: "compound", isLowerBody: false, loads: [], alternatives: ["Seated cable row", "Band row"] }),
+  ex({ name: "Pike push-up", muscleGroup: "Shoulders", equipment: "bodyweight", category: "compound", isLowerBody: false, loads: ["shoulder"], alternatives: ["Dumbbell shoulder press"] }),
+  ex({ name: "Band row", muscleGroup: "Back", equipment: "band", category: "compound", isLowerBody: false, loads: [], alternatives: ["Seated cable row", "Inverted row"] }),
+  ex({ name: "Band pull-apart", muscleGroup: "Rear shoulders", equipment: "band", category: "isolation", isLowerBody: false, loads: ["shoulder"], alternatives: ["Face pull", "Reverse fly"] }),
+
   // ----- Core -----
   ex({ name: "Plank", muscleGroup: "Core", equipment: "bodyweight", category: "isolation", isLowerBody: false, loads: [], alternatives: ["Dead bug"] }),
   ex({ name: "Dead bug", muscleGroup: "Core", equipment: "bodyweight", category: "isolation", isLowerBody: false, loads: [], alternatives: ["Plank"] }),
