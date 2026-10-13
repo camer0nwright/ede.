@@ -1,6 +1,6 @@
 // Formatting helpers for the UI.
-import { addDays, toUtc } from "./dates";
-import { openEndedMinutes, type Intensity, type Phase } from "./domain";
+import { addDays, dayOfWeek, toUtc } from "./dates";
+import { DAY_NAMES, openEndedMinutes, type Intensity, type Phase } from "./domain";
 
 /** 45 → "45 min", 90 → "1h 30", 120 → "2h". */
 export function formatMinutes(minutes: number): string {
@@ -43,6 +43,14 @@ export function formatDay(date: string): string {
 }
 
 /** "2026-10-12" → "12 Oct 2026". */
+const FULL_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** "2026-10-20" → "Tuesday 20 October". */
+export function formatLongDate(date: string): string {
+  const d = new Date(toUtc(date));
+  return `${DAY_NAMES[dayOfWeek(date)]} ${d.getUTCDate()} ${FULL_MONTHS[d.getUTCMonth()]}`;
+}
+
 export function formatDate(date: string): string {
   return `${formatDay(date)} ${new Date(toUtc(date)).getUTCFullYear()}`;
 }

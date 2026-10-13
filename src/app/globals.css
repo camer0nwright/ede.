@@ -6,15 +6,16 @@
 @custom-variant dark (@media (prefers-color-scheme: dark));
 
 /*
- * ede. design tokens. Bold and sporty, dark first: near-black surfaces, one
- * electric-lime accent, and distinct colours for runs, lifts and effort.
- * Light theme mirrors it for daylight. The theme follows the phone's setting.
+ * ede. design tokens. Calm and clear: plain surfaces, few boxes, sentence-case
+ * headings. Lime is kept for the main action on a screen; blue means a run and
+ * orange a lift; effort has its own colours. Follows the phone's light or dark
+ * setting.
  */
 
 :root {
   /* Light theme */
-  --background: oklch(0.985 0.002 110);
-  --foreground: oklch(0.17 0.01 260);
+  --background: oklch(0.975 0.003 100);
+  --foreground: oklch(0.19 0.005 260);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.17 0.01 260);
   --popover: oklch(1 0 0);
@@ -25,21 +26,21 @@
   --secondary: oklch(0.95 0.004 260);
   --secondary-foreground: oklch(0.22 0.01 260);
   --muted: oklch(0.95 0.004 260);
-  --muted-foreground: oklch(0.47 0.01 260);
+  --muted-foreground: oklch(0.52 0.008 260);
   --accent: oklch(0.95 0.004 260);
   --accent-foreground: oklch(0.22 0.01 260);
   --destructive: oklch(0.58 0.22 27);
-  --border: oklch(0.9 0.005 260);
+  --border: oklch(0.91 0.004 100);
   --input: oklch(0.9 0.005 260);
   --ring: oklch(0.6 0.15 135);
   --radius: 1rem;
 
   /* Session and effort colours */
-  --run: oklch(0.6 0.14 230);
-  --strength: oklch(0.62 0.18 45);
+  --run: oklch(0.58 0.17 252);
+  --strength: oklch(0.67 0.17 50);
   --rest: oklch(0.6 0.01 260);
-  --easy: oklch(0.55 0.14 150);
-  --moderate: oklch(0.62 0.15 75);
+  --easy: oklch(0.65 0.15 150);
+  --moderate: oklch(0.72 0.15 75);
   --hard: oklch(0.58 0.2 25);
 
   /* Training phases */
@@ -53,9 +54,9 @@
 @media (prefers-color-scheme: dark) {
 :root {
   /* Dark theme (the main one) */
-  --background: oklch(0.13 0.008 260);
-  --foreground: oklch(0.97 0.004 110);
-  --card: oklch(0.18 0.01 260);
+  --background: oklch(0.15 0.004 260);
+  --foreground: oklch(0.96 0.004 110);
+  --card: oklch(0.2 0.006 260);
   --card-foreground: oklch(0.97 0.004 110);
   --popover: oklch(0.2 0.01 260);
   --popover-foreground: oklch(0.97 0.004 110);
@@ -65,19 +66,19 @@
   --secondary: oklch(0.24 0.012 260);
   --secondary-foreground: oklch(0.95 0.004 110);
   --muted: oklch(0.24 0.012 260);
-  --muted-foreground: oklch(0.7 0.01 260);
+  --muted-foreground: oklch(0.66 0.008 260);
   --accent: oklch(0.26 0.012 260);
   --accent-foreground: oklch(0.97 0.004 110);
   --destructive: oklch(0.7 0.19 22);
-  --border: oklch(1 0 0 / 10%);
+  --border: oklch(1 0 0 / 9%);
   --input: oklch(1 0 0 / 14%);
   --ring: oklch(0.9 0.21 128 / 60%);
 
-  --run: oklch(0.78 0.13 225);
-  --strength: oklch(0.76 0.16 50);
+  --run: oklch(0.72 0.15 245);
+  --strength: oklch(0.77 0.16 58);
   --rest: oklch(0.6 0.01 260);
-  --easy: oklch(0.8 0.15 150);
-  --moderate: oklch(0.82 0.15 80);
+  --easy: oklch(0.79 0.16 150);
+  --moderate: oklch(0.83 0.15 80);
   --hard: oklch(0.72 0.19 25);
 
   --phase-base: oklch(0.62 0.09 230);
@@ -146,10 +147,11 @@
   }
 }
 
+/* The condensed face is for numbers (minutes, weeks, pace), not headings. */
 @utility font-display {
   font-family: var(--font-display), var(--font-geist-sans), sans-serif;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 600;
+  letter-spacing: 0;
 }
 
 @utility pb-safe {

@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, formatMinutes, formatDayMinutes, formatDuration, formatMinutesShort, formatWeekRange, plural } from "./format";
+import { formatDate, formatLongDate, formatMinutes, formatDayMinutes, formatDuration, formatMinutesShort, formatWeekRange, plural } from "./format";
 
 describe("format", () => {
+  it("writes a long date with the weekday", () => {
+    expect(formatLongDate("2026-10-20")).toBe("Tuesday 20 October");
+  });
+
   it("formats minutes", () => {
     expect(formatMinutes(45)).toBe("45 min");
     expect(formatMinutes(90)).toBe("1h 30");

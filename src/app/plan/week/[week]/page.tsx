@@ -4,7 +4,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { WeekDays, WeekStrip } from "@/components/plan/week-days";
-import { Badge } from "@/components/ui/badge";
 import { builtWeeks, getPlanContext } from "@/server/athlete";
 import { formatMinutes, formatWeekRange, PHASE_COLOR, PHASE_LABEL } from "@/lib/format";
 import { weekDays } from "@/lib/week-view";
@@ -41,13 +40,9 @@ function WeekSkeleton() {
     <div className="flex animate-pulse flex-col gap-6" aria-busy="true" aria-label="Loading week">
       <div className="h-5 w-24 rounded bg-muted" />
       <div className="h-12 w-40 rounded bg-muted" />
-      <div className="grid grid-cols-3 gap-2">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="h-16 rounded-2xl bg-muted" />
-        ))}
-      </div>
+      <div className="h-14 rounded bg-muted" />
       {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="h-16 rounded-2xl bg-muted" />
+        <div key={i} className="h-10 rounded bg-muted" />
       ))}
     </div>
   );
@@ -78,35 +73,37 @@ async function WeekContent({ params }: { params: PageProps<"/plan/week/[week]">[
       </nav>
 
       <header>
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="gap-1.5">
-            <span className={cn("size-2 rounded-full", PHASE_COLOR[week.phase])} aria-hidden />
-            {PHASE_LABEL[week.phase]}
-          </Badge>
-          <span className="text-sm text-muted-foreground">{formatWeekRange(week.weekStart)}</span>
-        </div>
-        <h1 className="mt-2 font-display text-5xl leading-none uppercase">Week {week.weekNumber}</h1>
+        <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <span className={cn("size-2 rounded-full", PHASE_COLOR[week.phase])} aria-hidden />
+          {PHASE_LABEL[week.phase]} · {formatWeekRange(week.weekStart)}
+        </p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight">Week {week.weekNumber}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{PHASE_NOTE[week.phase]}</p>
       </header>
 
-      {built.coachNote && <p className="rounded-xl border border-hard/40 bg-hard/10 p-3 text-sm">{built.coachNote}</p>}
+      {built.coachNote && (
+        <p className="flex gap-3 rounded-2xl bg-hard/10 px-4 py-3 text-sm">
+          <span className="mt-1.5 size-2 shrink-0 rounded-full bg-hard" aria-hidden />
+          {built.coachNote}
+        </p>
+      )}
 
-      <dl className="grid grid-cols-3 gap-2">
+      <dl className="grid grid-cols-3 divide-x border-y py-3 text-center">
         {[
           ["Running", formatMinutes(runs.reduce((sum, r) => sum + r.plannedMinutes, 0))],
           ["Runs", String(runs.length)],
           ["Lifts", String(built.sessions.length - runs.length)],
         ].map(([label, value]) => (
-          <div key={label} className="rounded-2xl border bg-card p-3">
+          <div key={label} className="flex flex-col-reverse">
             <dt className="text-xs text-muted-foreground">{label}</dt>
-            <dd className="font-display text-2xl">{value}</dd>
+            <dd className="font-display text-2xl tabular-nums">{value}</dd>
           </div>
         ))}
       </dl>
 
-      <section aria-label="Sessions by day" className="flex flex-col gap-3">
+      <section aria-label="Sessions by day" className="flex flex-col gap-4">
         <WeekStrip days={days} today={ctx.today} />
-        <WeekDays days={days} today={ctx.today} />
+        <WeekDays days={days} today={ctx.today} showRest />
       </section>
     </>
   );

@@ -11,10 +11,13 @@ import type { DayView, Effort, LiftView, RunView, SessionView } from "@/lib/week
 const EFFORT_BG: Record<Effort, string> = { easy: "bg-easy", moderate: "bg-moderate", hard: "bg-hard" };
 const EFFORT_TEXT: Record<Effort, string> = { easy: "text-easy", moderate: "text-moderate", hard: "text-hard" };
 
+const short = (dayName: string) => dayName.slice(0, 3);
+const dateNumber = (date: string) => Number(date.slice(8, 10));
+
 /** A run's shape at a glance: one segment per step, coloured by effort, sized by time. */
 export function EffortBar({ steps, className }: { steps: RunView["steps"]; className?: string }) {
   return (
-    <div className={cn("flex h-1.5 gap-0.5 overflow-hidden rounded-full", className)} aria-hidden>
+    <div className={cn("flex h-1 gap-0.5 overflow-hidden rounded-full", className)} aria-hidden>
       {steps.map((s, i) => (
         <span key={i} className={EFFORT_BG[s.effort]} style={{ flexGrow: s.minutes }} />
       ))}
@@ -22,143 +25,179 @@ export function EffortBar({ steps, className }: { steps: RunView["steps"]; class
   );
 }
 
-/** Mon-Sun at a glance: blue for a run, orange for a lift, both for a double day, grey for rest. */
-export function WeekStrip({ days, today }: { days: DayView[]; today?: string }) {
-  return (
-    <div className="grid grid-cols-7 gap-1.5" aria-label="This week by day">
-      {days.map((d) => {
-        const run = d.sessions.some((s) => s.type === "run");
-        const lift = d.sessions.some((s) => s.type === "strength");
-        return (
-          <div key={d.date} className="flex flex-col items-center gap-1">
-            <span className={cn("text-[11px] text-muted-foreground", d.date === today && "font-semibold text-primary-strong")}>{d.dayName[0]}</span>
-            <span className="flex h-1.5 w-full gap-0.5 overflow-hidden rounded-full bg-secondary">
-              {run && <span className="flex-1 bg-run" />}
-              {lift && <span className="flex-1 bg-strength" />}
-            </span>
-          </div>
-        );
-      })}
-    </div>
+/** Run or lift, as a small icon in its colour. */
+function SessionIcon({ type, className }: { type: SessionView["type"]; className?: string }) {
+  return type === "run" ? (
+    <Footprints className={cn("size-4 text-run", className)} aria-label="Run" />
+  ) : (
+    <Dumbbell className={cn("size-4 text-strength", className)} aria-label="Lift" />
   );
 }
 
-export function WeekDays({ days, today, onlyToday = false }: { days: DayView[]; today?: string; onlyToday?: boolean }) {
-  const [open, setOpen] = useState<{ session: SessionView; day: DayView } | null>(null);
-  const shown = onlyToday ? days.filter((d) => d.date === today) : days;
+/** Mon-Sun with dates: today circled, a blue dot for each run and an orange dot for each lift. */
+export function WeekStrip({ days, today }: { days: DayView[]; today?: string }) {
+  return (
+    <ol className="grid grid-cols-7 text-center" aria-label="This week by day">
+      {days.map((d) => {
+        const isToday = d.date === today;
+        const rest = d.sessions.length === 0;
+        return (
+          <li key={d.date} className="flex flex-col items-center gap-1">
+            <span className="text-[11px] text-muted-foreground">{d.dayName[0]}</span>
+            <span
+              className={cn(
+                "grid size-7 place-items-center rounded-full text-sm tabular-nums",
+                isToday ? "bg-foreground font-semibold text-background" : rest && "text-muted-foreground",
+              )}
+            >
+              {dateNumber(d.date)}
+            </span>
+            <span className="flex h-1.5 gap-0.5" aria-label={rest ? "Rest" : d.sessions.map((s) => (s.type === "run" ? "Run" : "Lift")).join(" and ")}>
+              {d.sessions.map((s) => (
+                <span key={s.id} className={cn("size-1.5 rounded-full", s.type === "run" ? "bg-run" : "bg-strength")} />
+              ))}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
+/** The session sheet: details, then Skip and Mark done (which arrive with check-ins). */
+function useSessionSheet() {
+  const [open, setOpen] = useState<{ session: SessionView; day: DayView } | null>(null);
+  const sheet = (
+    <Drawer open={open !== null} onOpenChange={(o) => !o && setOpen(null)}>
+      <DrawerContent className="max-h-[90dvh]">
+        {open && (
+          <div className="mx-auto w-full max-w-md overflow-y-auto px-4 pb-8">
+            {open.session.type === "run" ? <RunSheet run={open.session} /> : <LiftSheet lift={open.session} day={open.day} />}
+            <div className="mt-6 grid grid-cols-2 gap-2">
+              <button type="button" className="h-12 rounded-xl border font-medium hover:bg-accent" onClick={() => toast("Skipping sessions arrives with check-ins, coming next.")}>
+                Skip
+              </button>
+              <button type="button" className="h-12 rounded-xl bg-primary font-semibold text-primary-foreground" onClick={() => toast("Marking sessions done arrives with check-ins, coming next.")}>
+                Mark done
+              </button>
+            </div>
+          </div>
+        )}
+      </DrawerContent>
+    </Drawer>
+  );
+  return { show: (session: SessionView, day: DayView) => setOpen({ session, day }), sheet };
+}
+
+/** What a session is, in a few words: effort for runs, exercise count for lifts. */
+function detail(s: SessionView) {
+  return s.type === "run" ? (
+    <span className={cn("font-medium", INTENSITY_COLOR[s.intensity])}>{INTENSITY_LABEL[s.intensity]}</span>
+  ) : (
+    `${s.exercises.length} exercises`
+  );
+}
+
+/** Today's sessions, each as a card with the one main action on the screen. */
+export function TodaySessions({ day }: { day: DayView }) {
+  const { show, sheet } = useSessionSheet();
   return (
     <>
-      <ol className="flex flex-col gap-2">
-        {shown.map((d) => (
-          <li key={d.date}>
-            {d.sessions.length === 0 ? (
-              <p className="px-1 py-2 text-sm text-muted-foreground">
-                <span className={cn("font-medium", d.date === today && "text-primary-strong")}>{d.dayName}</span> · Rest day
-              </p>
-            ) : (
-              <div className="flex flex-col gap-1.5">
-                <p className="px-1 pt-1 text-xs text-muted-foreground">
-                  <span className={cn("font-medium", d.date === today ? "text-primary-strong" : "text-foreground")}>{d.date === today ? "Today" : d.dayName}</span>
-                  {d.note && <> · {d.note}</>}
-                </p>
-                {d.sessions.map((s) => (
-                  <SessionCard key={s.id} session={s} onOpen={() => setOpen({ session: s, day: d })} />
-                ))}
-              </div>
-            )}
-          </li>
-        ))}
-      </ol>
-
-      <Drawer open={open !== null} onOpenChange={(o) => !o && setOpen(null)}>
-        <DrawerContent className="max-h-[90dvh]">
-          {open && (
-            <div className="mx-auto w-full max-w-md overflow-y-auto px-4 pb-8">
-              {open.session.type === "run" ? <RunSheet run={open.session} /> : <LiftSheet lift={open.session} day={open.day} />}
-              <div className="mt-6 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  className="h-12 rounded-2xl border font-medium hover:bg-accent"
-                  onClick={() => toast("Skipping sessions arrives with check-ins, coming next.")}
-                >
-                  Skip
-                </button>
-                <button
-                  type="button"
-                  className="h-12 rounded-2xl bg-primary font-semibold text-primary-foreground"
-                  onClick={() => toast("Marking sessions done arrives with check-ins, coming next.")}
-                >
-                  Mark done
-                </button>
-              </div>
-            </div>
-          )}
-        </DrawerContent>
-      </Drawer>
+      {day.sessions.map((s) => (
+        <article key={s.id} className="rounded-2xl border bg-card p-4">
+          <p className={cn("flex items-center gap-1.5 text-xs font-medium", s.type === "run" ? "text-run" : "text-strength")}>
+            <SessionIcon type={s.type} className="size-3.5" />
+            {s.type === "run" ? `Run · ${INTENSITY_LABEL[s.intensity]}` : "Gym"}
+          </p>
+          <div className="mt-1 flex items-baseline justify-between gap-3">
+            <h2 className="text-lg leading-snug font-semibold">{s.title}</h2>
+            <span className="shrink-0 font-display text-2xl tabular-nums">
+              {s.minutes}
+              <span className="text-sm"> min</span>
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {s.type === "run" ? s.purpose : s.exercises.map((e) => e.name).join(", ")}
+          </p>
+          {s.type === "run" && <EffortBar steps={s.steps} className="mt-3" />}
+          <button type="button" onClick={() => show(s, day)} className="mt-4 h-11 w-full rounded-xl bg-primary font-semibold text-primary-foreground active:scale-[0.99]">
+            Start session
+          </button>
+        </article>
+      ))}
+      {sheet}
     </>
   );
 }
 
-function SessionCard({ session: s, onOpen }: { session: SessionView; onOpen: () => void }) {
+/** Sessions as a plain list, one row each. With `showRest`, rest days get a quiet row too. */
+export function WeekDays({ days, today, showRest = false }: { days: DayView[]; today?: string; showRest?: boolean }) {
+  const { show, sheet } = useSessionSheet();
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="flex w-full items-start gap-3 rounded-2xl border bg-card p-3 text-left transition-colors hover:bg-accent active:scale-[0.99]"
-    >
-      <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-secondary">
-        {s.type === "run" ? <Footprints className="size-4.5 text-run" aria-hidden /> : <Dumbbell className="size-4.5 text-strength" aria-hidden />}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-baseline justify-between gap-2">
-          <span className="truncate font-medium">{s.title}</span>
-          <span className="shrink-0 font-display text-lg">{formatMinutes(s.minutes)}</span>
+    <>
+      <ul className="divide-y border-y">
+        {days.map((d) => {
+          const day = d.date === today ? "Today" : short(d.dayName);
+          if (d.sessions.length === 0) {
+            return showRest ? (
+              <li key={d.date} className="flex items-center gap-3 py-3 text-sm text-muted-foreground">
+                <span className="size-4" aria-hidden />
+                {day} · Rest
+              </li>
+            ) : null;
+          }
+          return d.sessions.map((s, i) => (
+            <li key={s.id}>
+              <button type="button" onClick={() => show(s, d)} className="flex w-full items-center gap-3 py-3 text-left active:bg-accent/50">
+                <SessionIcon type={s.type} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{s.title}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    <span className={cn(d.date === today && "font-medium text-foreground")}>{day}</span> · {detail(s)}
+                    {i === 0 && d.note && <> · {d.note}</>}
+                  </span>
+                </span>
+                <span className="shrink-0 text-sm text-muted-foreground tabular-nums">{formatMinutes(s.minutes)}</span>
+              </button>
+            </li>
+          ));
+        })}
+      </ul>
+      {sheet}
+    </>
+  );
+}
+
+function SheetHeader({ kicker, title, minutes }: { kicker: string; title: string; minutes: number }) {
+  return (
+    <DrawerHeader className="px-0 text-left! md:text-left">
+      <p className="text-xs text-muted-foreground">{kicker}</p>
+      <div className="flex items-baseline justify-between gap-3">
+        <DrawerTitle className="text-2xl font-semibold">{title}</DrawerTitle>
+        <span className="shrink-0 font-display text-2xl tabular-nums">
+          {minutes}
+          <span className="text-sm"> min</span>
         </span>
-        {s.type === "run" ? (
-          <>
-            <span className="mt-0.5 block text-xs text-muted-foreground">
-              <span className={cn("font-semibold", INTENSITY_COLOR[s.intensity])}>{INTENSITY_LABEL[s.intensity]}</span> · {s.purpose}
-            </span>
-            <EffortBar steps={s.steps} className="mt-2" />
-          </>
-        ) : (
-          <span className="mt-0.5 block text-xs text-muted-foreground">
-            {s.exercises.length} exercises · {s.exercises.slice(0, 2).map((e) => e.name).join(", ")}
-            {s.exercises.length > 2 && "…"}
-          </span>
-        )}
-      </span>
-    </button>
+      </div>
+      <DrawerDescription className="sr-only">Session details</DrawerDescription>
+    </DrawerHeader>
   );
 }
 
 function RunSheet({ run }: { run: RunView }) {
   return (
     <>
-      <DrawerHeader className="px-0 text-left">
-        <p className="text-xs text-muted-foreground">
-          {run.roleLabel}
-          {run.level && ` · Level ${run.level} of ${run.maxLevel}`}
-        </p>
-        <DrawerTitle className="font-display text-3xl uppercase">
-          {run.title} · {formatMinutes(run.minutes)}
-        </DrawerTitle>
-        <DrawerDescription className="sr-only">Session details</DrawerDescription>
-      </DrawerHeader>
-      <p className="rounded-xl border border-easy/30 bg-easy/10 p-3 text-sm">
-        <span className="font-semibold">Why: </span>
-        {run.purpose}
-      </p>
-      <EffortBar steps={run.steps} className="mt-4 h-2.5" />
-      <ol className="mt-3 flex flex-col gap-2">
+      <SheetHeader kicker={`${run.roleLabel}${run.level ? ` · Level ${run.level} of ${run.maxLevel}` : ""}`} title={run.title} minutes={run.minutes} />
+      <p className="text-sm text-muted-foreground">{run.purpose}</p>
+      <EffortBar steps={run.steps} className="mt-4 h-1.5" />
+      <ol className="mt-2 divide-y">
         {run.steps.map((step, i) => (
-          <li key={i} className="flex items-center gap-3 rounded-xl bg-secondary p-3">
+          <li key={i} className="flex items-center gap-3 py-3">
             <span className={cn("size-2 shrink-0 rounded-full", EFFORT_BG[step.effort])} aria-hidden />
             <span className="flex-1 text-sm">{step.name}</span>
             <span className="text-right text-xs">
-              <span className="block font-medium">{formatMinutes(step.minutes)}</span>
-              <span className={cn("font-semibold", EFFORT_TEXT[step.effort])}>RPE {step.targetRpe}</span>
+              <span className="block font-medium tabular-nums">{formatMinutes(step.minutes)}</span>
+              <span className={cn("font-medium", EFFORT_TEXT[step.effort])}>RPE {step.targetRpe}</span>
               {step.pace && <span className="block text-muted-foreground">{step.pace}</span>}
             </span>
           </li>
@@ -177,34 +216,20 @@ const rest = (seconds: number) => (seconds >= 120 ? `${Math.round(seconds / 60)}
 function LiftSheet({ lift, day }: { lift: LiftView; day: DayView }) {
   return (
     <>
-      <DrawerHeader className="px-0 text-left">
-        <p className="text-xs text-muted-foreground">
-          {day.dayName} · {lift.exercises.length} exercises
-        </p>
-        <DrawerTitle className="font-display text-3xl uppercase">
-          {lift.title} · {formatMinutes(lift.minutes)}
-        </DrawerTitle>
-        <DrawerDescription className="sr-only">Session details</DrawerDescription>
-      </DrawerHeader>
-      <p className="rounded-xl border border-strength/30 bg-strength/10 p-3 text-sm">
-        <span className="font-semibold">Why: </span>
-        {lift.purpose}
-      </p>
-      <ol className="mt-3 flex flex-col gap-2">
+      <SheetHeader kicker={`${day.dayName} · ${lift.exercises.length} exercises`} title={lift.title} minutes={lift.minutes} />
+      <p className="text-sm text-muted-foreground">{lift.purpose}</p>
+      <ol className="mt-2 divide-y">
         {lift.exercises.map((e) => (
-          <li key={e.name} className="rounded-xl bg-secondary p-3">
+          <li key={e.name} className="py-3">
             <div className="flex items-baseline justify-between gap-2">
               <span className="font-medium">{e.name}</span>
-              {e.isMainLift && <span className="shrink-0 rounded-full bg-primary/20 px-2 py-0.5 text-[11px] font-semibold text-primary-strong">Main lift</span>}
-            </div>
-            <p className="mt-1 text-sm">
-              {e.warmupSets > 0 && <span className="text-muted-foreground">{e.warmupSets} warm-up + </span>}
-              <span className="font-display text-lg">
+              <span className="shrink-0 font-display text-lg tabular-nums">
                 {e.workingSets} × {e.reps}
               </span>
-            </p>
+            </div>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              RPE {e.targetRpe}
+              {e.isMainLift && <span className="font-medium text-foreground">Main lift · </span>}
+              {e.warmupSets > 0 && `${e.warmupSets} warm-up sets · `}RPE {e.targetRpe}
               {e.failureAllowed && " · last set to failure is fine"} · rest {rest(e.restSeconds)}
             </p>
           </li>
