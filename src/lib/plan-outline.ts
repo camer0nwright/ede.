@@ -37,6 +37,8 @@ export type OutlineInput = {
   justFinish?: boolean;
   /** Longest run in the last month, in minutes: the long run grows from here (SPEC decision 37). */
   longestRecentRunMinutes?: number;
+  /** The old plan's weeks before this outline starts, when a plan is rebuilt mid-way (SPEC decision 41). */
+  priorWeeks?: OutlineWeek[];
   /** Runs and lifts a week the athlete chose. The plan gives exactly these every week (SPEC decision 29). */
   runsPerWeek?: number;
   liftsPerWeek?: number;
@@ -361,6 +363,24 @@ function planPhases(n: number, input: OutlineInput, taper: number): Phase[] {
     // Very short plans (under 2 build weeks): no recovery week.
     for (let i = 0; i < buildWeeks; i++) phases.push(label(i));
   }
+  // Carry the build streak across a rebuild: a recovery week after 3 build
+  // weeks in a row, and none after fewer than 2 (checker: recovery-week).
+  const prior = input.priorWeeks ?? [];
+  let streak = 0;
+  for (let i = prior.length - 1; i >= 0 && prior[i].phase !== "recovery" && prior[i].phase !== "taper"; i--) streak++;
+  for (let i = 0; i < phases.length; i++) {
+    if (phases[i] === "recovery") {
+      if (streak < 2) phases[i] = label(i);
+      else {
+        streak = 0;
+        continue;
+      }
+    }
+    if (streak >= O.recoveryEvery - 1) {
+      phases[i] = "recovery";
+      streak = 0;
+    } else streak++;
+  }
   // The last weeks before the taper are peak weeks.
   for (let i = phases.length - 1, p = 0; i >= 0 && p < O.peakWeeks && phases[i] !== "recovery"; i--, p++) phases[i] = "peak";
   while (phases.length < n) phases.push("taper");
@@ -397,6 +417,17 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
   let lastWeekQuality: RunKind[] = [];
   let lPointer = 0;
   let nonRecoveryWeeks = 0;
+  // A rebuilt plan carries on the rotation and levels from the old plan's weeks.
+  for (const w of input.priorWeeks ?? []) {
+    const fullLevel = w.phase !== "recovery" && w.phase !== "taper";
+    const quality = w.runs.filter((r) => r.role === "quality");
+    if (quality.length > 0) qPointer += 1;
+    lastWeekQuality = quality.map((r) => r.kind);
+    for (const r of w.runs) {
+      lastLevel.set(r.kind, r.level);
+      if (fullLevel && r.kind !== "run_walk") uses.set(r.kind, (uses.get(r.kind) ?? 0) + 1);
+    }
+  }
 
   const peakCap = peakRunMinutes(input);
   const strengthMin = O.strengthMinutes[input.strengthVolume];
