@@ -26,6 +26,7 @@ import {
   desiredTimeNote,
   EQUIPMENT_OPTIONS,
   LAST_WEEK_RUN_OPTIONS,
+  LONGEST_RUN_OPTIONS,
   OnboardingAnswers,
   planStartDate,
   quickWeekToAvailability,
@@ -36,6 +37,7 @@ import {
   weekFitProblem,
   type QuickWeek,
 } from "@/lib/onboarding";
+import { desiredVsPredicted } from "@/lib/paces";
 import { recommendedSessions } from "@/lib/plan-outline";
 import { Chip, Field, Note, OptionCard } from "./choices";
 import { WeekPlanner } from "./week-planner";
@@ -55,6 +57,10 @@ type Draft = {
   goalDetail: string;
   experienceLevel?: ExperienceLevel;
   lastWeekRunMinutes?: number;
+  longestRecentRunMinutes?: number;
+  /** Optional recent 5K, as typed. */
+  fiveKMin: string;
+  fiveKSec: string;
   /** Unset until chosen; the recommended value is used meanwhile. */
   runsPerWeek?: number;
   liftsPerWeek?: number;
@@ -79,6 +85,8 @@ const START: Draft = {
   timeSmall: "",
   justFinish: false,
   goalDetail: "",
+  fiveKMin: "",
+  fiveKSec: "",
   equipment: [],
   injury: { area: "knee", painLevel: 2, painWhen: "running", notes: "" },
   injuryHistory: "",
@@ -118,6 +126,11 @@ function targetSeconds(d: Draft): number | undefined {
   return seconds > 0 ? seconds : undefined;
 }
 
+function fiveKSeconds(d: Draft): number | undefined {
+  const seconds = Number(d.fiveKMin || 0) * 60 + Number(d.fiveKSec || 0);
+  return seconds > 0 ? seconds : undefined;
+}
+
 /** Choices the user hasn't made yet fall back to the recommendation. */
 function effective(d: Draft) {
   const rec = recommendedSessions({
@@ -125,6 +138,7 @@ function effective(d: Draft) {
     raceDistance: d.raceDistance,
     experienceLevel: d.experienceLevel ?? "intermediate",
     strengthVolume: d.strengthVolume ?? "moderate",
+    justFinish: d.goalType === "race" && d.justFinish,
   });
   const runs = d.runsPerWeek ?? rec.runs;
   const recVolume = recommendedVolume({ experienceLevel: d.experienceLevel, raceDistance: d.raceDistance, runsPerWeek: runs });
@@ -135,7 +149,7 @@ function effective(d: Draft) {
 function toAnswers(d: Draft) {
   const race = d.goalType === "race";
   return {
-    ...(d.name.trim() && { name: d.name.trim() }),
+    name: d.name.trim(),
     goalType: d.goalType,
     ...(race && { raceDistance: d.raceDistance }),
     ...(race && d.raceDistance === "ultra" && { ultraDistanceKm: d.ultraDistanceKm, terrain: d.terrain, ...(d.elevationGainM !== undefined && { elevationGainM: d.elevationGainM }) }),
@@ -144,6 +158,8 @@ function toAnswers(d: Draft) {
     ...(!race && d.goalDetail.trim() && { goalDetail: d.goalDetail.trim() }),
     experienceLevel: d.experienceLevel,
     lastWeekRunMinutes: d.lastWeekRunMinutes,
+    longestRecentRunMinutes: d.longestRecentRunMinutes,
+    ...(fiveKSeconds(d) && { recent5kSeconds: fiveKSeconds(d) }),
     runsPerWeek: effective(d).runs,
     liftsPerWeek: effective(d).lifts,
     strengthVolume: effective(d).volume,
@@ -173,9 +189,16 @@ function stepProblem(step: Step, d: Draft): string | null {
     case "experience":
       if (!d.experienceLevel) return "Choose your experience";
       if (d.lastWeekRunMinutes === undefined) return "Choose roughly how much you ran last week";
+      if (d.longestRecentRunMinutes === undefined) return "Choose your longest recent run";
+      {
+        const five = fiveKSeconds(d);
+        if (five !== undefined && (five < 600 || five > 3600)) return "Check your 5K time (minutes and seconds)";
+      }
       return null;
     case "strength":
       return d.equipment.length === 0 ? "Pick the equipment you can use" : null;
+    case "you":
+      return d.name.trim() ? null : "Tell us what to call you";
     case "injury":
       return d.hasInjury === undefined ? "Let us know if anything hurts" : null;
     case "week": {
@@ -208,6 +231,7 @@ export function OnboardingFlow() {
   const eff = effective(draft);
   const volumeNote = strengthVolumeNote({ strengthVolume: eff.volume, raceDistance: draft.raceDistance, experienceLevel: draft.experienceLevel, runsPerWeek: eff.runs });
   const timeNote = draft.justFinish ? null : desiredTimeNote(draft.raceDistance, targetSeconds(draft), draft.experienceLevel);
+  const predictedNote = draft.justFinish || draft.goalType !== "race" ? null : desiredVsPredicted(draft.raceDistance, targetSeconds(draft), fiveKSeconds(draft));
   const caution = cautionFor({ injury: draft.hasInjury ? draft.injury : undefined, injuryHistory: draft.injuryHistory });
 
   const next = () => setStepIndex((i) => Math.min(i + 1, STEPS.length - 1));
@@ -388,6 +412,24 @@ export function OnboardingFlow() {
                 ))}
               </div>
             </Field>
+            <Field label="Your longest run in the last month">
+              <div className="flex flex-wrap gap-2">
+                {LONGEST_RUN_OPTIONS.map((o) => (
+                  <Chip key={o.label} selected={draft.longestRecentRunMinutes === o.minutes} onClick={() => update({ longestRecentRunMinutes: o.minutes })}>
+                    {o.label}
+                  </Chip>
+                ))}
+              </div>
+            </Field>
+            <Field label="A recent 5K time (optional)" hint="Adds pace guides to your sessions. A race or a hard solo 5K in the last couple of months is best.">
+              <div className="flex items-center gap-2">
+                <Input type="number" inputMode="numeric" min={10} max={60} className="w-20 text-center" value={draft.fiveKMin} onChange={(e) => update({ fiveKMin: e.target.value })} aria-label="5K minutes" placeholder="mm" />
+                <span className="font-display text-2xl">:</span>
+                <Input type="number" inputMode="numeric" min={0} max={59} className="w-20 text-center" value={draft.fiveKSec} onChange={(e) => update({ fiveKSec: e.target.value })} aria-label="5K seconds" placeholder="ss" />
+                <span className="text-sm text-muted-foreground">min : sec</span>
+              </div>
+              {predictedNote && <Note>{predictedNote}</Note>}
+            </Field>
             <Field label="Runs a week in your plan" hint={`Recommended for your goal: ${eff.rec.runs}`}>
               <NumberRow min={1} max={6} value={eff.runs} recommended={eff.rec.runs} onChange={(n) => update({ runsPerWeek: n })} label="runs" />
             </Field>
@@ -501,7 +543,7 @@ export function OnboardingFlow() {
         {step === "you" && (
           <>
             <Heading title="Last bits" />
-            <Field label="Your name (optional)">
+            <Field label="What should we call you?">
               <Input value={draft.name} onChange={(e) => update({ name: e.target.value })} autoComplete="given-name" maxLength={60} />
             </Field>
             <Field label="Weights in">
@@ -578,6 +620,8 @@ function Review({ draft, caution }: { draft: Draft; caution: string | null }) {
   const rows: [string, string][] = [
     ["Goal", [goal, draft.goalType === "race" ? time : draft.goalDetail].filter(Boolean).join(" · ")],
     ["Each week", `${plural(eff.runs, "run")} · ${plural(eff.lifts, "gym session")}`],
+    ["Longest recent run", LONGEST_RUN_OPTIONS.find((o) => o.minutes === draft.longestRecentRunMinutes)?.label ?? ""],
+    ...(fiveKSeconds(draft) ? ([["Recent 5K", formatDuration(fiveKSeconds(draft)!)]] as [string, string][]) : []),
     ["Experience", `${{ beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced" }[draft.experienceLevel ?? "intermediate"]} · ${LAST_WEEK_RUN_OPTIONS.find((o) => o.minutes === draft.lastWeekRunMinutes)?.label ?? ""} running last week`],
     ["Lifting", `${{ low: "Low", moderate: "Moderate", high: "Higher" }[eff.volume]} · ${draft.equipment.join(", ")}`],
     ["Injury", draft.hasInjury ? `${draft.injury.area}, ${draft.injury.painLevel}/10` : "None"],
@@ -585,7 +629,7 @@ function Review({ draft, caution }: { draft: Draft; caution: string | null }) {
   ];
   return (
     <>
-      <Heading title="Ready to build" sub="Check your answers, then ede. builds your whole plan." />
+      <Heading title={draft.name.trim() ? `Ready, ${draft.name.trim()}` : "Ready to build"} sub="Check your answers, then ede. builds your whole plan." />
       <dl className="divide-y rounded-2xl border bg-card">
         {rows.map(([label, value]) => (
           <div key={label} className="flex justify-between gap-4 p-4 text-sm">

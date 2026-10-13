@@ -3,7 +3,11 @@
 import { addDays, dayOfWeek } from "./dates";
 import { DAY_NAMES, EASY_MAX_RPE, type BodyFocus, type Intensity, type PlannedSession, type RunStep, type WeekPlan } from "./domain";
 import { defaultRestSeconds, findExercise } from "./exercise-library";
+import { formatPaceBand, paceForRpe } from "./paces";
 import { maxLevel, RUN_LIBRARY, RUN_PURPOSE, RUN_TIP } from "./session-library";
+
+/** Optional pace guides: from a recent 5K, shown in the athlete's distance unit. */
+export type PaceOptions = { fiveKSeconds?: number; unit: "km" | "mi" };
 
 export type Effort = "easy" | "moderate" | "hard";
 
@@ -21,7 +25,7 @@ export type RunView = {
   maxLevel?: number;
   purpose: string;
   tip: string;
-  steps: (RunStep & { effort: Effort })[];
+  steps: (RunStep & { effort: Effort; pace?: string })[];
 };
 
 export type LiftView = {
@@ -54,7 +58,7 @@ const LIFT_PURPOSE: Record<BodyFocus, string> = {
   full: "Whole-body strength in one efficient session.",
 };
 
-function runView(s: Extract<PlannedSession, { type: "run" }>, dayName: string): RunView {
+function runView(s: Extract<PlannedSession, { type: "run" }>, dayName: string, paces?: PaceOptions): RunView {
   const kind = s.kind;
   const levels = kind ? maxLevel(kind) : 1;
   const role = kind ? RUN_LIBRARY[kind].role : "easy";
@@ -68,7 +72,11 @@ function runView(s: Extract<PlannedSession, { type: "run" }>, dayName: string): 
     ...(kind && levels > 1 && { level: s.level, maxLevel: levels }),
     purpose: kind ? RUN_PURPOSE[kind] : "",
     tip: kind ? RUN_TIP[kind] : "",
-    steps: s.steps.map((st) => ({ ...st, effort: effortOf(st.targetRpe) })),
+    steps: s.steps.map((st) => ({
+      ...st,
+      effort: effortOf(st.targetRpe),
+      ...(paces?.fiveKSeconds && { pace: formatPaceBand(paceForRpe(paces.fiveKSeconds, st.targetRpe), paces.unit) }),
+    })),
   };
 }
 
@@ -91,14 +99,14 @@ function liftView(s: Extract<PlannedSession, { type: "strength" }>): LiftView {
   };
 }
 
-export function weekDays(week: WeekPlan): DayView[] {
+export function weekDays(week: WeekPlan, paces?: PaceOptions): DayView[] {
   return Array.from({ length: 7 }, (_, i) => {
     const date = addDays(week.weekStart, i);
     const dayName = DAY_NAMES[dayOfWeek(date)];
     const sessions = week.sessions
       .filter((s) => s.date === date)
       .sort((a, b) => a.slot - b.slot)
-      .map((s) => (s.type === "run" ? runView(s, dayName) : liftView(s)));
+      .map((s) => (s.type === "run" ? runView(s, dayName, paces) : liftView(s)));
     return { date, dayName, sessions, ...(week.dayNotes[date] && { note: week.dayNotes[date] }) };
   });
 }

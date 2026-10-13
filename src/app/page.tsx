@@ -25,7 +25,7 @@ async function Today() {
   const index = Math.floor(daysBetween(ctx.input.startDate, ctx.today) / 7);
   const notStarted = index < 0;
   const { week } = weeks[Math.min(Math.max(index, 0), weeks.length - 1)];
-  const days = weekDays(week);
+  const days = weekDays(week, ctx.paces);
   const today = days.find((d) => d.date === ctx.today);
   const next = days.find((d) => d.date > ctx.today && d.sessions.length > 0) ?? (notStarted ? days.find((d) => d.sessions.length > 0) : undefined);
   const runMinutes = week.sessions.filter((s) => s.type === "run").reduce((sum, s) => sum + s.plannedMinutes, 0);

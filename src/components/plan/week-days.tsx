@@ -159,6 +159,7 @@ function RunSheet({ run }: { run: RunView }) {
             <span className="text-right text-xs">
               <span className="block font-medium">{formatMinutes(step.minutes)}</span>
               <span className={cn("font-semibold", EFFORT_TEXT[step.effort])}>RPE {step.targetRpe}</span>
+              {step.pace && <span className="block text-muted-foreground">{step.pace}</span>}
             </span>
           </li>
         ))}

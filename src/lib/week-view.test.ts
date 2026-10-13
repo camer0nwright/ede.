@@ -43,6 +43,14 @@ describe("week view", () => {
     }
   });
 
+  it("adds pace guides to run steps when there's a recent 5K", () => {
+    const withPaces = weekDays(built[4].week, { fiveKSeconds: 1500, unit: "km" });
+    const steps = withPaces.flatMap((d) => d.sessions).flatMap((s) => (s.type === "run" ? s.steps : []));
+    expect(steps.length).toBeGreaterThan(0);
+    for (const st of steps) expect(st.pace).toMatch(/^\d+:\d\d-\d+:\d\d\/km$/);
+    expect(days.flatMap((d) => d.sessions).flatMap((s) => (s.type === "run" ? s.steps : [])).every((st) => st.pace === undefined)).toBe(true);
+  });
+
   it("colours effort: RPE 4 or less easy, 5-6 moderate, 7+ hard", () => {
     expect([3, 4, 5, 6, 7, 9].map(effortOf)).toEqual(["easy", "easy", "moderate", "moderate", "hard", "hard"]);
   });

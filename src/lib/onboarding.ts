@@ -46,9 +46,22 @@ export const ULTRA_PRESETS = [
 export const DAY_MINUTES = [30, 45, 60, 90, 120] as const;
 export const ULTRA_DAY_MINUTES = [30, 45, 60, 90, 120, 180, 240, 300, 360] as const;
 
+/** Longest run in the last month, as offered in onboarding (minutes). */
+export const LONGEST_RUN_OPTIONS = [
+  { label: "None", minutes: 0 },
+  { label: "Under 20 min", minutes: 15 },
+  { label: "20-30 min", minutes: 25 },
+  { label: "30-45 min", minutes: 40 },
+  { label: "45-60 min", minutes: 55 },
+  { label: "1h-1h30", minutes: 75 },
+  { label: "1h30-2h", minutes: 105 },
+  { label: "2-3 hours", minutes: 150 },
+  { label: "3h+", minutes: 200 },
+] as const;
+
 export const OnboardingAnswers = z
   .object({
-    name: z.string().trim().max(60).optional(),
+    name: z.string().trim().min(1, "Tell us what to call you").max(60),
     goalType: GoalType,
     raceDistance: RaceDistance.optional(),
     ultraDistanceKm: z.number().min(43).max(500).optional(),
@@ -61,6 +74,9 @@ export const OnboardingAnswers = z
     goalDetail: z.string().trim().max(120).optional(),
     experienceLevel: ExperienceLevel,
     lastWeekRunMinutes: z.number().int().min(0).max(1500),
+    longestRecentRunMinutes: z.number().int().min(0).max(1000),
+    /** A recent 5K time in seconds, for pace guides (optional). */
+    recent5kSeconds: z.number().int().min(600).max(3600).optional(),
     currentTraining: z.string().trim().max(500).optional(),
     runsPerWeek: z.number().int().min(1).max(6),
     liftsPerWeek: z.number().int().min(1).max(5),
@@ -119,6 +135,8 @@ export function toOutlineInput(a: OnboardingAnswers, today: string): OutlineInpu
     strengthVolume: a.strengthVolume,
     availability: a.availability,
     lastWeekRunMinutes: a.lastWeekRunMinutes,
+    longestRecentRunMinutes: a.longestRecentRunMinutes,
+    ...(race && a.justFinish && { justFinish: true }),
     runsPerWeek: a.runsPerWeek,
     liftsPerWeek: a.liftsPerWeek,
   };

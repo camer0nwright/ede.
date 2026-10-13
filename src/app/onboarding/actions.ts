@@ -49,6 +49,8 @@ export async function saveOnboarding(raw: unknown): Promise<SaveResult> {
         strengthVolume: a.strengthVolume,
         currentTraining: a.currentTraining || null,
         lastWeekRunMinutes: a.lastWeekRunMinutes,
+        longestRecentRunMinutes: a.longestRecentRunMinutes,
+        recent5kMinutes: a.recent5kSeconds ? a.recent5kSeconds / 60 : null,
         targetTimeSeconds: a.goalType === "race" && !a.justFinish ? (a.targetTimeSeconds ?? null) : null,
         justFinish: a.goalType === "race" && (a.justFinish ?? false),
         runsPerWeek: a.runsPerWeek,

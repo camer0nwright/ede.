@@ -11,6 +11,7 @@ import { formatDuration } from "@/lib/format";
 import type { OutlineInput, PlanOutline } from "@/lib/plan-outline";
 import { equipmentFromAnswers } from "@/lib/strength-builder";
 import { buildPlanWeeks, type BuiltWeek, type WeekBuildInput } from "@/lib/week-builder";
+import type { PaceOptions } from "@/lib/week-view";
 
 export const ATHLETE_COOKIE = "ede_athlete";
 
@@ -26,6 +27,8 @@ export type PlanContext = {
   today: string;
   /** What the week builder needs: availability, equipment and any injured area. */
   build: WeekBuildInput;
+  /** Pace guides for run steps, when the athlete gave a recent 5K. */
+  paces: PaceOptions;
 };
 
 /** Every week of the plan with sessions on days (src/lib/week-builder.ts). */
@@ -60,6 +63,7 @@ const demoContext = (): PlanContext => ({
   strengthVolume: demoOutlineInput.strengthVolume,
   today: DEMO_TODAY,
   build: buildInput(demoOutlineInput, ["Full gym"]),
+  paces: { fiveKSeconds: 25 * 60, unit: "km" },
 });
 
 /** Today's date at request time (not when the page is pre-built). */
@@ -107,5 +111,6 @@ export async function getPlanContext(): Promise<PlanContext> {
     strengthVolume: athlete.strengthVolume as StrengthVolume,
     today: await requestDate(),
     build: buildInput(input, (athlete.equipment ?? "Full gym").split(", "), athlete.injuries[0]?.area as BodyArea | undefined),
+    paces: { fiveKSeconds: athlete.recent5kMinutes ? Math.round(athlete.recent5kMinutes * 60) : undefined, unit: athlete.distanceUnit === "mi" ? "mi" : "km" },
   };
 }

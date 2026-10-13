@@ -259,6 +259,8 @@ function desiredRuns(input: OutlineInput): number {
   if (input.experienceLevel === "beginner") return 3;
   const k = distanceKey(input);
   const base = { "5k": 4, "10k": 4, half: 4, marathon: 5, ultra: 5, general: 3, strength: 2 }[k];
+  // Just-finish 5K and 10K plans typically use three runs a week.
+  if (input.justFinish && (k === "5k" || k === "10k")) return 3;
   return input.experienceLevel === "advanced" ? Math.min(base + 1, 6) : base;
 }
 
@@ -277,7 +279,7 @@ const FOCUS_PATTERNS: Record<number, BodyFocus[]> = {
 
 /** Recommended runs and lifts a week, offered as the default in onboarding. */
 export function recommendedSessions(
-  input: Pick<OutlineInput, "goalType" | "raceDistance" | "experienceLevel" | "strengthVolume">,
+  input: Pick<OutlineInput, "goalType" | "raceDistance" | "experienceLevel" | "strengthVolume" | "justFinish">,
 ): { runs: number; lifts: number } {
   return { runs: desiredRuns(input as OutlineInput), lifts: desiredStrength(input as OutlineInput) };
 }

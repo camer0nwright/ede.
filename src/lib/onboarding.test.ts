@@ -16,6 +16,8 @@ import {
 import { buildPlanOutline } from "./plan-outline";
 
 const answers: OnboardingAnswers = {
+  name: "Sam",
+  longestRecentRunMinutes: 75,
   goalType: "race",
   raceDistance: "half",
   targetDate: "2027-03-14",
@@ -62,6 +64,15 @@ describe("onboarding answers", () => {
 
   it("needs the chosen runs and lifts to fit the week", () => {
     expect(issues({ ...answers, runsPerWeek: 6 })).toEqual([expect.stringMatching(/6 runs need 6 training days/)]);
+  });
+
+  it("needs a name to call you by", () => {
+    expect(issues({ ...answers, name: "  " })).toContain("Tell us what to call you");
+  });
+
+  it("passes just finish and the longest recent run to the plan", () => {
+    const input = toOutlineInput({ ...answers, targetTimeSeconds: undefined, justFinish: true }, "2026-10-14");
+    expect([input.justFinish, input.longestRecentRunMinutes]).toEqual([true, 75]);
   });
 
   it("needs at least one kind of equipment", () => {
