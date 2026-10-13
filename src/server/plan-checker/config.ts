@@ -3,8 +3,7 @@ export const CHECKER_CONFIG = {
   /** At least this share of weekly running minutes must be in easy runs. */
   minEasyRunShare: 0.8,
 
-  /** A run counts as a long run from this many minutes (SPEC decision 3). */
-  longRunMinMinutes: 60,
+  // A run counts as a long run from 60 minutes: LONG_RUN_MIN_MINUTES in src/lib/key-runs.ts.
   /** Lower-body lifting the day after a hard or long run is capped at this RPE. */
   maxLowerRpeAfterKeyRun: 8,
 

@@ -12,6 +12,7 @@ import type {
 } from "@/lib/domain";
 import { DAY_NAMES, dayCap, EASY_MAX_RPE, easyRunMinutes, isHeavyLowerBody, mayBeLowerBody } from "@/lib/domain";
 import { failureAllowed, findExercise } from "@/lib/exercise-library";
+import { keyRunFlags, longRunFlags } from "@/lib/key-runs";
 import { addDays, dayOfWeek, daysBetween } from "@/lib/dates";
 import { RUN_LIBRARY, runLabel } from "@/lib/session-library";
 import { CHECKER_CONFIG as C } from "./config";
@@ -58,6 +59,8 @@ export type CheckContext = {
   experienceLevel?: ExperienceLevel;
   /** Defaults to "low", the recommended setting for hybrid athletes. */
   strengthVolume?: StrengthVolume;
+  /** Run minutes in the week before the plan started (from onboarding), used when there's no history yet. */
+  lastWeekRunMinutes?: number;
   /** The athlete's active injury, if any. */
   injury?: Injury;
   /** For ultra races: the race distance, which sets the taper length. */
@@ -86,29 +89,21 @@ function sessionsByDate(week: WeekPlan) {
   return map;
 }
 
-/**
- * Long runs (SPEC decision 3): the week's longest run if it is 60+ minutes.
- * For back-to-back long runs, a 60+ minute run the day before or after it
- * counts as a long run too.
- */
+const runInfo = (week: WeekPlan, runs: PlannedSession[]) =>
+  runs.map((r) => ({ minutes: r.plannedMinutes, day: daysBetween(week.weekStart, r.date), hard: r.intensity === "hard" }));
+
+/** Long runs (SPEC decision 3), as defined in src/lib/key-runs.ts. */
 export function longRuns(week: WeekPlan): PlannedSession[] {
   const runs = week.sessions.filter((s) => s.type === "run");
-  const longest = Math.max(0, ...runs.map((r) => r.plannedMinutes));
-  if (longest < C.longRunMinMinutes) return [];
-  const anchors = runs.filter((r) => r.plannedMinutes === longest);
-  const nearAnchor = (r: PlannedSession) =>
-    anchors.some((a) => Math.abs(daysBetween(a.date, r.date)) === 1);
-  return runs.filter(
-    (r) => anchors.includes(r) || (r.plannedMinutes >= C.longRunMinMinutes && nearAnchor(r)),
-  );
+  const flags = longRunFlags(runInfo(week, runs));
+  return runs.filter((_, i) => flags[i]);
 }
 
 /** Key runs (SPEC decision 5): hard runs and long runs. */
 export function keyRuns(week: WeekPlan): PlannedSession[] {
-  const long = longRuns(week);
-  return week.sessions.filter(
-    (s) => s.type === "run" && (s.intensity === "hard" || long.includes(s)),
-  );
+  const runs = week.sessions.filter((s) => s.type === "run");
+  const flags = keyRunFlags(runInfo(week, runs));
+  return runs.filter((_, i) => flags[i]);
 }
 
 const isRecovery = (w: { phase: Phase }) => w.phase === "recovery";
@@ -447,7 +442,9 @@ export const injuryRule: Rule = (week, { injury, history }) => {
 export const runProgression: Rule = (week, ctx) => {
   if (isRecovery(week) || isTaper(week) || inTaperWindow(week, ctx)) return [];
   const run = runMinutes(week);
-  const last = ctx.history.at(-1);
+  const last =
+    ctx.history.at(-1) ??
+    (ctx.lastWeekRunMinutes !== undefined ? { runMinutes: ctx.lastWeekRunMinutes, totalMinutes: ctx.lastWeekRunMinutes, phase: "base" as const } : undefined);
 
   if (!last || last.runMinutes < C.startingLoadBelowMinutes) {
     const out: Violation[] = [];

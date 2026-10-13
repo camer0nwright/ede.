@@ -83,6 +83,8 @@ export type StrengthRequest = {
   maxLowerRpe?: number;
   /** Time available; exercises are dropped from the end to fit. */
   maxMinutes?: number;
+  /** Fewest exercises to keep when trimming for time (default 2; light weeks may go to 1). */
+  minExercises?: number;
 };
 
 export type BuiltExercise = StrengthExercise & { restSeconds: number; isMainLift: boolean };
@@ -155,7 +157,8 @@ export function buildStrengthSession(req: StrengthRequest): BuiltSession {
     const rpe = targetRpe(pick, slot.role, req);
     exercises.push({
       name: pick.name,
-      warmupSets: slot.role === "main" && pick.equipment !== "bodyweight" ? (pick.equipment === "barbell" ? 2 : 1) : 0,
+      // Light and technique weeks need fewer warm-up sets: the working sets are lighter.
+      warmupSets: slot.role === "main" && pick.equipment !== "bodyweight" ? (pick.equipment === "barbell" && req.effort === "hard" ? 2 : 1) : 0,
       workingSets: workingSets(slot.role, req.volume),
       reps: reps(pick, slot.role, req.volume),
       targetRpe: rpe,
@@ -165,6 +168,7 @@ export function buildStrengthSession(req: StrengthRequest): BuiltSession {
     });
   }
   // Fit the time available by dropping the least important exercises (keep at least 2).
-  while (req.maxMinutes !== undefined && exercises.length > 2 && sessionMinutes(exercises) > req.maxMinutes) exercises.pop();
+  const keep = req.minExercises ?? 2;
+  while (req.maxMinutes !== undefined && exercises.length > keep && sessionMinutes(exercises) > req.maxMinutes) exercises.pop();
   return { exercises, minutes: sessionMinutes(exercises) };
 }
