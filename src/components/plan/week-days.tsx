@@ -6,7 +6,7 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } f
 import { formatMinutes, INTENSITY_COLOR, INTENSITY_LABEL } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { DayView, Effort, LiftView, RunView, SessionView } from "@/lib/week-view";
-import { CheckInPanel, checkInSummary, type CheckInOptions } from "./check-in-sheet";
+import { CheckInPanel, checkInSummary, WorkoutButton, type CheckInOptions } from "./check-in-sheet";
 
 const EFFORT_BG: Record<Effort, string> = { easy: "bg-easy", moderate: "bg-moderate", hard: "bg-hard" };
 const EFFORT_TEXT: Record<Effort, string> = { easy: "text-easy", moderate: "text-moderate", hard: "text-hard" };
@@ -127,9 +127,13 @@ export function TodaySessions({ day, options }: { day: DayView; options: CheckIn
               {checkInSummary(s.checkIn, options.unit)}
             </button>
           ) : (
-            <button type="button" onClick={() => show(s, day)} className="mt-4 h-11 w-full rounded-xl bg-primary font-semibold text-primary-foreground active:scale-[0.99]">
-              Start session
-            </button>
+            s.type === "strength" && options.canCheckIn ? (
+              <WorkoutButton session={s} className="mt-4 h-11" />
+            ) : (
+              <button type="button" onClick={() => show(s, day)} className="mt-4 h-11 w-full rounded-xl bg-primary font-semibold text-primary-foreground active:scale-[0.99]">
+                Start session
+              </button>
+            )
           )}
         </article>
       ))}

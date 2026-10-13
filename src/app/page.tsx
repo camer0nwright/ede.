@@ -27,7 +27,7 @@ async function Today({ searchParams }: { searchParams: PageProps<"/">["searchPar
   const index = Math.floor(daysBetween(ctx.input.startDate, ctx.today) / 7);
   const notStarted = index < 0;
   const { week } = weeks[Math.min(Math.max(index, 0), weeks.length - 1)];
-  const days = weekDays(week, ctx.paces, ctx.checkIns);
+  const days = weekDays(week, ctx.paces, ctx.checkIns, ctx.workouts);
   const options = { canCheckIn: !ctx.isDemo, today: ctx.today, unit: ctx.paces.unit };
   const today = days.find((d) => d.date === ctx.today);
   const upcoming = notStarted ? days : days.filter((d) => d.date > ctx.today);

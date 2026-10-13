@@ -57,6 +57,8 @@ export type PlanContext = {
   storedWeeks: WeekPlan[];
   /** Check-ins by session key (date-slot). */
   checkIns: Record<string, CheckIn>;
+  /** Gym workouts started or finished, by session key: where to open them. */
+  workouts: Record<string, { id: string; inProgress: boolean }>;
   /** The active injury, if any: the plan adapts around it from the day it was reported. */
   injury?: ActiveInjury;
 };
@@ -116,6 +118,7 @@ const demoContext = (): PlanContext => ({
   paces: { fiveKSeconds: 25 * 60, unit: "km" },
   storedWeeks: [],
   checkIns: {},
+  workouts: {},
 });
 
 /** Today's date at request time (not when the page is pre-built). */
@@ -182,6 +185,13 @@ export async function getPlanContext(): Promise<PlanContext> {
           const c = rowToCheckIn(row);
           return c ? [[sessionKey(fromDbDate(row.date), row.slot), c]] : [];
         }),
+      ),
+    ),
+    workouts: Object.fromEntries(
+      athlete.weeks.flatMap((w) =>
+        w.sessions
+          .filter((row) => row.type === "strength" && (row.status === "in_progress" || row.status === "completed"))
+          .map((row) => [sessionKey(fromDbDate(row.date), row.slot), { id: row.id, inProgress: row.status === "in_progress" }]),
       ),
     ),
     ...(injury && {

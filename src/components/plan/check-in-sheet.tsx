@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { checkIn, undoCheckIn } from "@/app/session/actions";
+import { startWorkout } from "@/app/workout/actions";
 import { Chip, Note } from "@/components/onboarding/choices";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,35 @@ export function checkInSummary(c: CheckIn, unit: "km" | "mi" = "km"): string {
   return `Done · ${formatMinutes(c.actualMinutes)}${distance} · effort ${c.effort}/10`;
 }
 
+/** "Start workout" for a gym session (logging set by set), or "Resume workout" if one is going. */
+export function WorkoutButton({ session, className }: { session: SessionView; className?: string }) {
+  const [pending, startTransition] = useTransition();
+  if (session.type !== "strength") return null;
+  const base = cn("flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground active:scale-[0.99]", className);
+  if (session.workout?.inProgress) {
+    return (
+      <Link href={`/workout/${session.workout.id}`} className={base}>
+        Resume workout
+      </Link>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className={base}
+      disabled={pending}
+      onClick={() =>
+        startTransition(async () => {
+          const result = await startWorkout({ date: session.date, slot: session.slot });
+          if (result && !result.ok) toast(result.errors[0]);
+        })
+      }
+    >
+      {pending ? <Loader2 className="animate-spin" /> : "Start workout"}
+    </button>
+  );
+}
+
 /** The buttons at the bottom of a session sheet, and the done/skip forms they open. */
 export function CheckInPanel({ session, options, onClose }: { session: SessionView; options: CheckInOptions; onClose: () => void }) {
   const [mode, setMode] = useState<"buttons" | "done" | "skip">("buttons");
@@ -38,13 +68,16 @@ export function CheckInPanel({ session, options, onClose }: { session: SessionVi
       </Link>
     );
   }
+  if (session.type === "strength" && session.workout?.inProgress) return <WorkoutButton session={session} className="mt-6" />;
   if (session.checkIn) return <CheckedIn session={session} unit={options.unit} onClose={onClose} />;
   if (mode === "done") return <DoneForm session={session} unit={options.unit} onBack={() => setMode("buttons")} onClose={onClose} />;
   if (mode === "skip") return <SkipForm session={session} onBack={() => setMode("buttons")} onClose={onClose} />;
 
   const canComplete = session.date <= options.today;
+  const lift = session.type === "strength";
   return (
     <div className="mt-6 grid grid-cols-2 gap-2">
+      {lift && canComplete && <WorkoutButton session={session} className="col-span-2" />}
       <button type="button" className="h-12 rounded-xl border font-medium hover:bg-accent" onClick={() => setMode("skip")}>
         Skip
       </button>
@@ -52,10 +85,13 @@ export function CheckInPanel({ session, options, onClose }: { session: SessionVi
         type="button"
         disabled={!canComplete}
         title={canComplete ? undefined : "You can mark it done on the day"}
-        className="h-12 rounded-xl bg-primary font-semibold text-primary-foreground disabled:opacity-40"
+        className={cn(
+          "h-12 rounded-xl font-semibold disabled:opacity-40",
+          lift ? "border font-medium hover:bg-accent" : "bg-primary text-primary-foreground",
+        )}
         onClick={() => setMode("done")}
       >
-        Mark done
+        {lift ? "Mark done without logging" : "Mark done"}
       </button>
       {!canComplete && <p className="col-span-2 text-center text-xs text-muted-foreground">You can mark it done on the day.</p>}
     </div>
@@ -240,6 +276,11 @@ function CheckedIn({ session, unit, onClose }: { session: SessionView; unit: "km
         {checkInSummary(c, unit)}
       </p>
       {c.notes && <p className="text-sm text-muted-foreground">{c.notes}</p>}
+      {session.type === "strength" && session.workout && (
+        <Link href={`/workout/${session.workout.id}`} className="grid h-12 place-items-center rounded-xl border font-medium hover:bg-accent">
+          View workout
+        </Link>
+      )}
       <Errors errors={errors} />
       <Button variant="secondary" className="h-12 rounded-xl" onClick={() => save(() => undoCheckIn({ date: session.date, slot: session.slot }))} disabled={pending}>
         {pending ? <Loader2 className="animate-spin" /> : c.status === "completed" ? "Undo, not done yet" : "Undo skip"}
