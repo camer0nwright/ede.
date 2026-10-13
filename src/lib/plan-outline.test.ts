@@ -7,6 +7,7 @@ import {
   buildPlanOutline,
   easyShareOf,
   qualityOf,
+  type OutlineInput,
   type OutlineWeek,
   type PlanOutline,
 } from "./plan-outline";
@@ -68,14 +69,15 @@ describe.each(outlines)("plan outline: %s", (_name, input, outline) => {
     weeks.forEach((w, i) => {
       if (!isFull(w)) return;
       const prevRun = i === 0 ? input.lastWeekRunMinutes : weeks[i - 1].runMinutes;
-      if (prevRun === undefined || prevRun < C.startingLoadBelowMinutes) {
+      const lastFull = lastBuild(outline, i)?.runMinutes ?? prevRun;
+      if (lastFull === undefined || lastFull < C.startingLoadBelowMinutes) {
         const range = beginner ? C.startingRunMinutes.beginner : C.startingRunMinutes.other;
         expect(w.runMinutes, `week ${w.weekNumber}`).toBeGreaterThanOrEqual(range.min);
         expect(w.runMinutes, `week ${w.weekNumber}`).toBeLessThanOrEqual(range.max);
         expect(w.runs.length).toBeGreaterThanOrEqual(C.startingRunSessions.min);
         expect(w.runs.length).toBeLessThanOrEqual(C.startingRunSessions.max);
       } else {
-        const ref = lastBuild(outline, i)?.runMinutes ?? prevRun;
+        const ref = lastFull;
         const limit = ref + Math.max(ref * C.maxRunIncreaseShare, C.minRunIncreaseMinutes);
         expect(w.runMinutes, `week ${w.weekNumber}`).toBeLessThanOrEqual(limit);
       }
@@ -191,6 +193,27 @@ describe.each(outlines)("plan outline: %s", (_name, input, outline) => {
     }
   });
 
+  it("grows the long run by at most 10 minutes a week, from the longest recent run", () => {
+    let lastFull: number | undefined;
+    for (const w of weeks) {
+      const long = w.runs.find((r) => r.role === "long" && !r.backToBack);
+      if (!long || !isFull(w)) continue;
+      const quality = Math.max(0, ...w.runs.filter((r) => r.role === "quality").map((r) => r.minutes));
+      const start = input.longestRecentRunMinutes;
+      if (lastFull === undefined && start !== undefined) expect(long.minutes, `week ${w.weekNumber}`).toBeLessThanOrEqual(Math.max(start, quality) + 5);
+      if (lastFull !== undefined) expect(long.minutes, `week ${w.weekNumber}`).toBeLessThanOrEqual(Math.max(lastFull + 10, quality) + 5);
+      lastFull = Math.max(long.minutes, lastFull ?? 0);
+    }
+  });
+
+  it("keeps easy runs clearly shorter than the long run", () => {
+    for (const w of weeks) {
+      const long = w.runs.find((r) => r.role === "long");
+      if (!long) continue;
+      for (const e of w.runs.filter((r) => r.role === "easy")) expect(e.minutes, `week ${w.weekNumber}`).toBeLessThanOrEqual(Math.max(20, long.minutes * 0.75) + 5);
+    }
+  });
+
   it("is the same every time for the same answers", () => {
     expect(buildPlanOutline(input)).toEqual(outline);
   });
@@ -198,6 +221,31 @@ describe.each(outlines)("plan outline: %s", (_name, input, outline) => {
 
 describe("plan outline details", () => {
   const get = (name: string) => outlines.find(([n]) => n === name)![2];
+
+  it("caps a just-finish 10K's long run around an hour (your example)", () => {
+    const o = get("10K just finish (your example)");
+    expect(Math.max(...o.weeks.flatMap((w) => w.runs.filter((r) => r.role === "long").map((r) => r.minutes)))).toBeLessThanOrEqual(70);
+  });
+
+  it("gives just-finish plans gentle quality sessions, never hard intervals", () => {
+    for (const name of ["10K just finish (your example)", "half marathon just finish, beginner"]) {
+      for (const w of get(name).weeks) {
+        for (const r of w.runs) expect(["intervals_short", "intervals_long", "long_race_pace"], `${name} week ${w.weekNumber}`).not.toContain(r.kind);
+      }
+    }
+  });
+
+  it("caps long runs by distance and goal: a time-goal 10K goes longer than a just-finish one", () => {
+    const peakLong = (input: OutlineInput) => Math.max(...buildPlanOutline(input).weeks.flatMap((w) => w.runs.filter((r) => r.role === "long").map((r) => r.minutes)));
+    const finish = PROFILES["10K just finish (your example)"];
+    expect(peakLong({ ...finish, justFinish: false })).toBeGreaterThan(peakLong(finish));
+  });
+
+  it("keeps building a beginner after a recovery week instead of restarting", () => {
+    const o = get("half marathon just finish, beginner");
+    const peak = Math.max(...o.weeks.map((w) => w.runMinutes));
+    expect(peak).toBeGreaterThan(120);
+  });
 
   it("rotates a half marathon's quality sessions through tempo, intervals, progression and hills", () => {
     const kinds = new Set(get("half marathon, intermediate").weeks.flatMap((w) => qualityOf(w).map((q) => q.kind)));

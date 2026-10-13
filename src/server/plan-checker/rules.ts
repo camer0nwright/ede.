@@ -446,7 +446,9 @@ export const runProgression: Rule = (week, ctx) => {
     ctx.history.at(-1) ??
     (ctx.lastWeekRunMinutes !== undefined ? { runMinutes: ctx.lastWeekRunMinutes, totalMinutes: ctx.lastWeekRunMinutes, phase: "base" as const } : undefined);
 
-  if (!last || last.runMinutes < C.startingLoadBelowMinutes) {
+  // Judged on the last full week, so a light recovery week doesn't restart the build.
+  const lastFull = lastBuildWeek(ctx.history) ?? last;
+  if (!lastFull || lastFull.runMinutes < C.startingLoadBelowMinutes) {
     const out: Violation[] = [];
     const isBeginner = ctx.experienceLevel === "beginner";
     const range = isBeginner ? C.startingRunMinutes.beginner : C.startingRunMinutes.other;
@@ -462,7 +464,7 @@ export const runProgression: Rule = (week, ctx) => {
     return out;
   }
 
-  const ref = lastBuildWeek(ctx.history) ?? last;
+  const ref = lastFull;
   const limit = ref.runMinutes + Math.max(ref.runMinutes * C.maxRunIncreaseShare, C.minRunIncreaseMinutes);
   return run > limit
     ? [{ rule: "run-progression", message: `This week has ${run} run minutes, up from ${ref.runMinutes}; build gradually to at most ${Math.floor(limit)}. Strength minutes don't count towards this.` }]

@@ -251,7 +251,8 @@ export function minMinutes(kind: RunKind, level: number): number {
   const main = spec.levels[clampLevel(kind, level) - 1].minutes;
   if (spec.role === "quality") return Math.ceil((spec.warmup ?? 0) + main + (spec.cooldown ?? 0));
   if (kind === "strides") return 20;
-  if (spec.role === "long") return Math.max(45, Math.ceil(main) + 30);
+  // Long runs can start short (from someone's longest recent run); variations need room for their harder part.
+  if (spec.role === "long") return main === 0 ? 30 : Math.ceil(main) + 30;
   return 20;
 }
 

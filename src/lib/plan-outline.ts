@@ -33,6 +33,10 @@ export type OutlineInput = {
   availability: Availability;
   /** Run minutes in the week before the plan starts, if known. */
   lastWeekRunMinutes?: number;
+  /** "Just finish" race goal: a gentler plan (SPEC decision 36). */
+  justFinish?: boolean;
+  /** Longest run in the last month, in minutes: the long run grows from here (SPEC decision 37). */
+  longestRecentRunMinutes?: number;
   /** Runs and lifts a week the athlete chose. The plan gives exactly these every week (SPEC decision 29). */
   runsPerWeek?: number;
   liftsPerWeek?: number;
@@ -98,6 +102,17 @@ export const OUTLINE_CONFIG = {
   recoveryTotalShare: 0.68,
   /** Taper totals, slightly under the checker's 60/80/90%. Index 0 is race week. */
   taperShares: [0.55, 0.75, 0.85],
+  /** Easy runs stay at most this share of the week's long run. */
+  easyRunShareOfLong: 0.75,
+  /** "Just finish" plans peak at this share of the usual weekly running. */
+  justFinishVolumeShare: 0.8,
+  /** The long run grows by at most this much from one full week to the next. */
+  longRunStepMinutes: 10,
+  /** Without a longest recent run, the first long run is this share of last week's running. */
+  firstLongShareOfLastWeek: 0.35,
+  /** Long runs in light weeks, as a share of the last full week's long run (recovery; taper by weeks out). */
+  recoveryLongShare: 0.7,
+  taperLongShares: [0.5, 0.7, 0.85],
   /** Easy share targets (the checker's minimum is 80%). */
   easyShare: { default: 0.8, ultra: 0.9 },
   minEasyRunMinutes: 20,
@@ -129,6 +144,12 @@ const isTrail = (input: OutlineInput) => input.terrain === "trail" || input.terr
 
 /** Quality sessions rotate through these, in order. */
 function qualityPool(input: OutlineInput): RunKind[] {
+  // "Just finish": gentler quality that builds fitness without hard track-style sessions.
+  if (input.justFinish && distanceKey(input) !== "ultra") {
+    return distanceKey(input) === "5k" || distanceKey(input) === "10k"
+      ? ["fartlek", "progression", "hills"]
+      : ["progression", "fartlek", "tempo"];
+  }
   switch (distanceKey(input)) {
     case "5k":
       return ["intervals_short", "hills", "intervals_long", "fartlek"];
@@ -151,6 +172,9 @@ function qualityPool(input: OutlineInput): RunKind[] {
 
 /** Long run variations rotate through these in build and peak weeks. */
 function longPool(input: OutlineInput): RunKind[] {
+  if (input.justFinish && distanceKey(input) !== "ultra") {
+    return distanceKey(input) === "half" || distanceKey(input) === "marathon" ? ["long_easy", "long_easy", "long_fast_finish"] : ["long_easy"];
+  }
   switch (distanceKey(input)) {
     case "half":
     case "marathon":
@@ -179,17 +203,33 @@ function peakRunMinutes(input: OutlineInput): number {
       ? [420, 480, 540, 600][ultraBand(input.ultraDistanceKm)]
       : { "5k": 240, "10k": 280, half: 330, marathon: 420, general: 210, strength: 150 }[k];
   const factor = { beginner: 0.6, intermediate: 1, advanced: 1.2 }[input.experienceLevel];
-  return round5(base * factor);
+  // "Just finish" plans build less running volume.
+  return round5(base * factor * (input.justFinish ? O.justFinishVolumeShare : 1));
 }
 
-/** Longest a long run should get, in minutes. */
+/**
+ * Longest a long run should get, in minutes, by race distance, goal and
+ * experience (SPEC decision 36; from published plans: a first or just-finish
+ * 10K peaks around an hour, a half around 1h40-2h20, a marathon around 3h).
+ */
+const LONG_RUN_CAP: Record<Exclude<DistanceKey, "ultra">, { finish: [number, number, number]; time: [number, number, number] }> = {
+  //            beginner, intermediate, advanced
+  "5k": { finish: [40, 50, 60], time: [50, 65, 75] },
+  "10k": { finish: [60, 70, 75], time: [70, 85, 95] },
+  half: { finish: [100, 110, 120], time: [110, 120, 140] },
+  marathon: { finish: [180, 180, 180], time: [165, 180, 180] },
+  general: { finish: [60, 75, 90], time: [60, 75, 90] },
+  strength: { finish: [45, 60, 75], time: [45, 60, 75] },
+};
+
 function longRunCap(input: OutlineInput): number {
   const k = distanceKey(input);
-  const base =
-    k === "ultra"
-      ? [240, 300, 390, 480][ultraBand(input.ultraDistanceKm)]
-      : { "5k": 75, "10k": 90, half: 120, marathon: 165, general: 90, strength: 75 }[k];
-  return input.experienceLevel === "beginner" ? round5(base * 0.75) : base;
+  if (k === "ultra") {
+    const base = [240, 300, 390, 480][ultraBand(input.ultraDistanceKm)];
+    return input.experienceLevel === "beginner" ? round5(base * 0.75) : base;
+  }
+  const level = { beginner: 0, intermediate: 1, advanced: 2 }[input.experienceLevel];
+  return LONG_RUN_CAP[k][input.justFinish ? "finish" : "time"][level];
 }
 
 function longShare(input: OutlineInput): number {
@@ -360,6 +400,10 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
   const strengthMin = O.strengthMinutes[input.strengthVolume];
 
   let prevRun = input.lastWeekRunMinutes;
+  // The long run grows from the longest recent run, at most 10 minutes per full week.
+  const firstLong =
+    input.longestRecentRunMinutes ?? Math.max(30, (input.lastWeekRunMinutes ?? 60) * O.firstLongShareOfLastWeek);
+  let lastFullLong: number | undefined;
   let lastBuild: { run: number; total: number } | undefined;
   let block = 1;
   let limitedByTime = false;
@@ -370,7 +414,9 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
   for (let i = 0; i < n; i++) {
     const phase = phases[i];
     const weeksOut = input.targetDate ? n - 1 - i : null;
-    const starting = prevRun === undefined || prevRun < O.startingBelow;
+    // Starting load: judged on the last full week, so a light recovery week doesn't restart the build.
+    const lastFullRun = lastBuild?.run ?? prevRun;
+    const starting = lastFullRun === undefined || lastFullRun < O.startingBelow;
 
     // ----- run minutes target -----
     let target: number;
@@ -426,7 +472,7 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
     if (!beginner && runs >= 2) {
       if (phase === "recovery") qualityCount = 0;
       else if (phase === "taper") qualityCount = 1;
-      else if (isUltra || distanceKey(input) === "general" || distanceKey(input) === "strength") qualityCount = 1;
+      else if (isUltra || input.justFinish || distanceKey(input) === "general" || distanceKey(input) === "strength") qualityCount = 1;
       else qualityCount = phase !== "base" && runs >= 4 ? 2 : 1;
     }
 
@@ -451,6 +497,20 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
     // One easy run a week gets strides (non-beginners), for variety and leg speed.
     const stridesWeek = !beginner && runs - qualityCount - 1 - (backToBack ? 1 : 0) >= 2;
 
+    // How long this week's long run may be: grows from the last full week's, lighter in recovery and taper.
+    const longAllowed = round5(
+      Math.min(
+        longRunCap(input),
+        lastFullLong === undefined
+          ? Math.max(firstLong, 20)
+          : phase === "recovery"
+            ? lastFullLong * O.recoveryLongShare
+            : phase === "taper"
+              ? lastFullLong * (O.taperLongShares[weeksOut!] ?? O.taperLongShares.at(-1)!)
+              : lastFullLong + O.longRunStepMinutes,
+      ),
+    );
+
     // ----- allocate minutes -----
     // Runs are matched to the longest available days: the long run gets the
     // longest day, then the back-to-back day, quality sessions, then easy runs.
@@ -468,10 +528,12 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
         // longest remaining day (that's for running volume). If this kind's next
         // level doesn't fit, the next kind in the rotation that does is used,
         // so levels never go backwards in a build week.
-        const usable = caps.length > 1 ? caps.slice(1) : caps;
+        // Quality sessions are never longer than this week's long run.
+        const usable = (caps.length > 1 ? caps.slice(1) : caps).map((c) => (longCount > 0 ? Math.min(c, longAllowed) : c));
         // Fallbacks try kinds not used last week first, keeping weeks varied.
         const others = qPool.filter((k) => k !== wanted && !qualityKinds.includes(k));
-        const options = [wanted, ...others.filter((k) => !lastWeekQuality.includes(k)), ...others.filter((k) => lastWeekQuality.includes(k))];
+        // Anything used last week goes to the back, even the rotation's own pick.
+        const options = [wanted, ...others].sort((a, b) => Number(lastWeekQuality.includes(a)) - Number(lastWeekQuality.includes(b)));
         // A kind whose next level is too long for the day holds its current
         // level instead (never lower), so the rotation keeps moving.
         const biggest = Math.max(0, ...usable);
@@ -492,7 +554,7 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
           }
         }
         if (!pick) continue; // nothing fits a suitable day: leave it out
-        const cap = caps.splice(pick.index, 1)[0];
+        const cap = Math.min(caps.splice(pick.index, 1)[0], longCount > 0 ? longAllowed : Infinity);
         const level = pick.level;
         const minutes = Math.min(ceil5(minMinutes(pick.kind, level)), cap);
         qualityRuns.push({ role: "quality", kind: pick.kind, level, minutes });
@@ -509,7 +571,7 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
         const fairShare = remaining / (longCount + easyCaps.length) + 5;
         // Back-to-back: size the second day first, so the pair stays within its share of the week.
         const second = backToBack ? round5(Math.min(Math.max(60, target * 0.22), longCaps[1])) : 0;
-        const longMax = Math.min(longRunCap(input), longCaps[0], target * maxLongShare(input, runs, backToBack) - second);
+        const longMax = Math.min(longRunCap(input), longAllowed, longCaps[0], target * maxLongShare(input, runs, backToBack) - second);
         const first = round5(Math.min(Math.max(target * share, fairShare, minMinutes(long, longLevel)), longMax, Math.max(remaining, 20)));
         longRuns.push({ role: "long", kind: long, level: longLevel, minutes: first });
         if (backToBack) {
@@ -535,7 +597,7 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
       easyCaps = [...easyCaps].sort((a, b) => a - b);
       const easyRuns: OutlineRun[] = [];
       easyCaps.forEach((cap, e) => {
-        const minutes = round5(Math.min(remaining / (easyCaps.length - e), cap, longest));
+        const minutes = round5(Math.min(remaining / (easyCaps.length - e), cap, Math.max(O.minEasyRunMinutes, longest * O.easyRunShareOfLong)));
         if (minutes < O.minEasyRunMinutes) return;
         const kind: RunKind = e === 0 && stridesWeek ? "strides" : easyKind;
         const level = kind === "run_walk" ? Math.max(1, runWalkLevel) : kind === "strides" ? levelFor("strides") : 1;
@@ -546,10 +608,14 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
       // Leftover minutes go to the long run if it has room; otherwise the week is a little shorter.
       if (remaining >= 5 && longRuns.length > 0) {
         const shareCap = target * maxLongShare(input, runs, backToBack) - (longRuns[1]?.minutes ?? 0);
-        const room = Math.min(longRunCap(input), longCaps[0], shareCap) - longRuns[0].minutes;
+        const room = Math.min(longRunCap(input), longAllowed, longCaps[0], shareCap) - longRuns[0].minutes;
         const extra = Math.floor(Math.min(remaining, room) / 5) * 5;
         if (extra > 0) longRuns = [{ ...longRuns[0], minutes: longRuns[0].minutes + extra }, ...longRuns.slice(1)];
       }
+      // The long run is always the week's longest run: raise it to match a longer quality session.
+      const longestQuality = Math.max(0, ...out.map((r) => r.minutes));
+      if (longRuns.length > 0 && longRuns[0].minutes < longestQuality) longRuns[0] = { ...longRuns[0], minutes: longestQuality };
+
       // The week can come out shorter than planned when days are short, so
       // trim the long run until it is within its share of what was planned.
       const maxShare = maxLongShare(input, runs, backToBack);
@@ -557,7 +623,8 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
       while (longRuns.length > 0 && sum(longRuns) > total() * maxShare && longRuns[0].minutes - 5 >= Math.max(...easyRuns.map((r) => r.minutes), minMinutes(longRuns[0].kind, longRuns[0].level))) {
         longRuns[0] = { ...longRuns[0], minutes: longRuns[0].minutes - 5 };
       }
-      if (target - total() >= 10 && phase !== "recovery" && phase !== "taper") limitedByTime = true;
+      const longCapped = (longRuns[0]?.minutes ?? 0) >= longAllowed - 5;
+      if (target - total() >= 10 && phase !== "recovery" && phase !== "taper" && !longCapped) limitedByTime = true;
       return [...out, ...longRuns, ...easyRuns];
     };
 
@@ -630,7 +697,11 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
       if (fullLevel && r.kind !== "run_walk") uses.set(r.kind, (uses.get(r.kind) ?? 0) + 1);
     }
     if (phase !== "recovery") nonRecoveryWeeks++;
-    if (phase !== "recovery" && phase !== "taper") lastBuild = { run: runMinutes, total: runMinutes + strengthMinutes };
+    if (phase !== "recovery" && phase !== "taper") {
+      lastBuild = { run: runMinutes, total: runMinutes + strengthMinutes };
+      const long = weekRuns.find((r) => r.role === "long" && !r.backToBack);
+      if (long) lastFullLong = Math.max(long.minutes, lastFullLong ?? 0);
+    }
 
     weeks.push({
       weekNumber: i + 1,
