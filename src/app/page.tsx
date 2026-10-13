@@ -7,11 +7,12 @@ import { Logo } from "@/components/logo";
 import { MedicalNotice } from "@/components/medical-notice";
 import { Note } from "@/components/onboarding/choices";
 import { PageSkeleton } from "@/components/page-skeleton";
+import { EaseBackCard } from "@/components/plan/ease-back-card";
 import { TodaySessions, WeekDays, WeekStrip } from "@/components/plan/week-days";
 import { daysBetween } from "@/lib/dates";
 import { formatLongDate, formatMinutes, PHASE_LABEL, plural } from "@/lib/format";
 import { weekDays } from "@/lib/week-view";
-import { builtWeeks, getPlanContext } from "@/server/athlete";
+import { builtWeeks, easeBack, getPlanContext } from "@/server/athlete";
 
 export default function TodayPage({ searchParams }: PageProps<"/">) {
   return (
@@ -24,6 +25,7 @@ export default function TodayPage({ searchParams }: PageProps<"/">) {
 async function Today({ searchParams }: { searchParams: PageProps<"/">["searchParams"] }) {
   const [ctx, query] = await Promise.all([getPlanContext(), searchParams]);
   const weeks = builtWeeks(ctx);
+  const offer = easeBack(ctx);
   const index = Math.floor(daysBetween(ctx.input.startDate, ctx.today) / 7);
   const notStarted = index < 0;
   const { week } = weeks[Math.min(Math.max(index, 0), weeks.length - 1)];
@@ -52,6 +54,14 @@ async function Today({ searchParams }: { searchParams: PageProps<"/">["searchPar
       {query.deleted && <Note>Your data has been deleted. This is the demo plan.</Note>}
       {ctx.isDemo && <DemoBanner />}
       {ctx.injury && <InjuryBanner injury={ctx.injury} />}
+      {offer && (
+        <EaseBackCard
+          reason={offer.reason}
+          done={offer.review.doneRunMinutes}
+          planned={offer.review.plannedRunMinutes}
+          startsThisWeek={offer.start === offer.thisWeek.weekStart}
+        />
+      )}
 
       <WeekStrip days={days} today={ctx.today} />
 

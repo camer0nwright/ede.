@@ -22,11 +22,13 @@ export async function saveRebuiltPlan(
     continuity?: { lastWeekRunMinutes?: number; longestRecentRunMinutes?: number };
     /** Coming back from an injury. */
     returning?: boolean;
+    /** Where the rebuilt plan starts (default: next Monday, or the plan's start if it hasn't begun). */
+    start?: string;
     /** Other changes saved in the same transaction. */
     alsoSave?: (tx: Prisma.TransactionClient) => Promise<unknown>;
   },
 ): Promise<SaveResult> {
-  const start = rebuildStart(ctx.today, ctx.input.startDate);
+  const start = opts.start ?? rebuildStart(ctx.today, ctx.input.startDate);
   const kept = builtWeeks(ctx).filter((b) => b.week.weekStart < start);
   const continuity = opts.continuity ?? continuityFromWeeks(kept.filter((b) => !b.injured).map((b) => b.week));
   const fresh: OutlineInput = { ...opts.input, ...continuity, startDate: start, ...(opts.returning && { returning: true }) };

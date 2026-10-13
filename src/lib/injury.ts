@@ -72,7 +72,7 @@ type Lift = Extract<PlannedSession, { type: "strength" }>;
 const floor5 = (n: number) => Math.floor(n / 5) * 5;
 
 /** A run as an easy, flat one of the given length: a long run stays a long easy run if it's long enough. */
-function easyVersion(r: Run, minutes: number): Run {
+export function easyVersion(r: Run, minutes: number): Run {
   const wasLong = r.kind ? RUN_LIBRARY[r.kind].role === "long" : r.title.toLowerCase().includes("long");
   const keep = r.kind && RUN_LIBRARY[r.kind].intensity === "easy" && r.kind !== "long_hilly" && minutes >= minMinutes(r.kind, r.level ?? 1);
   const kind = keep ? r.kind! : wasLong && minutes >= minMinutes("long_easy", 1) ? "long_easy" : "easy";

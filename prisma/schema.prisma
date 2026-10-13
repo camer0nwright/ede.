@@ -39,6 +39,8 @@ model Athlete {
   injuryHistory           String?
   weightUnit              String    @default("kg") // "kg" | "lb"
   distanceUnit            String    @default("km") // "km" | "mi"
+  /// The last week whose "ease back in" offer was answered (eased or kept), so it isn't asked again.
+  reviewedWeekStart       DateTime?
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 
