@@ -2,44 +2,15 @@
 
 import { z } from "zod";
 import { CheckInInput, checkInCaution } from "@/lib/checkin";
-import { addDays } from "@/lib/dates";
 import { db } from "@/lib/db";
-import { sessionToRow, toDbDate, weekToRow } from "@/lib/db-mapping";
+import { toDbDate } from "@/lib/db-mapping";
 import { IsoDate } from "@/lib/domain";
-import { builtWeeks, getPlanContext, type PlanContext } from "@/server/athlete";
+import { signedInContext, storedSessionId } from "@/server/sessions";
 
 export type CheckInResult = { ok: true; caution: string | null } | { ok: false; errors: string[] };
 
 const KM_PER_MILE = 1.609344;
 
-/**
- * The database id of a planned session, saving its week first if it hasn't
- * been yet (weeks are built on the fly until something in them is checked in,
- * then kept exactly as they were).
- */
-async function storedSessionId(ctx: PlanContext & { athleteId: string }, date: string, slot: number): Promise<string | null> {
-  const built = builtWeeks(ctx).find((b) => b.week.weekStart <= date && date <= addDays(b.week.weekStart, 6));
-  if (!built || !built.week.sessions.some((s) => s.date === date && s.slot === slot)) return null;
-  const weekStart = toDbDate(built.week.weekStart);
-
-  const find = () =>
-    db.session.findFirst({ where: { date: toDbDate(date), slot, week: { athleteId: ctx.athleteId, weekStart } }, select: { id: true } });
-  const existing = await find();
-  if (existing) return existing.id;
-  try {
-    await db.planWeek.create({
-      data: { athleteId: ctx.athleteId, ...weekToRow(built.week), sessions: { create: built.week.sessions.map(sessionToRow) } },
-    });
-  } catch {
-    // Saved meanwhile by another check-in (the week is unique per athlete): use that one.
-  }
-  return (await find())?.id ?? null;
-}
-
-async function signedInContext() {
-  const ctx = await getPlanContext();
-  return ctx.isDemo || !ctx.athleteId ? null : (ctx as PlanContext & { athleteId: string });
-}
 
 /** Marks a session done (time, effort, notes, distance for runs) or skipped with a reason. */
 export async function checkIn(raw: unknown): Promise<CheckInResult> {
@@ -93,9 +64,10 @@ export async function undoCheckIn(raw: unknown): Promise<CheckInResult> {
     });
     if (session) {
       await db.runLog.deleteMany({ where: { sessionId: session.id } });
+      await db.setLog.deleteMany({ where: { sessionId: session.id } });
       await db.session.update({
         where: { id: session.id },
-        data: { status: "planned", completedAt: null, actualMinutes: null, effort: null, notes: null, skipReason: null },
+        data: { status: "planned", startedAt: null, completedAt: null, actualMinutes: null, effort: null, notes: null, skipReason: null },
       });
     }
   } catch (e) {

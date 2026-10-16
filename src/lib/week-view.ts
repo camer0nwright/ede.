@@ -33,6 +33,8 @@ export type RunView = SessionBase & {
 
 export type LiftView = SessionBase & {
   type: "strength";
+  /** A logged workout for this session (started or finished). */
+  workout?: { id: string; inProgress: boolean };
   title: string;
   minutes: number;
   focus: BodyFocus;
@@ -85,7 +87,7 @@ function runView(s: Extract<PlannedSession, { type: "run" }>, dayName: string, p
   };
 }
 
-function liftView(s: Extract<PlannedSession, { type: "strength" }>, checkIn?: CheckIn): LiftView {
+function liftView(s: Extract<PlannedSession, { type: "strength" }>, checkIn?: CheckIn, workout?: LiftView["workout"]): LiftView {
   const light = s.exercises.every((e) => e.targetRpe <= 7);
   return {
     type: "strength",
@@ -96,6 +98,7 @@ function liftView(s: Extract<PlannedSession, { type: "strength" }>, checkIn?: Ch
     title: s.title,
     minutes: s.plannedMinutes,
     focus: s.bodyFocus,
+    ...(workout && { workout }),
     purpose: light ? "A lighter week: the same lifts with less effort, so you recover and come back stronger." : LIFT_PURPOSE[s.bodyFocus],
     tip: light
       ? "Keep every set smooth and comfortable, well short of your limit."
@@ -107,7 +110,12 @@ function liftView(s: Extract<PlannedSession, { type: "strength" }>, checkIn?: Ch
   };
 }
 
-export function weekDays(week: WeekPlan, paces?: PaceOptions, checkIns: Record<string, CheckIn> = {}): DayView[] {
+export function weekDays(
+  week: WeekPlan,
+  paces?: PaceOptions,
+  checkIns: Record<string, CheckIn> = {},
+  workouts: Record<string, NonNullable<LiftView["workout"]>> = {},
+): DayView[] {
   return Array.from({ length: 7 }, (_, i) => {
     const date = addDays(week.weekStart, i);
     const dayName = DAY_NAMES[dayOfWeek(date)];
@@ -116,7 +124,7 @@ export function weekDays(week: WeekPlan, paces?: PaceOptions, checkIns: Record<s
       .sort((a, b) => a.slot - b.slot)
       .map((s) => {
         const checkIn = checkIns[sessionKey(s.date, s.slot)];
-        return s.type === "run" ? runView(s, dayName, paces, checkIn) : liftView(s, checkIn);
+        return s.type === "run" ? runView(s, dayName, paces, checkIn) : liftView(s, checkIn, workouts[sessionKey(s.date, s.slot)]);
       });
     return { date, dayName, sessions, ...(week.dayNotes[date] && { note: week.dayNotes[date] }) };
   });

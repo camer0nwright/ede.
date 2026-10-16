@@ -55,7 +55,7 @@ async function WeekContent({ params }: { params: PageProps<"/plan/week/[week]">[
   if (!week) notFound();
 
   const built = builtWeeks(ctx)[week.weekNumber - 1].week;
-  const days = weekDays(built, ctx.paces, ctx.checkIns);
+  const days = weekDays(built, ctx.paces, ctx.checkIns, ctx.workouts);
   const runs = built.sessions.filter((s) => s.type === "run");
   const prev = week.weekNumber > 1 ? week.weekNumber - 1 : null;
   const next = week.weekNumber < ctx.outline.weeks.length ? week.weekNumber + 1 : null;
