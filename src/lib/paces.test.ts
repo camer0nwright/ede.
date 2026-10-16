@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { desiredVsPredicted, formatPaceBand, paceForRpe, predictRaceSeconds, RACE_KM } from "./paces";
+import { desiredVsPredicted, formatDistance, formatPace, formatPaceBand, paceForRpe, predictRaceSeconds, RACE_KM } from "./paces";
 
 describe("paces from a 5K", () => {
   it("predicts other races with Riegel's formula", () => {
@@ -28,5 +28,12 @@ describe("paces from a 5K", () => {
     expect(desiredVsPredicted("10k", 52 * 60, 1500)).toBeNull();
     expect(desiredVsPredicted("half", 100 * 60, 1500)).toMatch(/suggests about 1:5/);
     expect(desiredVsPredicted("ultra", 600, 1500)).toBeNull();
+  });
+
+  it("formats a single pace and a distance in either unit", () => {
+    expect(formatPace(300, "km")).toBe("5:00/km");
+    expect(formatPace(300, "mi")).toBe("8:03/mi");
+    expect(formatDistance(8.2, "km")).toBe("8.2 km");
+    expect(formatDistance(8.2, "mi")).toBe("5.1 mi");
   });
 });
