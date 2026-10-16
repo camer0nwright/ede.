@@ -15,6 +15,8 @@ import { DEMO_ATHLETE, DEMO_TODAY, demoOutline, demoOutlineInput } from "@/lib/d
 import type { BodyArea, Injury, StrengthVolume, WeekPlan } from "@/lib/domain";
 import { formatDuration } from "@/lib/format";
 import { adaptWeeksForInjury } from "@/lib/injury";
+import { easeAfterSkips, easeBackOffer, easeBackStart, reviewWeek } from "@/lib/skips";
+import { addDays } from "@/lib/dates";
 import type { OutlineInput, PlanOutline } from "@/lib/plan-outline";
 import { equipmentFromAnswers } from "@/lib/strength-builder";
 import { buildPlanWeeks, type BuiltWeek, type WeekBuildInput } from "@/lib/week-builder";
@@ -55,6 +57,8 @@ export type PlanContext = {
   paces: PaceOptions;
   /** Weeks saved as they were when the plan was last rebuilt, so they don't change under you. */
   storedWeeks: WeekPlan[];
+  /** The last week whose "ease back in" offer was answered. */
+  reviewedWeekStart?: string;
   /** Check-ins by session key (date-slot). */
   checkIns: Record<string, CheckIn>;
   /** Gym workouts started or finished, by session key: where to open them. */
@@ -65,8 +69,22 @@ export type PlanContext = {
 
 export type ActiveInjury = Injury & { id: string; notes: string | null; since: string };
 
-/** Every week of the plan with sessions on days (src/lib/week-builder.ts). */
+/**
+ * Every week of the plan with sessions on days (src/lib/week-builder.ts), as
+ * stored once under way, adapted around an active injury, and eased after a
+ * recent skip for illness or tiredness.
+ */
 export function builtWeeks(ctx: PlanContext): (BuiltWeek & { injured: boolean })[] {
+  const adapted = adaptedWeeks(ctx);
+  const eased = easeAfterSkips(
+    adapted.map((b) => b.week),
+    ctx.checkIns,
+    ctx.today,
+  );
+  return adapted.map((b, i) => ({ ...b, week: eased[i] }));
+}
+
+function adaptedWeeks(ctx: PlanContext): (BuiltWeek & { injured: boolean })[] {
   const stored = new Map(ctx.storedWeeks.map((w) => [w.weekStart, w]));
   const weeks = buildPlanWeeks(ctx.outline, ctx.build).map((b) => {
     const week = stored.get(b.week.weekStart);
@@ -179,6 +197,7 @@ export async function getPlanContext(): Promise<PlanContext> {
       unit: athlete.distanceUnit === "mi" ? "mi" : "km",
     },
     storedWeeks: athlete.weeks.map(rowToWeekPlan),
+    ...(athlete.reviewedWeekStart && { reviewedWeekStart: fromDbDate(athlete.reviewedWeekStart) }),
     checkIns: Object.fromEntries(
       athlete.weeks.flatMap((w) =>
         w.sessions.flatMap((row) => {
@@ -249,4 +268,29 @@ export async function getInjuryHistory(athleteId: string) {
     since: r.startedAt.toISOString().slice(0, 10),
     until: r.resolvedAt!.toISOString().slice(0, 10),
   }));
+}
+
+/**
+ * The "ease back in" offer for last week, if it's due: last week is over,
+ * was mostly missed, and hasn't been answered yet (SPEC decision 50).
+ */
+export function easeBack(ctx: PlanContext) {
+  if (ctx.isDemo) return null;
+  const weeks = builtWeeks(ctx);
+  const index = weeks.findIndex((b) => b.week.weekStart <= ctx.today && ctx.today <= addDays(b.week.weekStart, 6));
+  if (index < 1) return null;
+  const last = weeks[index - 1].week;
+  if (ctx.reviewedWeekStart && ctx.reviewedWeekStart >= last.weekStart) return null;
+  // While injured, the injury adapts the plan instead.
+  if (weeks[index - 1].injured || ctx.injury) return null;
+  const review = reviewWeek(last, ctx.checkIns);
+  const offer = easeBackOffer(review);
+  if (!offer) return null;
+  const thisWeek = weeks[index].week;
+  return {
+    ...offer,
+    review,
+    thisWeek,
+    start: easeBackStart(thisWeek, ctx.checkIns, ctx.storedWeeks.some((w) => w.weekStart === thisWeek.weekStart)),
+  };
 }

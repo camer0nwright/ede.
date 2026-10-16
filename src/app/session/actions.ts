@@ -7,8 +7,9 @@ import { db } from "@/lib/db";
 import { toDbDate } from "@/lib/db-mapping";
 import { IsoDate } from "@/lib/domain";
 import { planMove } from "@/lib/move";
-import { builtWeeks } from "@/server/athlete";
+import { builtWeeks, easeBack } from "@/server/athlete";
 import { moveWarnings } from "@/server/plan-checker/move-warnings";
+import { saveRebuiltPlan } from "@/server/plan-save";
 import { signedInContext, storedSessionId } from "@/server/sessions";
 
 export type CheckInResult = { ok: true; caution: string | null } | { ok: false; errors: string[] };
@@ -152,4 +153,37 @@ export async function moveSession(raw: unknown): Promise<MoveResult> {
     return { ok: false, errors: ["That couldn't be moved just now. Try again in a moment."] };
   }
   return { ok: true, moved: true, warnings };
+}
+
+export type EaseResult = { ok: true } | { ok: false; errors: string[] };
+
+/**
+ * Eases back in after a mostly missed week (SPEC decision 50): the plan is
+ * rebuilt to carry on from the running actually done, starting this week if
+ * nothing in it has happened yet. After illness, holiday or injury, the first
+ * week back is easy running only.
+ */
+export async function easeBackIn(): Promise<EaseResult> {
+  const ctx = await signedInContext();
+  if (!ctx) return { ok: false, errors: ["Set up your own plan first."] };
+  const offer = easeBack(ctx);
+  if (!offer) return { ok: false, errors: ["There's nothing to adjust right now."] };
+  const result = await saveRebuiltPlan(ctx, {
+    athleteId: ctx.athleteId,
+    input: ctx.input,
+    start: offer.start,
+    continuity: { lastWeekRunMinutes: offer.review.doneRunMinutes, longestRecentRunMinutes: offer.review.longestDoneRun },
+    returning: offer.reason === "time-off",
+    alsoSave: (tx) => tx.athlete.update({ where: { id: ctx.athleteId }, data: { reviewedWeekStart: toDbDate(offer.review.weekStart) } }),
+  });
+  return result.ok ? { ok: true } : result;
+}
+
+/** Keeps the plan as it is after a mostly missed week; the offer isn't shown again for that week. */
+export async function keepPlan(): Promise<EaseResult> {
+  const ctx = await signedInContext();
+  if (!ctx) return { ok: false, errors: ["Set up your own plan first."] };
+  const offer = easeBack(ctx);
+  if (offer) await db.athlete.update({ where: { id: ctx.athleteId }, data: { reviewedWeekStart: toDbDate(offer.review.weekStart) } });
+  return { ok: true };
 }
