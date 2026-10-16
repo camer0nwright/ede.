@@ -53,6 +53,8 @@ export type PlanContext = {
   today: string;
   /** What the week builder needs: availability, equipment and any injured area. */
   build: WeekBuildInput;
+  /** Weights in kg or lb. */
+  weightUnit: "kg" | "lb";
   /** Pace guides for run steps, when the athlete gave a recent 5K. */
   paces: PaceOptions;
   /** Weeks saved as they were when the plan was last rebuilt, so they don't change under you. */
@@ -135,6 +137,7 @@ const demoContext = (): PlanContext => ({
   build: buildInput(demoOutlineInput, ["Full gym"]),
   paces: { fiveKSeconds: 25 * 60, unit: "km" },
   storedWeeks: [],
+  weightUnit: "kg",
   checkIns: {},
   workouts: {},
 });
@@ -197,6 +200,7 @@ export async function getPlanContext(): Promise<PlanContext> {
       unit: athlete.distanceUnit === "mi" ? "mi" : "km",
     },
     storedWeeks: athlete.weeks.map(rowToWeekPlan),
+    weightUnit: athlete.weightUnit === "lb" ? "lb" : "kg",
     ...(athlete.reviewedWeekStart && { reviewedWeekStart: fromDbDate(athlete.reviewedWeekStart) }),
     checkIns: Object.fromEntries(
       athlete.weeks.flatMap((w) =>

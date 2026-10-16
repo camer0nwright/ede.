@@ -48,6 +48,16 @@ export function formatPaceBand(band: PaceBand, unit: "km" | "mi"): string {
   return `${mmss(band.fromSecPerKm * f)}-${mmss(band.toSecPerKm * f)}/${unit}`;
 }
 
+/** One pace as text: "5:00/km" or "8:03/mi". */
+export function formatPace(secondsPerKm: number, unit: "km" | "mi"): string {
+  return `${mmss(secondsPerKm * (unit === "km" ? 1 : KM_PER_MILE))}/${unit}`;
+}
+
+/** A distance in the athlete's unit: "8.2 km" or "5.1 mi". */
+export function formatDistance(km: number, unit: "km" | "mi"): string {
+  return `${(unit === "km" ? km : km / KM_PER_MILE).toFixed(1)} ${unit}`;
+}
+
 /**
  * Compares a desired race time with what a 5K predicts. Returns a gentle
  * note when the desired time is clearly faster than predicted, else null.

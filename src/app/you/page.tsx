@@ -134,6 +134,11 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
             </>
           )}
         </p>
+        {!ctx.isDemo && (
+          <Link href="/you/history" className="mt-3 flex items-center justify-between border-t pt-3 text-sm font-medium">
+            History and records <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+          </Link>
+        )}
       </section>
 
       {!ctx.isDemo && (
