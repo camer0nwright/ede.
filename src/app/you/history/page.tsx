@@ -10,6 +10,7 @@ import { formatWeight } from "@/lib/workout";
 import { cn } from "@/lib/utils";
 import { builtWeeks, getPlanContext } from "@/server/athlete";
 import { loadHistory } from "@/server/history";
+import { ProgressCharts } from "./progress";
 
 export const metadata = { title: "History · ede." };
 
@@ -89,6 +90,7 @@ async function History() {
               <Flame className="size-4 text-strength" aria-hidden /> {streak} weeks in a row with at least half your sessions done.
             </p>
           )}
+          <ProgressCharts history={weeks} sets={sets} weightUnit={ctx.weightUnit} distanceUnit={unit} />
         </>
       )}
 
