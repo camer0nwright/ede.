@@ -49,6 +49,10 @@
   --phase-peak: oklch(0.62 0.18 45);
   --phase-recovery: oklch(0.75 0.04 260);
   --phase-taper: oklch(0.62 0.14 300);
+
+  /* Chart marks (checked for colour-blind separation on the card colour) */
+  --chart-run: var(--run);
+  --chart-strength: var(--strength);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -86,6 +90,9 @@
   --phase-peak: oklch(0.76 0.16 50);
   --phase-recovery: oklch(0.45 0.02 260);
   --phase-taper: oklch(0.7 0.14 300);
+
+  --chart-run: oklch(0.65 0.15 245);
+  --chart-strength: oklch(0.66 0.16 55);
 }
 }
 
@@ -112,6 +119,8 @@
 
   --color-run: var(--run);
   --color-strength: var(--strength);
+  --color-chart-run: var(--chart-run);
+  --color-chart-strength: var(--chart-strength);
   --color-rest: var(--rest);
   --color-easy: var(--easy);
   --color-moderate: var(--moderate);
