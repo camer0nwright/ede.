@@ -1,15 +1,18 @@
 "use server";
 
+import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { CheckInInput, checkInCaution, sessionKey } from "@/lib/checkin";
 import { addDays } from "@/lib/dates";
 import { db } from "@/lib/db";
-import { toDbDate } from "@/lib/db-mapping";
+import { sessionToRow, toDbDate, weekToRow } from "@/lib/db-mapping";
 import { IsoDate } from "@/lib/domain";
 import { planMove } from "@/lib/move";
 import { builtWeeks, easeBack } from "@/server/athlete";
 import { moveWarnings } from "@/server/plan-checker/move-warnings";
+import { claudeAsk, tailorWeek, type TailorResult } from "@/server/plan-ai";
 import { saveRebuiltPlan } from "@/server/plan-save";
+import { tailorCheckContext, tailorInput, tailorOffer } from "@/server/tailor";
 import { signedInContext, storedSessionId } from "@/server/sessions";
 
 export type CheckInResult = { ok: true; caution: string | null } | { ok: false; errors: string[] };
@@ -186,4 +189,45 @@ export async function keepPlan(): Promise<EaseResult> {
   const offer = easeBack(ctx);
   if (offer) await db.athlete.update({ where: { id: ctx.athleteId }, data: { reviewedWeekStart: toDbDate(offer.review.weekStart) } });
   return { ok: true };
+}
+
+export type TailorActionResult = { ok: true; changed: boolean; summary: string } | { ok: false; errors: string[] };
+
+/**
+ * Tailors next week with the AI coach (SPEC decision 51). The week ede. built
+ * is the starting point and the fallback; the result is saved either way
+ * (except when the AI service itself fails), so it's tailored once.
+ */
+export async function tailorNextWeek(): Promise<TailorActionResult> {
+  const ctx = await signedInContext();
+  if (!ctx) return { ok: false, errors: ["Set up your own plan first."] };
+  const offer = tailorOffer(ctx);
+  if (!offer) return { ok: false, errors: ["Next week can't be tailored right now."] };
+  const baseline = builtWeeks(ctx)[offer.index].week;
+
+  let result: TailorResult;
+  try {
+    result = await tailorWeek({ baseline, input: tailorInput(ctx, offer.index), ctx: tailorCheckContext(ctx, offer.index), ask: claudeAsk() });
+  } catch (e) {
+    console.error("Tailoring a week failed", e);
+    const message =
+      e instanceof Anthropic.AuthenticationError
+        ? "The coach isn't set up correctly (check the API key in .env)."
+        : e instanceof Anthropic.RateLimitError
+          ? "The coach is busy right now. Try again in a minute."
+          : "The coach couldn't be reached just now. Try again in a moment.";
+    return { ok: false, errors: [message] };
+  }
+
+  const week = result.ok ? result.week : baseline;
+  const summary = result.ok ? result.summary || "Your coach kept next week as planned." : `Next week is as planned. ${result.reason}`;
+  try {
+    await db.planWeek.create({
+      data: { athleteId: ctx.athleteId, ...weekToRow(week), summary, sessions: { create: week.sessions.map(sessionToRow) } },
+    });
+  } catch (e) {
+    console.error("Saving a tailored week failed", e);
+    return { ok: false, errors: ["Next week couldn't be saved. It may already be set; refresh to see it."] };
+  }
+  return { ok: true, changed: result.ok, summary };
 }

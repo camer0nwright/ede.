@@ -59,6 +59,8 @@ export type PlanContext = {
   storedWeeks: WeekPlan[];
   /** The last week whose "ease back in" offer was answered. */
   reviewedWeekStart?: string;
+  /** What the coach changed in each tailored week, and why, by week start. */
+  weekSummaries: Record<string, string>;
   /** Check-ins by session key (date-slot). */
   checkIns: Record<string, CheckIn>;
   /** Gym workouts started or finished, by session key: where to open them. */
@@ -137,6 +139,7 @@ const demoContext = (): PlanContext => ({
   storedWeeks: [],
   checkIns: {},
   workouts: {},
+  weekSummaries: {},
 });
 
 /** Today's date at request time (not when the page is pre-built). */
@@ -197,6 +200,7 @@ export async function getPlanContext(): Promise<PlanContext> {
       unit: athlete.distanceUnit === "mi" ? "mi" : "km",
     },
     storedWeeks: athlete.weeks.map(rowToWeekPlan),
+    weekSummaries: Object.fromEntries(athlete.weeks.flatMap((w) => (w.summary ? [[fromDbDate(w.weekStart), w.summary]] : []))),
     ...(athlete.reviewedWeekStart && { reviewedWeekStart: fromDbDate(athlete.reviewedWeekStart) }),
     checkIns: Object.fromEntries(
       athlete.weeks.flatMap((w) =>

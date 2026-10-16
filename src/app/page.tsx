@@ -8,11 +8,13 @@ import { MedicalNotice } from "@/components/medical-notice";
 import { Note } from "@/components/onboarding/choices";
 import { PageSkeleton } from "@/components/page-skeleton";
 import { EaseBackCard } from "@/components/plan/ease-back-card";
+import { TailorCard } from "@/components/plan/tailor-card";
 import { TodaySessions, WeekDays, WeekStrip } from "@/components/plan/week-days";
 import { daysBetween } from "@/lib/dates";
 import { formatLongDate, formatMinutes, PHASE_LABEL, plural } from "@/lib/format";
 import { weekDays } from "@/lib/week-view";
 import { builtWeeks, easeBack, getPlanContext } from "@/server/athlete";
+import { tailorOffer } from "@/server/tailor";
 
 export default function TodayPage({ searchParams }: PageProps<"/">) {
   return (
@@ -26,6 +28,7 @@ async function Today({ searchParams }: { searchParams: PageProps<"/">["searchPar
   const [ctx, query] = await Promise.all([getPlanContext(), searchParams]);
   const weeks = builtWeeks(ctx);
   const offer = easeBack(ctx);
+  const tailor = tailorOffer(ctx);
   const index = Math.floor(daysBetween(ctx.input.startDate, ctx.today) / 7);
   const notStarted = index < 0;
   const { week } = weeks[Math.min(Math.max(index, 0), weeks.length - 1)];
@@ -86,6 +89,8 @@ async function Today({ searchParams }: { searchParams: PageProps<"/">["searchPar
           <WeekDays days={missed} options={options} />
         </section>
       )}
+
+      {tailor && <TailorCard weekNumber={tailor.weekNumber} />}
 
       <section aria-label="This week" className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-3">

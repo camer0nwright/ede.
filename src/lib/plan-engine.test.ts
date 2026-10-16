@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { demoAvailability, demoEngineWeek } from "./demo-week";
-import { isHeavyLowerBody, type PlannedSession } from "./domain";
-import { parseEngineResponse, toWeekPlan, type EngineWeek } from "./plan-engine";
+import { demoAvailability, demoEngineWeek, demoWeek } from "./demo-week";
+import { DAY_NAMES, isHeavyLowerBody, type PlannedSession } from "./domain";
+import { EngineWeek, parseEngineResponse, toWeekPlan, weekToEngine } from "./plan-engine";
 import { checkEngineResponse } from "@/server/plan-checker";
 
 const asText = (w: unknown) => JSON.stringify(w, null, 2);
@@ -182,5 +182,13 @@ describe("checkEngineResponse", () => {
     w.days[4].sessions[1].body_focus = "lower"; // Friday legs before Saturday's key long run
     const r = checkEngineResponse(asText(w), "2026-10-12", ctx);
     expect(r.violations.map((v) => v.rule)).toContain("heavy-legs-near-key-run");
+  });
+
+  it("turns ede.'s week into the engine format and back without losing anything", () => {
+    const week = demoWeek;
+    const engine = weekToEngine(week);
+    expect(EngineWeek.safeParse(engine).success).toBe(true);
+    expect(engine.days.map((d) => d.day)).toEqual([...DAY_NAMES]);
+    expect(toWeekPlan(engine, week.weekStart)).toEqual(week);
   });
 });

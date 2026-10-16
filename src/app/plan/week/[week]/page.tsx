@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Sparkles } from "lucide-react";
 import { WeekDays, WeekStrip } from "@/components/plan/week-days";
 import { builtWeeks, getPlanContext } from "@/server/athlete";
 import { formatMinutes, formatWeekRange, PHASE_COLOR, PHASE_LABEL } from "@/lib/format";
@@ -54,7 +54,8 @@ async function WeekContent({ params }: { params: PageProps<"/plan/week/[week]">[
   const week = ctx.outline.weeks.find((w) => String(w.weekNumber) === param);
   if (!week) notFound();
 
-  const built = builtWeeks(ctx)[week.weekNumber - 1].week;
+  const { week: built, injured } = builtWeeks(ctx)[week.weekNumber - 1];
+  const summary = ctx.weekSummaries[built.weekStart];
   const days = weekDays(built, ctx.paces, ctx.checkIns, ctx.workouts);
   const runs = built.sessions.filter((s) => s.type === "run");
   const prev = week.weekNumber > 1 ? week.weekNumber - 1 : null;
@@ -81,11 +82,14 @@ async function WeekContent({ params }: { params: PageProps<"/plan/week/[week]">[
         <p className="mt-2 text-sm text-muted-foreground">{PHASE_NOTE[week.phase]}</p>
       </header>
 
-      {built.coachNote && (
-        <p className="flex gap-3 rounded-2xl bg-hard/10 px-4 py-3 text-sm">
-          <span className="mt-1.5 size-2 shrink-0 rounded-full bg-hard" aria-hidden />
-          {built.coachNote}
-        </p>
+      {(summary || built.coachNote) && (
+        <section aria-label="From your coach" className={cn("rounded-2xl px-4 py-3 text-sm", injured ? "bg-hard/10" : "border bg-card")}>
+          <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <Sparkles className="size-3.5 text-primary-strong" aria-hidden /> From your coach
+          </p>
+          {built.coachNote && <p className="mt-1">{built.coachNote}</p>}
+          {summary && <p className="mt-1 text-muted-foreground">{summary}</p>}
+        </section>
       )}
 
       <dl className="grid grid-cols-3 gap-2">
