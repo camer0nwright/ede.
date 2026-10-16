@@ -236,3 +236,14 @@ model CoachMessage {
 
   @@index([athleteId, createdAt])
 }
+
+/// A failed log-in or a sign-up, for rate limiting (SPEC decision 54). `key` is
+/// "email:<address>" or "ip:<sha256 of the address>" (raw IPs are never stored).
+model AuthAttempt {
+  id        String   @id @default(cuid())
+  key       String
+  kind      String // "login_failed" | "signup"
+  createdAt DateTime @default(now())
+
+  @@index([key, kind, createdAt])
+}
