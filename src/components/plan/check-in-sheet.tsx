@@ -14,10 +14,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { EFFORT_LABEL, SKIP_LABEL, SKIP_REASONS, type CheckIn, type SkipReason } from "@/lib/checkin";
 import { formatMinutes } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { SessionView } from "@/lib/week-view";
+import type { DayView, SessionView } from "@/lib/week-view";
+import { MovePanel } from "./move-sheet";
 
 /** What the session sheet needs to offer check-ins. */
-export type CheckInOptions = { canCheckIn: boolean; today: string; unit: "km" | "mi" };
+export type CheckInOptions = {
+  canCheckIn: boolean;
+  today: string;
+  unit: "km" | "mi";
+  /** The whole week the sessions belong to, for moving them between days. */
+  week?: DayView[];
+};
 
 const KM_PER_MILE = 1.609344;
 
@@ -59,7 +66,7 @@ export function WorkoutButton({ session, className }: { session: SessionView; cl
 
 /** The buttons at the bottom of a session sheet, and the done/skip forms they open. */
 export function CheckInPanel({ session, options, onClose }: { session: SessionView; options: CheckInOptions; onClose: () => void }) {
-  const [mode, setMode] = useState<"buttons" | "done" | "skip">("buttons");
+  const [mode, setMode] = useState<"buttons" | "done" | "skip" | "move" | "today">("buttons");
 
   if (!options.canCheckIn) {
     return (
@@ -72,6 +79,9 @@ export function CheckInPanel({ session, options, onClose }: { session: SessionVi
   if (session.checkIn) return <CheckedIn session={session} unit={options.unit} onClose={onClose} />;
   if (mode === "done") return <DoneForm session={session} unit={options.unit} onBack={() => setMode("buttons")} onClose={onClose} />;
   if (mode === "skip") return <SkipForm session={session} onBack={() => setMode("buttons")} onClose={onClose} />;
+  if ((mode === "move" || mode === "today") && options.week) {
+    return <MovePanel session={session} week={options.week} today={options.today} toToday={mode === "today"} onBack={() => setMode("buttons")} onClose={onClose} />;
+  }
 
   const canComplete = session.date <= options.today;
   const lift = session.type === "strength";
@@ -94,6 +104,18 @@ export function CheckInPanel({ session, options, onClose }: { session: SessionVi
         {lift ? "Mark done without logging" : "Mark done"}
       </button>
       {!canComplete && <p className="col-span-2 text-center text-xs text-muted-foreground">You can mark it done on the day.</p>}
+      {options.week && (
+        <div className="col-span-2 mt-1 flex justify-center gap-6 text-sm">
+          {session.date !== options.today && options.week.some((d) => d.date === options.today) && (
+            <button type="button" className="font-medium text-primary-strong underline-offset-4 hover:underline" onClick={() => setMode("today")}>
+              Do it today
+            </button>
+          )}
+          <button type="button" className="font-medium text-muted-foreground underline-offset-4 hover:underline" onClick={() => setMode("move")}>
+            Move to another day
+          </button>
+        </div>
+      )}
     </div>
   );
 }
