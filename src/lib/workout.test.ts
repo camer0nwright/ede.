@@ -47,4 +47,13 @@ describe("gym logging", () => {
     expect(summary.improvements).toEqual([{ exercise: "Back squat", text: "+2.5 kg" }]);
     expect(workoutSummary([set(3, 80, 7)], { "Back squat": [set(3, 80, 5)] }, "kg").improvements[0].text).toBe("+2 reps at 80 kg");
   });
+
+  it("pre-fills this time's weight and target reps on working sets not yet logged", () => {
+    const [block] = buildWorkout([squat], [set(3, 82.5, 5)], {}, "kg", { "Back squat": { weight: "85", reps: 5, note: "Up 2.5 kg" } });
+    expect(block.suggestion?.note).toBe("Up 2.5 kg");
+    expect(block.sets[0].weight).toBe(""); // warm-up untouched
+    expect(block.sets[0].targetReps).toBeUndefined();
+    expect(block.sets[2]).toMatchObject({ weight: "82.5", done: true }); // already logged
+    expect(block.sets[3]).toMatchObject({ weight: "85", targetReps: 5, done: false });
+  });
 });
