@@ -170,3 +170,48 @@ export function toWeekPlan(engine: EngineWeek, weekStart: string): WeekPlan {
     coachNote: engine.coach_note,
   };
 }
+
+/** ede.'s week in the engine's day-by-day format: the starting point the AI adapts (the reverse of toWeekPlan). */
+export function weekToEngine(week: WeekPlan): EngineWeek {
+  const minutes = (type: PlannedSession["type"]) => week.sessions.filter((s) => s.type === type).reduce((sum, s) => sum + s.plannedMinutes, 0);
+  return {
+    week_number: week.weekNumber,
+    phase: week.phase,
+    total_minutes: minutes("run") + minutes("strength"),
+    run_minutes: minutes("run"),
+    strength_minutes: minutes("strength"),
+    days: DAY_NAMES.map((day, i) => {
+      const date = addDays(week.weekStart, i);
+      return {
+        day,
+        notes: week.dayNotes[date] ?? "",
+        sessions: week.sessions
+          .filter((s) => s.date === date)
+          .sort((a, b) => a.slot - b.slot)
+          .map((s): EngineSession => ({
+            type: s.type,
+            title: s.title,
+            duration_minutes: s.plannedMinutes,
+            intensity: s.intensity,
+            is_key_session: s.isKeySession,
+            body_focus: s.type === "strength" ? s.bodyFocus : null,
+            steps: s.type === "run" ? s.steps.map((st) => ({ name: st.name, duration_minutes: st.minutes, target_effort_rpe: st.targetRpe })) : [],
+            exercises:
+              s.type === "strength"
+                ? s.exercises.map((e) => ({
+                    name: e.name,
+                    warmup_sets: e.warmupSets,
+                    working_sets: e.workingSets,
+                    reps: e.reps,
+                    target_rpe: e.targetRpe,
+                    failure_allowed: e.failureAllowed,
+                  }))
+                : [],
+            ...(s.type === "run" && s.kind && { session_kind: s.kind }),
+            ...(s.type === "run" && s.level && { level: s.level }),
+          })),
+      };
+    }),
+    coach_note: week.coachNote,
+  };
+}
