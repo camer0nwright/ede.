@@ -20,6 +20,8 @@ const display = Barlow_Condensed({
 export const metadata: Metadata = {
   title: "ede.",
   description: "A hybrid training coach for people who lift and run.",
+  // Added to an iPhone home screen, ede. opens full-screen with its own name.
+  appleWebApp: { capable: true, title: "ede.", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
