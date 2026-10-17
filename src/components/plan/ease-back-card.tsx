@@ -8,6 +8,7 @@ import { easeBackIn, keepPlan } from "@/app/session/actions";
 import { Note } from "@/components/onboarding/choices";
 import { Button } from "@/components/ui/button";
 import { formatMinutes } from "@/lib/format";
+import { safely } from "@/lib/safely";
 
 /** After a mostly missed week: ease back in from what was actually done, or keep the plan (SPEC decision 50). */
 export function EaseBackCard({
@@ -29,7 +30,7 @@ export function EaseBackCard({
     setChoice(which);
     setErrors([]);
     startTransition(async () => {
-      const result = which === "ease" ? await easeBackIn() : await keepPlan();
+      const result = which === "ease" ? await safely(() => easeBackIn()) : await safely(() => keepPlan());
       if (!result.ok) return setErrors(result.errors);
       toast(which === "ease" ? `Plan adjusted ${startsThisWeek ? "from this week" : "from Monday"}.` : "Plan kept as it is.");
       router.refresh();

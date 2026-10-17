@@ -8,6 +8,7 @@ import { Note } from "@/components/onboarding/choices";
 import { sectionProblem, SECTIONS, toAnswers, type Draft, type SectionId } from "@/components/onboarding/draft";
 import { StepExperience, StepGoal, StepStrength, StepWeek } from "@/components/onboarding/steps";
 import { Button } from "@/components/ui/button";
+import { safely } from "@/lib/safely";
 
 /** Edits one section of a saved plan, using the same screen as setup. */
 export function SectionEditor({ section, initial, started }: { section: SectionId; initial: Draft; started: boolean }) {
@@ -21,7 +22,7 @@ export function SectionEditor({ section, initial, started }: { section: SectionI
   const save = () => {
     setErrors([]);
     startTransition(async () => {
-      const result = await updatePlanSettings(section, toAnswers(draft));
+      const result = await safely(() => updatePlanSettings(section, toAnswers(draft)));
       if (result && !result.ok) setErrors(result.errors);
     });
   };

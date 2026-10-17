@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { safely } from "@/lib/safely";
 
 type Account = { name: string; weightUnit: "kg" | "lb"; distanceUnit: "km" | "mi" };
 
@@ -47,7 +48,7 @@ export function AccountSettings({ initial }: { initial: Account }) {
   const save = (next: Account, message: string) => {
     setErrors([]);
     startTransition(async () => {
-      const result = await updateAccount(next);
+      const result = await safely(() => updateAccount(next));
       if (!result.ok) return setErrors(result.errors);
       setAccount(next);
       toast(message);
@@ -110,7 +111,7 @@ export function DeleteMyData() {
   const [pending, startTransition] = useTransition();
   const confirm = () =>
     startTransition(async () => {
-      const result = await deleteMyData();
+      const result = await safely(() => deleteMyData());
       if (result && !result.ok) setErrors(result.errors);
     });
 

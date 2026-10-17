@@ -10,6 +10,7 @@ import { Note } from "@/components/onboarding/choices";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { formatDate } from "@/lib/format";
+import { safely } from "@/lib/safely";
 
 /**
  * Injury details are health data (SPEC decision 57). Shows when the athlete
@@ -25,7 +26,7 @@ export function HealthConsentCard({ consentedOn, hasHealthData }: { consentedOn?
 
   const run = (action: typeof giveHealthConsent, done: string) =>
     startTransition(async () => {
-      const result = await action();
+      const result = await safely(() => action());
       if (!result.ok) return setErrors(result.errors);
       setOpen(false);
       toast(done);

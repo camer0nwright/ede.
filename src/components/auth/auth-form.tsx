@@ -8,6 +8,7 @@ import { Note } from "@/components/onboarding/choices";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MIN_AGE } from "@/lib/legal";
+import { safely } from "@/lib/safely";
 
 /** Email and password, for creating an account or logging in. */
 export function AuthForm({ mode }: { mode: "signup" | "login" }) {
@@ -24,7 +25,7 @@ export function AuthForm({ mode }: { mode: "signup" | "login" }) {
         e.preventDefault();
         setErrors([]);
         startTransition(async () => {
-          const result = await (signup ? signUp : logIn)({ email, password });
+          const result = await safely(() => (signup ? signUp : logIn)({ email, password }));
           if (result && !result.ok) setErrors(result.errors);
         });
       }}

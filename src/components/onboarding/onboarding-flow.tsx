@@ -10,6 +10,7 @@ import { cautionFor, OnboardingAnswers } from "@/lib/onboarding";
 import { Note } from "./choices";
 import { START, STEPS, stepProblem, toAnswers, type Draft } from "./draft";
 import { Review, StepExperience, StepGoal, StepInjury, StepStrength, StepWeek, StepYou } from "./steps";
+import { safely } from "@/lib/safely";
 
 export function OnboardingFlow() {
   const [draft, setDraft] = useState<Draft>(START);
@@ -35,7 +36,7 @@ export function OnboardingFlow() {
     if (!parsed.success) return setErrors(parsed.error.issues.map((i) => i.message));
     setErrors([]);
     startTransition(async () => {
-      const result = await saveOnboarding(parsed.data);
+      const result = await safely(() => saveOnboarding(parsed.data));
       if (result && !result.ok) setErrors(result.errors);
     });
   };

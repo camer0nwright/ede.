@@ -20,7 +20,7 @@ const PHASE_NOTE: Record<Phase, string> = {
 
 export async function generateMetadata({ params }: PageProps<"/plan/week/[week]">): Promise<Metadata> {
   const { week } = await params;
-  return { title: `Week ${week} · ede.` };
+  return { title: /^\d{1,3}$/.test(week) ? `Week ${week} · ede.` : "ede." };
 }
 
 // The week number comes from the URL and the plan from the athlete's cookie,

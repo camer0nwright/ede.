@@ -16,6 +16,7 @@ import { formatMinutes } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { DayView, SessionView } from "@/lib/week-view";
 import { MovePanel } from "./move-sheet";
+import { safely } from "@/lib/safely";
 
 /** What the session sheet needs to offer check-ins. */
 export type CheckInOptions = {
@@ -54,7 +55,7 @@ export function WorkoutButton({ session, className }: { session: SessionView; cl
       disabled={pending}
       onClick={() =>
         startTransition(async () => {
-          const result = await startWorkout({ date: session.date, slot: session.slot });
+          const result = await safely(() => startWorkout({ date: session.date, slot: session.slot }));
           if (result && !result.ok) toast(result.errors[0]);
         })
       }
@@ -127,7 +128,7 @@ function useSave(onSaved: (caution: string | null) => void) {
   const save = (action: () => ReturnType<typeof checkIn>) => {
     setErrors([]);
     startTransition(async () => {
-      const result = await action();
+      const result = await safely(() => action());
       if (!result.ok) return setErrors(result.errors);
       router.refresh();
       onSaved(result.caution);

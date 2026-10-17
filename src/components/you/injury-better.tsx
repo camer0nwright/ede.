@@ -6,6 +6,7 @@ import { markInjuryBetter } from "@/app/you/actions";
 import { Note } from "@/components/onboarding/choices";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { safely } from "@/lib/safely";
 
 /** "It's better": explains the gentle return, then rebuilds the plan from next Monday. */
 export function InjuryBetter({ area, restart, share }: { area: string; restart: string; share: number }) {
@@ -14,7 +15,7 @@ export function InjuryBetter({ area, restart, share }: { area: string; restart: 
   const [pending, startTransition] = useTransition();
   const confirm = () =>
     startTransition(async () => {
-      const result = await markInjuryBetter();
+      const result = await safely(() => markInjuryBetter());
       if (result && !result.ok) setErrors(result.errors);
     });
 

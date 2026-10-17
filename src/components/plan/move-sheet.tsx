@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { moveTargets, type MoveMode, type MoveTarget } from "@/lib/move";
 import { cn } from "@/lib/utils";
 import type { DayView, SessionView } from "@/lib/week-view";
+import { safely } from "@/lib/safely";
 
 /**
  * Moving a session to another day of its week: pick a day, choose swap or
@@ -46,7 +47,7 @@ export function MovePanel({
   const move = (target: MoveTarget, mode: MoveMode, confirm = false) => {
     setErrors([]);
     startTransition(async () => {
-      const result = await moveSession({ date: session.date, slot: session.slot, to: target.date, mode, confirm });
+      const result = await safely(() => moveSession({ date: session.date, slot: session.slot, to: target.date, mode, confirm }));
       if (!result.ok) return setErrors(result.errors);
       if (!result.moved) return setWarnings({ mode, list: result.warnings });
       router.refresh();
