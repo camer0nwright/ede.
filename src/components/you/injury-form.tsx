@@ -11,6 +11,7 @@ import { Heading, InjuryFields } from "@/components/onboarding/steps";
 import { Button } from "@/components/ui/button";
 import { bandSummary } from "@/lib/injury";
 import { cautionFor } from "@/lib/onboarding";
+import { safely } from "@/lib/safely";
 
 /** Reports an injury, or updates the active one. */
 export function InjuryForm({ initial, updating, needsConsent }: { initial: Draft["injury"]; updating: boolean; needsConsent: boolean }) {
@@ -24,7 +25,7 @@ export function InjuryForm({ initial, updating, needsConsent }: { initial: Draft
   const save = () => {
     setErrors([]);
     startTransition(async () => {
-      const result = await saveInjury({ ...injury, notes: injury.notes.trim() || undefined, ...(consent && { consent: true }) });
+      const result = await safely(() => saveInjury({ ...injury, notes: injury.notes.trim() || undefined, ...(consent && { consent: true }) }));
       if (result && !result.ok) setErrors(result.errors);
     });
   };

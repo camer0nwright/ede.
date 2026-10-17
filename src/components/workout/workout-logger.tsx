@@ -16,6 +16,7 @@ import type { BodyArea, Equipment, SetType } from "@/lib/domain";
 import { addOptions, swapOptions } from "@/lib/progression";
 import { cn } from "@/lib/utils";
 import type { ExerciseBlock, SetRow, WeightUnit } from "@/lib/workout";
+import { safely } from "@/lib/safely";
 
 const WARMUP_REST_SECONDS = 60;
 /** When a rest of this many seconds, starting now, ends. */
@@ -136,7 +137,7 @@ export function WorkoutLogger({
     const row = block.sets[i];
     if (row.done) {
       update(b, i, { done: false });
-      const result = await unlogSet({ sessionId, exercise: block.name, setNumber: row.setNumber });
+      const result = await safely(() => unlogSet({ sessionId, exercise: block.name, setNumber: row.setNumber }));
       if (!result.ok) {
         update(b, i, { done: true });
         toast(result.errors[0]);
@@ -146,7 +147,7 @@ export function WorkoutLogger({
     const reps = numberOrUndefined(row.reps);
     if (!reps) return toast("Enter the reps you did first.");
     update(b, i, { done: true });
-    const result = await logSet({
+    const result = await safely(() => logSet({
       sessionId,
       exercise: block.name,
       setNumber: row.setNumber,
@@ -156,7 +157,7 @@ export function WorkoutLogger({
       weight: numberOrUndefined(row.weight),
       reps,
       rpe: numberOrUndefined(row.rpe),
-    });
+    }));
     if (!result.ok) {
       update(b, i, { done: false });
       return toast(result.errors[0]);
@@ -353,7 +354,7 @@ function FinishSheet({ open, onOpenChange, sessionId, setsDone }: { open: boolea
   const [pending, startTransition] = useTransition();
   const run = (action: () => Promise<{ ok: boolean; errors?: string[] }>) =>
     startTransition(async () => {
-      const result = await action();
+      const result = await safely(() => action());
       if (result && !result.ok) setErrors(result.errors ?? []);
     });
 
@@ -444,7 +445,7 @@ function ExerciseMenu({
   const options = swapOptions(block.name, equipment, avoid, others);
   const run = (action: () => ReturnType<typeof swapExercise>, done: (block?: ExerciseBlock) => void, message: string) =>
     startTransition(async () => {
-      const result = await action();
+      const result = await safely(() => action());
       if (!result.ok) return void toast(result.errors[0]);
       done(result.block);
       toast(message);
@@ -523,7 +524,7 @@ function AddExercise({
   const results = addOptions(query, equipment, avoid, present).slice(0, 30);
   const add = (name: string) =>
     startTransition(async () => {
-      const result = await addExercise({ sessionId, name });
+      const result = await safely(() => addExercise({ sessionId, name }));
       if (!result.ok || !result.block) return void toast(result.ok ? "Something went wrong." : result.errors[0]);
       onAdded(result.block);
       toast(`${name} added.`);

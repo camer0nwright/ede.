@@ -9,6 +9,7 @@ import { Note } from "@/components/onboarding/choices";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
+import { safely } from "@/lib/safely";
 
 const row = "flex w-full items-center justify-between py-3 text-left text-sm font-medium";
 
@@ -34,7 +35,7 @@ export function SignInSecurity({ otherDevices }: { otherDevices: number }) {
     e.preventDefault();
     setErrors([]);
     startTransition(async () => {
-      const result = await changePassword({ current, next });
+      const result = await safely(() => changePassword({ current, next }));
       if (!result.ok) return setErrors(result.errors);
       close(false);
       toast(result.message);
@@ -44,7 +45,7 @@ export function SignInSecurity({ otherDevices }: { otherDevices: number }) {
 
   const others = () =>
     startTransition(async () => {
-      const result = await logOutOtherDevices();
+      const result = await safely(() => logOutOtherDevices());
       toast(result.ok ? result.message : result.errors.join(" "));
       router.refresh();
     });

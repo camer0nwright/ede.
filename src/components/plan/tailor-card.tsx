@@ -7,6 +7,7 @@ import { Loader2, Sparkles } from "lucide-react";
 import { tailorNextWeek } from "@/app/session/actions";
 import { Note } from "@/components/onboarding/choices";
 import { Button } from "@/components/ui/button";
+import { safely } from "@/lib/safely";
 
 /** From Friday: let the AI coach adapt next week to how this week went (SPEC decision 51). */
 export function TailorCard({ weekNumber }: { weekNumber: number }) {
@@ -17,7 +18,7 @@ export function TailorCard({ weekNumber }: { weekNumber: number }) {
   const tailor = () =>
     startTransition(async () => {
       setErrors([]);
-      const r = await tailorNextWeek();
+      const r = await safely(() => tailorNextWeek());
       if (!r.ok) return setErrors(r.errors);
       setResult(r.summary);
       router.refresh();
