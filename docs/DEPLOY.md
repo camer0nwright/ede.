@@ -5,14 +5,14 @@ at **trainwithede.com** (registered with Cloudflare). Keys and tokens are only
 ever pasted into Vercel's settings and your own `.env.turso` file, never into
 the code.
 
-The server runs in London (`vercel.json`), so put the database in London too:
+The server runs in Dublin (`vercel.json`), so put the database in Ireland too:
 every page asks the database several things, and the closer they are, the
 faster ede. feels.
 
 ## 1. Database (Turso)
 
 1. Sign up at **turso.tech** (free plan). Signing in with GitHub is easiest.
-2. Create a database called `ede`, in **London** (or the nearest location offered).
+2. Create a database called `ede`, in **Ireland** (AWS eu-west-1).
 3. Open the database and copy its **URL**. It starts with `libsql://`.
 4. Create a **token** for it (read and write, no expiry) and copy it.
 5. In the project folder, create a file called `.env.turso` (it's never committed) containing:
