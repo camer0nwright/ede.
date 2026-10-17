@@ -17,6 +17,8 @@ model Athlete {
   /// Sign-in: lowercase email and a scrypt password hash. Null until the plan is claimed by an account.
   email                   String?   @unique
   passwordHash            String?
+  /// A plan made before its account exists: SHA-256 of the random token in this device's cookie. Cleared once claimed.
+  pendingTokenHash        String?   @unique
   name                    String?
   goalType                String // "race" | "strength" | "general"
   goalDetail              String? // e.g. "Half marathon under 1:50"

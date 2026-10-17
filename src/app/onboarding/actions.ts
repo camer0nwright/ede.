@@ -7,7 +7,7 @@ import { answersToAthleteRow, toDbDate } from "@/lib/db-mapping";
 import { OnboardingAnswers, targetDateProblem, toOutlineInput } from "@/lib/onboarding";
 import { buildPlanOutline } from "@/lib/plan-outline";
 import { ATHLETE_COOKIE } from "@/server/athlete";
-import { sessionAthleteId } from "@/server/auth";
+import { newPendingToken, sessionAthleteId } from "@/server/auth";
 
 export type SaveResult = { ok: false; errors: string[] };
 
@@ -69,11 +69,12 @@ export async function saveOnboarding(raw: unknown): Promise<SaveResult> {
     redirect("/plan");
   }
 
-  let athlete;
+  const pending = newPendingToken();
   try {
-    athlete = await db.athlete.create({
+    await db.athlete.create({
       data: {
         ...profile,
+        pendingTokenHash: pending.hash,
         availability: { create: a.availability.map((d, dayOfWeek) => ({ dayOfWeek, ...d })) },
         ...(injury && { injuries: { create: injury } }),
         outlines: { create: { input: JSON.stringify(input), outline: JSON.stringify(outline) } },
@@ -85,7 +86,7 @@ export async function saveOnboarding(raw: unknown): Promise<SaveResult> {
     return { ok: false, errors: ["Your plan couldn't be saved just now. Your answers are still here, so try again in a moment."] };
   }
 
-  (await cookies()).set(ATHLETE_COOKIE, athlete.id, {
+  (await cookies()).set(ATHLETE_COOKIE, pending.token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
