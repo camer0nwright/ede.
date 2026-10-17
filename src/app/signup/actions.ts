@@ -5,8 +5,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { ATHLETE_COOKIE, currentAthlete } from "@/server/athlete";
-import { passwordProblem } from "@/lib/auth-limits";
-import { createSession, Credentials, dummyPasswordHash, endSession, hashPassword, verifyPassword } from "@/server/auth";
+import { newPasswordProblem, passwordProblem } from "@/lib/auth-limits";
+import { createSession, Credentials, dummyPasswordHash, endOtherSessions, endSession, hashPassword, sessionAthleteId, verifyPassword } from "@/server/auth";
 import { clearLoginFailures, loginBlocked, recordLoginFailure, recordSignup, signupBlocked } from "@/server/auth-limits";
 
 export type AuthResult = { ok: false; errors: string[] };
@@ -78,4 +78,49 @@ export async function logOut() {
   await endSession();
   (await cookies()).delete(ATHLETE_COOKIE);
   redirect("/");
+}
+
+const ChangePassword = z.object({ current: z.string().min(1, "Enter your current password").max(200), next: z.string().max(200) });
+
+export type AccountResult = { ok: true; message: string } | AuthResult;
+
+/**
+ * Changes the password after checking the current one (wrong guesses count
+ * towards the same limit as logging in), then signs out every other device:
+ * whoever had the old password loses access straight away.
+ */
+export async function changePassword(raw: unknown): Promise<AccountResult> {
+  const parsed = ChangePassword.safeParse(raw);
+  if (!parsed.success) return { ok: false, errors: parsed.error.issues.map((i) => i.message) };
+  const athleteId = await sessionAthleteId();
+  if (!athleteId) return { ok: false, errors: ["Log in again to change your password."] };
+  const athlete = await db.athlete.findUnique({ where: { id: athleteId }, select: { email: true, passwordHash: true } });
+  if (!athlete?.email || !athlete.passwordHash) return { ok: false, errors: ["Log in again to change your password."] };
+
+  const blocked = await loginBlocked(athlete.email);
+  if (blocked) return { ok: false, errors: [blocked] };
+  if (!(await verifyPassword(parsed.data.current, athlete.passwordHash))) {
+    await recordLoginFailure(athlete.email);
+    return { ok: false, errors: ["Your current password isn't right. Check it and try again."] };
+  }
+  const weak = newPasswordProblem(parsed.data.current, parsed.data.next, athlete.email);
+  if (weak) return { ok: false, errors: [weak] };
+
+  try {
+    await db.athlete.update({ where: { id: athleteId }, data: { passwordHash: await hashPassword(parsed.data.next) } });
+    const others = await endOtherSessions(athleteId);
+    await clearLoginFailures(athlete.email);
+    return { ok: true, message: others > 0 ? `Password changed. ${others} other ${others === 1 ? "device was" : "devices were"} logged out.` : "Password changed." };
+  } catch (e) {
+    console.error("Changing password failed", e);
+    return { ok: false, errors: ["Your password couldn't be changed just now. Try again in a moment."] };
+  }
+}
+
+/** Signs out every device on the account except this one. */
+export async function logOutOtherDevices(): Promise<AccountResult> {
+  const athleteId = await sessionAthleteId();
+  if (!athleteId) return { ok: false, errors: ["Log in again to do that."] };
+  const others = await endOtherSessions(athleteId);
+  return { ok: true, message: others === 0 ? "No other devices were logged in." : `${others} other ${others === 1 ? "device" : "devices"} logged out.` };
 }

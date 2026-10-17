@@ -18,6 +18,8 @@ import { progressSummary, sessionKey } from "@/lib/checkin";
 import { AccountSettings, DeleteMyData } from "@/components/you/account-settings";
 import { InjuryBetter } from "@/components/you/injury-better";
 import { HealthConsentCard } from "@/components/you/health-consent-card";
+import { SignInSecurity } from "@/components/you/sign-in-security";
+import { accountSessions } from "@/server/auth";
 import { LegalLinks } from "@/components/legal-page";
 
 export const metadata = { title: "You · ede." };
@@ -39,7 +41,9 @@ export default function YouPage({ searchParams }: PageProps<"/you">) {
 
 async function You({ searchParams }: { searchParams: PageProps<"/you">["searchParams"] }) {
   const [ctx, loaded, query] = await Promise.all([getPlanContext(), getSavedAthlete(), searchParams]);
-  const pastInjuries = ctx.athleteId ? await getInjuryHistory(ctx.athleteId) : [];
+  const [pastInjuries, devices] = ctx.athleteId
+    ? await Promise.all([getInjuryHistory(ctx.athleteId), ctx.email ? accountSessions(ctx.athleteId) : null])
+    : [[], null];
   const { input, outline } = ctx;
   const saved = loaded?.saved;
   const ultra = input.raceDistance === "ultra";
@@ -262,6 +266,7 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
               <Link href="/onboarding" className="flex items-center justify-between py-3 text-sm font-medium">
                 Start a new plan from scratch <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
               </Link>
+              {devices && <SignInSecurity otherDevices={devices.others} />}
               {/* A plain link: the browser downloads the file the route sends. */}
               <a href="/you/export" download className="flex items-center justify-between py-3 text-sm font-medium">
                 Download my data <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
