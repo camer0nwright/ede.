@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { logIn, signUp } from "@/app/signup/actions";
 import { Note } from "@/components/onboarding/choices";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MIN_AGE } from "@/lib/legal";
 
 /** Email and password, for creating an account or logging in. */
 export function AuthForm({ mode }: { mode: "signup" | "login" }) {
@@ -48,6 +50,19 @@ export function AuthForm({ mode }: { mode: "signup" | "login" }) {
       <Button type="submit" size="lg" className="mt-2 h-12 w-full rounded-xl text-base font-semibold" disabled={pending}>
         {pending ? <Loader2 className="animate-spin" /> : signup ? "Create account and see my plan" : "Log in"}
       </Button>
+      {signup && (
+        <p className="text-center text-xs text-muted-foreground">
+          By creating an account you agree to the{" "}
+          <Link href="/terms" className="underline underline-offset-4 hover:text-foreground">
+            terms
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="underline underline-offset-4 hover:text-foreground">
+            privacy policy
+          </Link>
+          , and confirm you&apos;re {MIN_AGE} or over.
+        </p>
+      )}
     </form>
   );
 }

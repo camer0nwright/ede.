@@ -11,7 +11,7 @@ import { db } from "@/lib/db";
 export { Credentials, dummyPasswordHash, hashPassword, verifyPassword } from "./passwords";
 
 export const SESSION_COOKIE = "ede_session";
-const SESSION_DAYS = 90;
+export const SESSION_DAYS = 90;
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 

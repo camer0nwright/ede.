@@ -32,7 +32,7 @@ export async function signUp(raw: unknown): Promise<AuthResult> {
     return { ok: false, errors: ["There's already an account with that email. Log in instead."] };
   }
   try {
-    await db.athlete.update({ where: { id: who.id }, data: { email, passwordHash: await hashPassword(password), pendingTokenHash: null } });
+    await db.athlete.update({ where: { id: who.id }, data: { email, passwordHash: await hashPassword(password), pendingTokenHash: null, termsAcceptedAt: new Date() } });
     await recordSignup();
     await createSession(who.id);
   } catch (e) {

@@ -19,6 +19,10 @@ model Athlete {
   passwordHash            String?
   /// A plan made before its account exists: SHA-256 of the random token in this device's cookie. Cleared once claimed.
   pendingTokenHash        String?   @unique
+  /// When the athlete agreed to the terms and privacy policy (at sign-up).
+  termsAcceptedAt         DateTime?
+  /// When the athlete agreed to ede. keeping injury details (health data). Null: none may be stored.
+  healthConsentAt         DateTime?
   name                    String?
   goalType                String // "race" | "strength" | "general"
   goalDetail              String? // e.g. "Half marathon under 1:50"

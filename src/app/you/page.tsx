@@ -17,6 +17,8 @@ import { builtWeeks, getInjuryHistory, getPlanContext, getSavedAthlete } from "@
 import { progressSummary, sessionKey } from "@/lib/checkin";
 import { AccountSettings, DeleteMyData } from "@/components/you/account-settings";
 import { InjuryBetter } from "@/components/you/injury-better";
+import { HealthConsentCard } from "@/components/you/health-consent-card";
+import { LegalLinks } from "@/components/legal-page";
 
 export const metadata = { title: "You · ede." };
 
@@ -235,6 +237,13 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
         </section>
       )}
 
+      {saved && (
+        <HealthConsentCard
+          consentedOn={ctx.healthConsentAt}
+          hasHealthData={!!ctx.injury || pastInjuries.length > 0 || !!saved.injuryHistory}
+        />
+      )}
+
       <section aria-label="Account" className="rounded-2xl border bg-card p-4">
         <h2 className="font-semibold">Account</h2>
         {ctx.isDemo ? (
@@ -253,6 +262,10 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
               <Link href="/onboarding" className="flex items-center justify-between py-3 text-sm font-medium">
                 Start a new plan from scratch <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
               </Link>
+              {/* A plain link: the browser downloads the file the route sends. */}
+              <a href="/you/export" download className="flex items-center justify-between py-3 text-sm font-medium">
+                Download my data <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+              </a>
               <form action={logOut}>
                 <button type="submit" className="flex w-full items-center justify-between py-3 text-sm font-medium">
                   Log out <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
@@ -265,6 +278,7 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
       </section>
 
       <MedicalNotice />
+      <LegalLinks className="-mt-4 text-center text-xs text-muted-foreground" />
     </main>
   );
 }

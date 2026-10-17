@@ -18,6 +18,7 @@ import {
   ULTRA_PRESETS,
 } from "@/lib/onboarding";
 import { desiredVsPredicted } from "@/lib/paces";
+import { HealthConsentCheck } from "@/components/health-consent";
 import { Chip, Field, Note, OptionCard } from "./choices";
 import { DISTANCES, effective, fiveKSeconds, PAIN_WHEN, shortRace, targetSeconds, today, type Draft } from "./draft";
 import { WeekPlanner } from "./week-planner";
@@ -262,6 +263,9 @@ export function StepInjury({ draft, update }: StepProps) {
           <Field label="Past injuries we should know about? (optional)">
             <Textarea value={draft.injuryHistory} onChange={(e) => update({ injuryHistory: e.target.value })} placeholder="e.g. Achilles tendinopathy in 2025" maxLength={500} />
           </Field>
+        )}
+        {(draft.hasInjury || draft.injuryHistory.trim()) && (
+          <HealthConsentCheck checked={!!draft.healthConsent} onChange={(healthConsent) => update({ healthConsent })} />
         )}
         {caution && <Note tone="caution">{caution}</Note>}
           </>

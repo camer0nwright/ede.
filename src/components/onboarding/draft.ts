@@ -18,6 +18,7 @@ import {
   targetDateProblem,
   weekFitProblem,
   type QuickWeek,
+  healthConsentProblem,
 } from "@/lib/onboarding";
 import { recommendedSessions } from "@/lib/plan-outline";
 
@@ -49,6 +50,7 @@ export type Draft = {
   hasInjury?: boolean;
   injury: Injury & { notes: string };
   injuryHistory: string;
+  healthConsent?: boolean;
   availability: Availability;
   weightUnit: "kg" | "lb";
   distanceUnit: "km" | "mi";
@@ -145,6 +147,7 @@ export function toAnswers(d: Draft) {
     equipment: d.equipment,
     ...(d.hasInjury && { injury: { ...d.injury, notes: d.injury.notes.trim() || undefined } }),
     ...(d.injuryHistory.trim() && { injuryHistory: d.injuryHistory.trim() }),
+    ...(d.healthConsent && { healthConsent: true }),
     availability: d.availability,
     weightUnit: d.weightUnit,
     distanceUnit: d.distanceUnit,
@@ -179,7 +182,8 @@ export function stepProblem(step: Step, d: Draft): string | null {
     case "you":
       return d.name.trim() ? null : "Tell us what to call you";
     case "injury":
-      return d.hasInjury === undefined ? "Let us know if anything hurts" : null;
+      if (d.hasInjury === undefined) return "Let us know if anything hurts";
+      return healthConsentProblem({ injury: d.hasInjury ? d.injury : undefined, injuryHistory: d.injuryHistory, healthConsent: d.healthConsent });
     case "week": {
       const days = d.availability.filter((x) => x.minutes !== null).length;
       if (days < 2) return "Choose at least 2 training days";
@@ -217,6 +221,7 @@ export type SavedAthlete = {
   /** Monday to Sunday. */
   availability: Availability;
   injury: (Injury & { notes: string | null }) | null;
+  healthConsentAt?: Date | null;
 };
 
 /** A saved athlete as a filled-in draft, so the You section can edit one part of it. */
@@ -254,6 +259,7 @@ export function athleteToDraft(a: SavedAthlete): Draft {
     hasInjury: a.injury !== null,
     injury: a.injury ? { ...a.injury, notes: a.injury.notes ?? "" } : START.injury,
     injuryHistory: a.injuryHistory ?? "",
+    healthConsent: !!a.healthConsentAt,
     availability: a.availability,
     weightUnit: a.weightUnit === "lb" ? "lb" : "kg",
     distanceUnit: a.distanceUnit === "mi" ? "mi" : "km",
