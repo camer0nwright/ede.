@@ -15,6 +15,19 @@ const SESSION_DAYS = 90;
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
+/**
+ * A random token for a plan made before its account exists. The cookie holds
+ * the token and the database only its hash, so a plan can't be claimed by
+ * guessing its id.
+ */
+export function newPendingToken() {
+  const token = randomBytes(32).toString("base64url");
+  return { token, hash: hashToken(token) };
+}
+
+/** The hash stored for a pending-plan token. */
+export const pendingTokenHash = (token: string) => hashToken(token);
+
 /** Signs this device in as the athlete. */
 export async function createSession(athleteId: string) {
   const token = randomBytes(32).toString("base64url");

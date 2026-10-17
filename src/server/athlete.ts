@@ -6,7 +6,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
-import { sessionAthleteId } from "@/server/auth";
+import { pendingTokenHash, sessionAthleteId } from "@/server/auth";
 import { db } from "@/lib/db";
 import type { SavedAthlete } from "@/components/onboarding/draft";
 import { sessionKey, type CheckIn } from "@/lib/checkin";
@@ -34,8 +34,8 @@ export async function currentAthlete(): Promise<{ id: string; signedIn: boolean 
   if (signedIn) return { id: signedIn, signedIn: true };
   const pending = (await cookies()).get(ATHLETE_COOKIE)?.value;
   if (!pending) return null;
-  const athlete = await db.athlete.findUnique({ where: { id: pending }, select: { email: true } });
-  return athlete && !athlete.email ? { id: pending, signedIn: false } : null;
+  const athlete = await db.athlete.findUnique({ where: { pendingTokenHash: pendingTokenHash(pending) }, select: { id: true, email: true } });
+  return athlete && !athlete.email ? { id: athlete.id, signedIn: false } : null;
 }
 
 export type PlanContext = {
