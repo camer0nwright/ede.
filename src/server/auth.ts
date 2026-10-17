@@ -56,6 +56,23 @@ export async function sessionAthleteId(): Promise<string | null> {
   return session.athleteId;
 }
 
+/** The signed-in devices on this account, and which one is this. */
+export async function accountSessions(athleteId: string) {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  const current = token ? hashToken(token) : null;
+  await connection();
+  const rows = await db.authSession.findMany({ where: { athleteId, expiresAt: { gt: new Date() } }, select: { id: true } });
+  return { count: rows.length, others: rows.filter((r) => r.id !== current).length };
+}
+
+/** Signs out every device on the account except this one. Returns how many were signed out. */
+export async function endOtherSessions(athleteId: string): Promise<number> {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  const keep = token ? hashToken(token) : "";
+  const { count } = await db.authSession.deleteMany({ where: { athleteId, id: { not: keep } } });
+  return count;
+}
+
 /** Signs this device out. */
 export async function endSession() {
   const jar = await cookies();

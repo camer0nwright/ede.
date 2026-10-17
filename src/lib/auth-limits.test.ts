@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LIMITS, passwordProblem, tryAgainIn, waitSeconds } from "./auth-limits";
+import { LIMITS, newPasswordProblem, passwordProblem, tryAgainIn, waitSeconds } from "./auth-limits";
 
 const now = new Date("2026-10-16T12:00:00Z");
 const minutesAgo = (m: number) => new Date(now.getTime() - m * 60 * 1000);
@@ -33,5 +33,21 @@ describe("password strength", () => {
     expect(passwordProblem("aaaaaaaa", "cam@example.com")).toMatch(/repeated/);
     expect(passwordProblem("connie2026!", "connie@example.com")).toMatch(/email/);
     expect(passwordProblem("long run sundays", "cam@example.com")).toBeNull();
+  });
+});
+
+describe("changing password", () => {
+  it("needs a new password that's different", () => {
+    expect(newPasswordProblem("trail-runner-42", "trail-runner-42", "cam@example.com")).toMatch(/different/);
+  });
+
+  it("applies the same rules as sign-up", () => {
+    expect(newPasswordProblem("trail-runner-42", "short", "cam@example.com")).toMatch(/8 characters/);
+    expect(newPasswordProblem("trail-runner-42", "password123", "cam@example.com")).toMatch(/most common/);
+    expect(newPasswordProblem("trail-runner-42", "cameron-lifts", "cameron@example.com")).toMatch(/email/);
+  });
+
+  it("accepts a sound new password", () => {
+    expect(newPasswordProblem("trail-runner-42", "hill-reps-at-dawn", "cam@example.com")).toBeNull();
   });
 });

@@ -49,3 +49,10 @@ export function passwordProblem(password: string, email: string): string | null 
   if (name.length >= 4 && lower.includes(name)) return "Don't use your email address in your password.";
   return null;
 }
+
+/** A replacement password: long enough, not weak, and actually different. */
+export function newPasswordProblem(current: string, next: string, email: string): string | null {
+  if (next.length < 8) return "Use at least 8 characters for your new password";
+  if (next === current) return "Choose a new password that's different from your current one.";
+  return passwordProblem(next, email);
+}
