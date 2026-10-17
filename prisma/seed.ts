@@ -9,6 +9,12 @@ import { DEMO_ATHLETE, demoOutline, demoOutlineInput } from "../src/lib/demo-ath
 import { demoWeek } from "../src/lib/demo-week";
 import { EXERCISES } from "../src/lib/exercise-library";
 
+// The seed starts by deleting every athlete, so it only ever runs on a local
+// file. A hosted database is set up with npm run db:deploy instead.
+if (!process.env.DATABASE_URL?.startsWith("file:")) {
+  throw new Error("The seed deletes every account, so it only runs on a local database (DATABASE_URL=file:...). Use npm run db:deploy for Turso.");
+}
+
 const db = new PrismaClient({
   adapter: new PrismaLibSql({ url: process.env.DATABASE_URL! }),
 });
