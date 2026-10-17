@@ -84,6 +84,8 @@ export const OnboardingAnswers = z
     equipment: z.array(z.enum(EQUIPMENT_OPTIONS)).min(1, "Pick at least one"),
     injury: Injury.extend({ notes: z.string().trim().max(500).optional() }).optional(),
     injuryHistory: z.string().trim().max(500).optional(),
+    /** Agreement to keeping injury details (health data); needed when there are any. */
+    healthConsent: z.boolean().optional(),
     availability: Availability,
     weightUnit: z.enum(["kg", "lb"]),
     distanceUnit: z.enum(["km", "mi"]),
@@ -108,6 +110,14 @@ export const OnboardingAnswers = z
     if (fit) ctx.addIssue({ code: "custom", path: ["availability"], message: fit });
   });
 export type OnboardingAnswers = z.infer<typeof OnboardingAnswers>;
+
+export const HEALTH_CONSENT_NEEDED = "Tick the box to let ede. keep your injury details, or leave them out.";
+
+/** Injury details count as health data: they're only kept with agreement (SPEC decision 57). */
+export function healthConsentProblem(a: Pick<OnboardingAnswers, "injury" | "injuryHistory" | "healthConsent">): string | null {
+  const hasHealthData = !!a.injury || !!a.injuryHistory?.trim();
+  return hasHealthData && !a.healthConsent ? HEALTH_CONSENT_NEEDED : null;
+}
 
 /** The Monday a new plan starts: today if it's a Monday, otherwise next Monday. */
 export function planStartDate(today: string): string {

@@ -22,6 +22,7 @@ async function Injury() {
   return (
     <InjuryForm
       updating={!!i}
+      needsConsent={!ctx.healthConsentAt}
       initial={i ? { area: i.area, painLevel: i.painLevel, painWhen: i.painWhen, notes: i.notes ?? "" } : START.injury}
     />
   );

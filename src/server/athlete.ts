@@ -61,6 +61,8 @@ export type PlanContext = {
   storedWeeks: WeekPlan[];
   /** The last week whose "ease back in" offer was answered. */
   reviewedWeekStart?: string;
+  /** When the athlete agreed to ede. keeping injury details (SPEC decision 57). */
+  healthConsentAt?: string;
   /** What the coach changed in each tailored week, and why, by week start. */
   weekSummaries: Record<string, string>;
   /** Check-ins by session key (date-slot). */
@@ -206,6 +208,7 @@ export async function getPlanContext(): Promise<PlanContext> {
     weekSummaries: Object.fromEntries(athlete.weeks.flatMap((w) => (w.summary ? [[fromDbDate(w.weekStart), w.summary]] : []))),
     weightUnit: athlete.weightUnit === "lb" ? "lb" : "kg",
     ...(athlete.reviewedWeekStart && { reviewedWeekStart: fromDbDate(athlete.reviewedWeekStart) }),
+    ...(athlete.healthConsentAt && { healthConsentAt: athlete.healthConsentAt.toISOString().slice(0, 10) }),
     checkIns: Object.fromEntries(
       athlete.weeks.flatMap((w) =>
         w.sessions.flatMap((row) => {

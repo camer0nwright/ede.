@@ -4,7 +4,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { answersToAthleteRow, toDbDate } from "@/lib/db-mapping";
-import { OnboardingAnswers, targetDateProblem, toOutlineInput } from "@/lib/onboarding";
+import { healthConsentProblem, OnboardingAnswers, targetDateProblem, toOutlineInput } from "@/lib/onboarding";
+import { UNSAVED_PLAN_DAYS } from "@/lib/legal";
 import { buildPlanOutline } from "@/lib/plan-outline";
 import { ATHLETE_COOKIE } from "@/server/athlete";
 import { newPendingToken, sessionAthleteId } from "@/server/auth";
@@ -21,6 +22,9 @@ export async function saveOnboarding(raw: unknown): Promise<SaveResult> {
   const parsed = OnboardingAnswers.safeParse(raw);
   if (!parsed.success) return { ok: false, errors: parsed.error.issues.map((i) => i.message) };
   const a = parsed.data;
+
+  const consent = healthConsentProblem(a);
+  if (consent) return { ok: false, errors: [consent] };
 
   const today = new Date().toISOString().slice(0, 10);
   if (a.targetDate) {
@@ -43,6 +47,7 @@ export async function saveOnboarding(raw: unknown): Promise<SaveResult> {
     lastWeekRunMinutes: a.lastWeekRunMinutes,
     longestRecentRunMinutes: a.longestRecentRunMinutes,
     injuryHistory: a.injuryHistory || null,
+    ...((a.injury || a.injuryHistory) && { healthConsentAt: new Date() }),
     weightUnit: a.weightUnit,
     distanceUnit: a.distanceUnit,
   };
@@ -69,6 +74,11 @@ export async function saveOnboarding(raw: unknown): Promise<SaveResult> {
     redirect("/plan");
   }
 
+  // Plans set up but never saved to an account are deleted after a while (SPEC decision 57).
+  await db.athlete
+    .deleteMany({ where: { email: null, createdAt: { lt: new Date(Date.now() - UNSAVED_PLAN_DAYS * 24 * 60 * 60 * 1000) } } })
+    .catch((e) => console.error("Removing old unsaved plans failed", e));
+
   const pending = newPendingToken();
   try {
     await db.athlete.create({
@@ -90,7 +100,7 @@ export async function saveOnboarding(raw: unknown): Promise<SaveResult> {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: 60 * 60 * 24 * UNSAVED_PLAN_DAYS,
     path: "/",
   });
   redirect("/signup");

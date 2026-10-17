@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthForm } from "@/components/auth/auth-form";
+import { LegalLinks } from "@/components/legal-page";
 import { Logo } from "@/components/logo";
 import { PageSkeleton } from "@/components/page-skeleton";
 import { sessionAthleteId } from "@/server/auth";
@@ -32,6 +33,7 @@ async function LogIn() {
           Set up your plan
         </Link>
       </p>
+      <LegalLinks />
     </main>
   );
 }

@@ -9,7 +9,7 @@ import { answersToAthleteRow } from "@/lib/db-mapping";
 import { daysBetween } from "@/lib/dates";
 import { Injury } from "@/lib/domain";
 import { injuryBand } from "@/lib/injury";
-import { OnboardingAnswers, targetDateProblem, toOutlineInput } from "@/lib/onboarding";
+import { HEALTH_CONSENT_NEEDED, OnboardingAnswers, targetDateProblem, toOutlineInput } from "@/lib/onboarding";
 import { continuityFromWeeks, returnFromInjury } from "@/lib/plan-rebuild";
 import { mergeSection } from "@/lib/plan-settings";
 import { ATHLETE_COOKIE, builtWeeks, getPlanContext, getSavedAthlete } from "@/server/athlete";
@@ -55,7 +55,7 @@ export async function updatePlanSettings(section: string, raw: unknown): Promise
   redirect("/you?saved=1");
 }
 
-const InjuryReport = Injury.extend({ notes: z.string().trim().max(500).optional() });
+const InjuryReport = Injury.extend({ notes: z.string().trim().max(500).optional(), consent: z.literal(true).optional() });
 
 /**
  * Reports an injury, or updates the one that's active. The plan adapts from
@@ -66,8 +66,11 @@ export async function saveInjury(raw: unknown): Promise<ActionResult> {
   if (!parsed.success) return { ok: false, errors: parsed.error.issues.map((i) => i.message) };
   const ctx = await getPlanContext();
   if (ctx.isDemo || !ctx.athleteId) return NOT_SET_UP;
-  const data = { ...parsed.data, notes: parsed.data.notes || null };
+  const { consent, ...report } = parsed.data;
+  if (!ctx.healthConsentAt && !consent) return { ok: false, errors: [HEALTH_CONSENT_NEEDED] };
+  const data = { ...report, notes: report.notes || null };
   try {
+    if (consent) await db.athlete.update({ where: { id: ctx.athleteId }, data: { healthConsentAt: new Date() } });
     if (ctx.injury) await db.injury.update({ where: { id: ctx.injury.id }, data });
     else await db.injury.create({ data: { ...data, athleteId: ctx.athleteId } });
   } catch (e) {
@@ -149,4 +152,32 @@ export async function deleteMyData(): Promise<ActionResult> {
   jar.delete(ATHLETE_COOKIE);
   jar.delete(SESSION_COOKIE);
   redirect("/?deleted=1");
+}
+
+/** Agrees to ede. keeping injury details already added (SPEC decision 57). */
+export async function giveHealthConsent(): Promise<ActionResult | { ok: true }> {
+  const ctx = await getPlanContext();
+  if (ctx.isDemo || !ctx.athleteId) return NOT_SET_UP;
+  await db.athlete.update({ where: { id: ctx.athleteId }, data: { healthConsentAt: new Date() } });
+  return { ok: true };
+}
+
+/**
+ * Withdraws agreement to keeping injury details: every injury (current and
+ * past) and the injury history are deleted, and the plan stops adapting.
+ */
+export async function withdrawHealthConsent(): Promise<ActionResult | { ok: true }> {
+  const ctx = await getPlanContext();
+  if (ctx.isDemo || !ctx.athleteId) return NOT_SET_UP;
+  const athleteId = ctx.athleteId;
+  try {
+    await db.$transaction([
+      db.injury.deleteMany({ where: { athleteId } }),
+      db.athlete.update({ where: { id: athleteId }, data: { injuryHistory: null, healthConsentAt: null } }),
+    ]);
+  } catch (e) {
+    console.error("Withdrawing health consent failed", e);
+    return { ok: false, errors: ["That couldn't be done just now. Try again in a moment."] };
+  }
+  return { ok: true };
 }

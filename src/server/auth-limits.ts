@@ -8,7 +8,7 @@ import { connection } from "next/server";
 import { LIMITS, tryAgainIn, waitSeconds, type Limit } from "@/lib/auth-limits";
 import { db } from "@/lib/db";
 
-const KEEP_HOURS = 24;
+export const KEEP_HOURS = 24;
 
 /** This request's network, as a fingerprint ("ip:<sha256>"). Local development has no forwarded address. */
 async function networkKey(): Promise<string> {
@@ -16,7 +16,8 @@ async function networkKey(): Promise<string> {
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "local";
   return `ip:${createHash("sha256").update(ip).digest("hex")}`;
 }
-const emailKey = (email: string) => `email:${email.toLowerCase()}`;
+// Scrambled, so the failed-log-in records never hold an email address.
+const emailKey = (email: string) => `email:${createHash("sha256").update(email.toLowerCase()).digest("hex")}`;
 
 async function wait(key: string, kind: string, limit: Limit): Promise<number | null> {
   await connection(); // limits are judged against the clock at request time

@@ -3,6 +3,8 @@ import { demoAthleteAvailability } from "./demo-athlete";
 import {
   cautionFor,
   desiredTimeNote,
+  HEALTH_CONSENT_NEEDED,
+  healthConsentProblem,
   OnboardingAnswers,
   planStartDate,
   quickWeekToAvailability,
@@ -190,5 +192,24 @@ describe("warning words and caution", () => {
     expect(cautionFor(injury(5))).toMatch(/physio/);
     expect(cautionFor(injury(8))).toMatch(/see a doctor/);
     expect(cautionFor(injury(2, "resting"))).toMatch(/see a doctor/);
+  });
+});
+
+describe("health data consent", () => {
+  const injury = { area: "ankle" as const, painLevel: 3, painWhen: "running" as const };
+
+  it("needs agreement before keeping a current injury", () => {
+    expect(healthConsentProblem({ injury })).toBe(HEALTH_CONSENT_NEEDED);
+    expect(healthConsentProblem({ injury, healthConsent: true })).toBeNull();
+  });
+
+  it("needs agreement before keeping past injuries", () => {
+    expect(healthConsentProblem({ injuryHistory: "Achilles in 2025" })).toBe(HEALTH_CONSENT_NEEDED);
+    expect(healthConsentProblem({ injuryHistory: "Achilles in 2025", healthConsent: true })).toBeNull();
+  });
+
+  it("asks nothing when there are no injury details", () => {
+    expect(healthConsentProblem({})).toBeNull();
+    expect(healthConsentProblem({ injuryHistory: "   " })).toBeNull();
   });
 });
