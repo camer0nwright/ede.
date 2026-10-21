@@ -27,6 +27,11 @@ async function LogIn() {
         <p className="mt-2 text-sm text-muted-foreground">Welcome back. Your plan is where you left it.</p>
       </header>
       <AuthForm mode="login" />
+      <p className="-mt-4 text-center text-sm">
+        <Link href="/forgot-password" className="text-muted-foreground underline underline-offset-4 hover:text-foreground">
+          Forgot your password?
+        </Link>
+      </p>
       <p className="text-center text-sm text-muted-foreground">
         New to ede.?{" "}
         <Link href="/onboarding" className="font-medium text-foreground underline underline-offset-4">

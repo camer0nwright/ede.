@@ -64,3 +64,17 @@ export async function signupBlocked(): Promise<string | null> {
 export async function recordSignup() {
   await record(await networkKey(), "signup");
 }
+
+/** Why a "forgot password" email can't be sent right now, or null. */
+export async function resetBlocked(email: string): Promise<string | null> {
+  const forEmail = await wait(emailKey(email), "reset_request", LIMITS.resetEmails);
+  if (forEmail) return `Too many reset emails for this address. ${tryAgainIn(forEmail)}`;
+  const forNetwork = await wait(await networkKey(), "reset_request", LIMITS.resetNetwork);
+  if (forNetwork) return `Too many reset requests from this network. ${tryAgainIn(forNetwork)}`;
+  return null;
+}
+
+export async function recordResetRequest(email: string) {
+  await record(emailKey(email), "reset_request");
+  await record(await networkKey(), "reset_request");
+}

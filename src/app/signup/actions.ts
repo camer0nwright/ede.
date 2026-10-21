@@ -7,7 +7,9 @@ import { db } from "@/lib/db";
 import { ATHLETE_COOKIE, currentAthlete } from "@/server/athlete";
 import { newPasswordProblem, passwordProblem } from "@/lib/auth-limits";
 import { createSession, Credentials, dummyPasswordHash, endOtherSessions, endSession, hashPassword, sessionAthleteId, verifyPassword } from "@/server/auth";
-import { clearLoginFailures, loginBlocked, recordLoginFailure, recordSignup, signupBlocked } from "@/server/auth-limits";
+import { clearLoginFailures, loginBlocked, recordLoginFailure, recordResetRequest, recordSignup, resetBlocked, signupBlocked } from "@/server/auth-limits";
+import { RESET_REQUESTED } from "@/lib/password-reset";
+import { checkResetToken, sendResetLink, spendResetToken } from "@/server/password-reset";
 
 export type AuthResult = { ok: false; errors: string[] };
 
@@ -123,4 +125,51 @@ export async function logOutOtherDevices(): Promise<AccountResult> {
   if (!athleteId) return { ok: false, errors: ["Log in again to do that."] };
   const others = await endOtherSessions(athleteId);
   return { ok: true, message: others === 0 ? "No other devices were logged in." : `${others} other ${others === 1 ? "device" : "devices"} logged out.` };
+}
+
+const ResetRequest = z.object({ email: z.string().trim().toLowerCase().email("Enter the email you signed up with").max(200) });
+
+/**
+ * "Forgot password": emails a reset link if there's an account (SPEC decision
+ * 61). The answer is the same either way, so it can't reveal who has one.
+ */
+export async function requestPasswordReset(raw: unknown): Promise<AccountResult> {
+  const parsed = ResetRequest.safeParse(raw);
+  if (!parsed.success) return { ok: false, errors: parsed.error.issues.map((i) => i.message) };
+  const { email } = parsed.data;
+  const blocked = await resetBlocked(email);
+  if (blocked) return { ok: false, errors: [blocked] };
+  await recordResetRequest(email);
+  try {
+    await sendResetLink(email);
+  } catch (e) {
+    console.error("Sending a reset link failed", e);
+  }
+  return { ok: true, message: RESET_REQUESTED };
+}
+
+const ResetPassword = z.object({ token: z.string().min(1).max(200), password: z.string().max(200) });
+
+/** Sets a new password from a reset link, logs out every device, and signs this one in. */
+export async function resetPassword(raw: unknown): Promise<AuthResult> {
+  const parsed = ResetPassword.safeParse(raw);
+  if (!parsed.success) return { ok: false, errors: ["That reset link isn't valid. Ask for a new one."] };
+  const { row, problem } = await checkResetToken(parsed.data.token);
+  if (problem || !row?.athlete.email) return { ok: false, errors: [problem ?? "That reset link isn't valid. Ask for a new one."] };
+
+  const { password } = parsed.data;
+  if (password.length < 8) return { ok: false, errors: ["Use at least 8 characters for your password"] };
+  const weak = passwordProblem(password, row.athlete.email);
+  if (weak) return { ok: false, errors: [weak] };
+
+  try {
+    await spendResetToken(row.id, row.athleteId, await hashPassword(password));
+    await clearLoginFailures(row.athlete.email);
+    await createSession(row.athleteId);
+  } catch (e) {
+    console.error("Resetting a password failed", e);
+    return { ok: false, errors: ["Your password couldn't be changed just now. Try again in a moment."] };
+  }
+  (await cookies()).delete(ATHLETE_COOKIE);
+  redirect("/?reset=1");
 }

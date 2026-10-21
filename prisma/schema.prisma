@@ -56,6 +56,20 @@ model Athlete {
   weeks         PlanWeek[]
   coachMessages CoachMessage[]
   authSessions  AuthSession[]
+  passwordResets PasswordReset[]
+}
+
+/// A "forgot password" link. The email holds a random token; only its SHA-256 hash is stored. Works once, for an hour.
+model PasswordReset {
+  id        String    @id // SHA-256 of the reset token
+  athleteId String
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId])
 }
 
 /// A signed-in device. The cookie holds a random token; only its SHA-256 hash is stored here.
