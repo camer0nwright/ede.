@@ -33,8 +33,9 @@ export default function PrivacyPage() {
             ede. only keeps them with your clear agreement (see below).
           </li>
           <li>
-            <strong>Security records:</strong> which devices are signed in (as a scrambled code), and failed log-ins (as a scrambled email and network address,
-            deleted within {KEEP_HOURS} hours) to stop people guessing passwords.
+            <strong>Security records:</strong> which devices are signed in (as a scrambled code), password reset links (as a scrambled code, working once for an
+            hour), and failed log-ins and reset requests (as a scrambled email and network address, deleted within {KEEP_HOURS} hours) to stop people guessing
+            passwords.
           </li>
         </ul>
       </LegalSection>
@@ -63,7 +64,10 @@ export default function PrivacyPage() {
       <LegalSection title="Who else handles it">
         <ul>
           <li>
-            <strong>Hosting:</strong> ede.&apos;s servers and database are run by a hosting company that stores data for us and can&apos;t use it for anything else.
+            <strong>Hosting:</strong> ede.&apos;s servers (Vercel) and database (Turso) are run by companies that store data for us and can&apos;t use it for anything else.
+          </li>
+          <li>
+            <strong>Email:</strong> password reset emails are sent through Resend, which sees your email address and the email itself, only to deliver it.
           </li>
           <li>
             <strong>AI tailoring, when it&apos;s used:</strong> when you ask ede. to adjust your next week, your plan, recent check-ins (with any notes) and any injury

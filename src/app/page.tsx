@@ -55,6 +55,7 @@ async function Today({ searchParams }: { searchParams: PageProps<"/">["searchPar
       </header>
 
       {query.deleted && <Note>Your data has been deleted. This is the demo plan.</Note>}
+      {query.reset && !ctx.isDemo && <Note>Password changed. Any other devices have been logged out.</Note>}
       {ctx.isDemo && <DemoBanner />}
       {ctx.injury && <InjuryBanner injury={ctx.injury} />}
       {offer && (

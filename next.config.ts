@@ -34,6 +34,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   cacheComponents: true,
   poweredByHeader: false,
+  // Don't print server action inputs in the dev terminal: they include passwords.
+  logging: { serverFunctions: false },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },

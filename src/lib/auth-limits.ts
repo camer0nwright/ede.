@@ -11,6 +11,10 @@ export const LIMITS = {
   networkFailures: { max: 20, windowMinutes: 15 },
   /** New accounts from one network. */
   signups: { max: 10, windowMinutes: 60 },
+  /** "Forgot password" emails for one address. */
+  resetEmails: { max: 3, windowMinutes: 60 },
+  /** "Forgot password" requests from one network, across any addresses. */
+  resetNetwork: { max: 10, windowMinutes: 60 },
 } satisfies Record<string, Limit>;
 
 /**
