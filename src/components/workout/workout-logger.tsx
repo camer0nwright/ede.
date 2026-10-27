@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeftRight, Check, ChevronLeft, Loader2, MoreHorizontal, Plus, Search, Timer, Trash2, TrendingUp, X } from "lucide-react";
+import { ArrowLeftRight, Check, ChevronLeft, Dumbbell, Loader2, MoreHorizontal, Plus, Search, Timer, Trash2, TrendingUp, X } from "lucide-react";
 import { toast } from "sonner";
 import { addExercise, discardWorkout, finishWorkout, logSet, removeExercise, swapExercise, unlogSet } from "@/app/(flow)/workout/actions";
 import { Note } from "@/components/onboarding/choices";
@@ -67,19 +67,23 @@ function RestTimer({ endsAt, onChange, onDone }: { endsAt: number; onChange: (en
     return () => clearInterval(id);
   }, [endsAt, onDone]);
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 px-4 pt-3 pb-4 backdrop-blur pb-safe">
+    <div className="fixed inset-x-0 bottom-0 z-40 bg-panel px-4 pt-3 pb-4 text-panel-foreground pb-safe">
       <div className="mx-auto flex max-w-md items-center gap-3">
-        <Timer className="size-5 text-primary-strong" aria-hidden />
-        <span className="flex-1 font-display text-3xl tabular-nums" aria-live="polite" aria-label={`Rest, ${left} seconds left`}>
-          {clock(left)}
+        <span className="flex flex-1 flex-col">
+          <span className="label-eyebrow flex items-center gap-1.5 text-primary">
+            <Timer className="size-3.5" aria-hidden /> Rest
+          </span>
+          <span className="font-display text-4xl font-semibold tabular-nums" aria-live="polite" aria-label={`Rest, ${left} seconds left`}>
+            {clock(left)}
+          </span>
         </span>
-        <button type="button" className="h-10 rounded-lg border px-3 text-sm font-medium" onClick={() => onChange(endsAt - 15000)}>
+        <button type="button" className="h-10 rounded-md bg-white/10 px-3 text-sm font-medium hover:bg-white/15" onClick={() => onChange(endsAt - 15000)}>
           −15s
         </button>
-        <button type="button" className="h-10 rounded-lg border px-3 text-sm font-medium" onClick={() => onChange(endsAt + 15000)}>
+        <button type="button" className="h-10 rounded-md bg-white/10 px-3 text-sm font-medium hover:bg-white/15" onClick={() => onChange(endsAt + 15000)}>
           +15s
         </button>
-        <button type="button" className="h-10 rounded-lg bg-secondary px-3 text-sm font-medium" onClick={onDone}>
+        <button type="button" className="h-10 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground" onClick={onDone}>
           Skip
         </button>
       </div>
@@ -187,29 +191,38 @@ export function WorkoutLogger({
 
   return (
     <div className={cn("-mb-24 flex min-h-dvh flex-col pt-4", restEndsAt ? "pb-28" : "pb-10")}>
-      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-2 border-b bg-background/95 px-4 py-2 backdrop-blur">
-        <Link href="/" className="-ml-2 grid size-10 place-items-center rounded-full hover:bg-accent" aria-label="Back to Today (the workout keeps going)">
-          <ChevronLeft className="size-5" />
-        </Link>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold">{title}</p>
-          <p className="text-xs text-muted-foreground">
+      <header className="sticky top-0 z-30 -mx-4 border-b bg-background/95 px-4 backdrop-blur">
+        <div className="flex items-center gap-2 py-2">
+          <Link href="/" className="-ml-2 grid size-10 place-items-center rounded-full hover:bg-accent" aria-label="Back to Today (the workout keeps going)">
+            <ChevronLeft className="size-5" />
+          </Link>
+          <p className="min-w-0 flex-1 text-sm text-muted-foreground tabular-nums">
             <Elapsed startedAt={startedAt} /> · {done} of {total} sets
           </p>
+          <Button className="h-10 rounded-md px-5 font-semibold" onClick={() => setFinishing(true)}>
+            Finish
+          </Button>
         </div>
-        <Button className="h-10 rounded-xl px-4 font-semibold" onClick={() => setFinishing(true)}>
-          Finish
-        </Button>
+        <div className="-mx-4 h-0.5 bg-border" aria-hidden>
+          <div className="h-full bg-primary transition-[width]" style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
+        </div>
       </header>
 
-      <div className="mt-4 flex flex-col gap-4">
+      <div className="mt-6">
+        <p className="label-eyebrow flex items-center gap-1.5 text-strength">
+          <Dumbbell className="size-3.5" aria-hidden /> Gym · In progress
+        </p>
+        <h1 className="mt-2 text-4xl font-medium tracking-tighter">{title}</h1>
+      </div>
+
+      <div className="mt-6 flex flex-col gap-4">
         {blocks.map((block, b) => (
-          <section key={block.name} aria-label={block.name} className="rounded-2xl border bg-card p-3">
+          <section key={block.name} aria-label={block.name} className="border bg-card p-5">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <h2 className="font-semibold">{block.name}</h2>
-                <p className="text-xs text-muted-foreground">
-                  {block.isMainLift && <span className="font-medium text-primary-strong">Main lift · </span>}
+                {block.isMainLift && <p className="label-eyebrow mb-1.5 text-primary-strong">Main lift</p>}
+                <h2 className="text-2xl leading-tight font-medium">{block.name}</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
                   Rest {block.restSeconds >= 120 ? `${Math.round(block.restSeconds / 60)} min` : `${block.restSeconds}s`}
                   {block.failureAllowed && " · last set to failure is fine"}
                 </p>
@@ -219,13 +232,13 @@ export function WorkoutLogger({
               </button>
             </div>
             {block.suggestion && (
-              <p className="mt-2 rounded-lg bg-secondary px-3 py-2 text-xs">
+              <p className="mt-3 border-l-2 border-primary-strong bg-secondary px-3 py-2 text-xs">
                 <TrendingUp className="mr-1 inline size-3.5 align-[-2px] text-primary-strong" aria-hidden />
                 {block.suggestion.note}
               </p>
             )}
 
-            <div className="mt-3 grid grid-cols-[1.75rem_minmax(0,1fr)_4rem_3rem_2.75rem_2.5rem] items-center gap-x-1.5 gap-y-2 text-xs text-muted-foreground">
+            <div className="mt-4 grid grid-cols-[1.75rem_minmax(0,1fr)_4rem_3rem_2.75rem_2.5rem] items-center gap-x-1.5 gap-y-2 text-[11px] text-muted-foreground">
               <span className="text-center">Set</span>
               <span>Last</span>
               <span className="text-center">{unit}</span>
@@ -248,14 +261,14 @@ export function WorkoutLogger({
                 />
               ))}
             </div>
-            <button type="button" onClick={() => addSet(b)} className="mt-3 flex h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-secondary text-sm font-medium">
+            <button type="button" onClick={() => addSet(b)} className="mt-4 flex h-10 w-full items-center justify-center gap-1.5 rounded-md bg-secondary text-sm font-medium hover:bg-accent">
               <Plus className="size-4" aria-hidden /> Add set
             </button>
           </section>
         ))}
       </div>
 
-      <button type="button" onClick={() => setAdding(true)} className="mt-4 flex h-12 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed text-sm font-medium hover:bg-accent">
+      <button type="button" onClick={() => setAdding(true)} className="mt-4 flex h-12 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-foreground/25 text-sm font-medium hover:bg-accent">
         <Plus className="size-4" aria-hidden /> Add exercise
       </button>
 
@@ -303,7 +316,7 @@ function SetRowInputs({
   onToggle: () => void;
   onRemove: () => void;
 }) {
-  const input = "h-10 w-full rounded-lg border bg-background px-1 text-center text-base text-foreground tabular-nums disabled:opacity-100";
+  const input = "h-10 w-full rounded-md border bg-background px-1 text-center text-base text-foreground tabular-nums disabled:border-transparent disabled:bg-transparent disabled:opacity-100";
   const target = row.plannedReps ? `${row.plannedReps}${row.plannedRpe ? ` @ ${row.plannedRpe}` : ""}` : "";
   return (
     <>
@@ -311,7 +324,7 @@ function SetRowInputs({
         type="button"
         onClick={onType}
         aria-label={`Set type ${label}. Tap to change`}
-        className={cn("grid h-10 place-items-center rounded-lg text-sm font-semibold", row.setType === "warmup" ? "text-muted-foreground" : "text-foreground", row.done ? "bg-easy/15" : "bg-secondary")}
+        className={cn("grid h-10 place-items-center rounded-md text-sm font-semibold", row.setType === "warmup" ? "text-muted-foreground" : "text-foreground", row.done ? "bg-primary/30" : "bg-secondary")}
       >
         {label}
       </button>
@@ -337,7 +350,7 @@ function SetRowInputs({
           onClick={onToggle}
           aria-pressed={row.done}
           aria-label={row.done ? "Set done. Tap to untick" : "Tick set done"}
-          className={cn("grid h-10 place-items-center rounded-lg border transition-colors", row.done ? "border-easy bg-easy text-white" : "hover:bg-accent")}
+          className={cn("grid h-10 place-items-center rounded-md border transition-colors", row.done ? "border-primary bg-primary text-primary-foreground" : "hover:bg-accent")}
         >
           <Check className="size-5" strokeWidth={3} />
         </button>
@@ -363,7 +376,7 @@ function FinishSheet({ open, onOpenChange, sessionId, setsDone }: { open: boolea
       <DrawerContent>
         <div className="mx-auto w-full max-w-md px-4 pb-8">
           <DrawerHeader className="px-0 text-left! md:text-left">
-            <DrawerTitle className="text-2xl font-semibold">Finish workout</DrawerTitle>
+            <DrawerTitle className="text-[28px] leading-tight font-medium tracking-tight">Finish workout</DrawerTitle>
             <DrawerDescription>{setsDone === 0 ? "No sets ticked yet." : `${plural(setsDone, "set")} done.`}</DrawerDescription>
           </DrawerHeader>
           <fieldset>
@@ -457,7 +470,7 @@ function ExerciseMenu({
       <DrawerContent className="max-h-[85dvh]">
         <div className="mx-auto w-full max-w-md overflow-y-auto px-4 pb-8">
           <DrawerHeader className="px-0 text-left! md:text-left">
-            <DrawerTitle className="text-2xl font-semibold">{block.name}</DrawerTitle>
+            <DrawerTitle className="text-[28px] leading-tight font-medium tracking-tight">{block.name}</DrawerTitle>
             <DrawerDescription>{logged ? "Untick its sets to swap or remove it." : "Swap it for another exercise, or remove it from today."}</DrawerDescription>
           </DrawerHeader>
           {!logged && (
@@ -475,7 +488,7 @@ function ExerciseMenu({
                         type="button"
                         disabled={pending}
                         onClick={() => run(() => swapExercise({ sessionId, from: block.name, to: e.name }), (b) => b && onSwapped(b), `Swapped to ${e.name}.`)}
-                        className="flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left hover:bg-accent disabled:opacity-50"
+                        className="flex w-full items-center justify-between gap-3 border bg-card px-4 py-3 text-left hover:bg-accent disabled:opacity-50"
                       >
                         <span className="font-medium">{e.name}</span>
                         <span className="text-xs text-muted-foreground capitalize">{e.equipment}</span>
@@ -537,7 +550,7 @@ function AddExercise({
       <DrawerContent className="max-h-[85dvh]">
         <div className="mx-auto flex w-full max-w-md flex-col overflow-hidden px-4 pb-8">
           <DrawerHeader className="px-0 text-left! md:text-left">
-            <DrawerTitle className="text-2xl font-semibold">Add exercise</DrawerTitle>
+            <DrawerTitle className="text-[28px] leading-tight font-medium tracking-tight">Add exercise</DrawerTitle>
             <DrawerDescription>From the exercise library, matched to your equipment.</DrawerDescription>
           </DrawerHeader>
           <label className="relative">
@@ -548,7 +561,7 @@ function AddExercise({
             {results.length === 0 && <li className="py-3 text-center text-sm text-muted-foreground">No exercises match.</li>}
             {results.map((e) => (
               <li key={e.name}>
-                <button type="button" disabled={pending} onClick={() => add(e.name)} className="flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left hover:bg-accent disabled:opacity-50">
+                <button type="button" disabled={pending} onClick={() => add(e.name)} className="flex w-full items-center justify-between gap-3 border bg-card px-4 py-3 text-left hover:bg-accent disabled:opacity-50">
                   <span>
                     <span className="block font-medium">{e.name}</span>
                     <span className="block text-xs text-muted-foreground">{e.muscleGroup}</span>

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Check, Trophy } from "lucide-react";
+import { Check, ChevronLeft, Trophy } from "lucide-react";
 import { PageSkeleton } from "@/components/page-skeleton";
 import { WorkoutLogger } from "@/components/workout/workout-logger";
 import { formatMinutes } from "@/lib/format";
@@ -45,11 +45,14 @@ function Summary({ workout }: { workout: Workout }) {
   const blocks = buildWorkout(workout.planned, workout.logged, {}, workout.unit);
   return (
     <main className="flex flex-col gap-4 pt-6">
+      <Link href="/" className="-ml-1 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <ChevronLeft className="size-4" aria-hidden /> Today
+      </Link>
       <header>
-        <p className="flex items-center gap-1.5 text-sm font-medium text-easy">
-          <Check className="size-4" aria-hidden /> Workout done
+        <p className="label-eyebrow flex items-center gap-1.5 text-easy">
+          <Check className="size-3.5" aria-hidden /> Workout done
         </p>
-        <h1 className="mt-1 text-4xl font-medium tracking-tighter">{workout.title}</h1>
+        <h1 className="mt-2 text-5xl font-medium tracking-tighter">{workout.title}</h1>
       </header>
 
       <dl className="grid grid-cols-3 gap-2">
@@ -58,23 +61,23 @@ function Summary({ workout }: { workout: Workout }) {
           ["Sets", String(summary.sets)],
           [`Lifted (${workout.unit})`, summary.workingSets ? Number(summary.volume).toLocaleString("en-GB") : "–"],
         ].map(([label, value]) => (
-          <div key={label} className="flex flex-col-reverse rounded-2xl border bg-card p-3">
-            <dt className="text-xs text-muted-foreground">{label}</dt>
-            <dd className="font-display text-2xl tabular-nums">{value}</dd>
+          <div key={label} className="flex flex-col-reverse border bg-card p-4">
+            <dt className="mt-1 text-xs text-muted-foreground">{label}</dt>
+            <dd className="font-display text-3xl font-semibold tabular-nums">{value}</dd>
           </div>
         ))}
       </dl>
 
       {summary.improvements.length > 0 && (
-        <section aria-label="Better than last time" className="rounded-2xl border bg-card p-4">
-          <h2 className="flex items-center gap-2 font-semibold">
-            <Trophy className="size-4 text-moderate" aria-hidden /> Better than last time
-          </h2>
-          <ul className="mt-2 divide-y text-sm">
+        <section aria-label="Better than last time" className="bg-panel p-6 text-panel-foreground">
+          <p className="label-eyebrow flex items-center gap-1.5 text-primary">
+            <Trophy className="size-3.5" aria-hidden /> Better than last time
+          </p>
+          <ul className="mt-3 divide-y divide-white/10 text-sm">
             {summary.improvements.map((i) => (
-              <li key={i.exercise} className="flex justify-between gap-4 py-2 last:pb-0">
+              <li key={i.exercise} className="flex justify-between gap-4 py-2.5 last:pb-0">
                 <span>{i.exercise}</span>
-                <span className="font-medium text-easy">{i.text}</span>
+                <span className="font-medium text-primary">{i.text}</span>
               </li>
             ))}
           </ul>
@@ -84,14 +87,14 @@ function Summary({ workout }: { workout: Workout }) {
       {blocks.map((b) => {
         const sets = b.sets.filter((s) => s.done);
         return (
-          <section key={b.name} aria-label={b.name} className="rounded-2xl border bg-card p-4">
-            <h2 className="font-semibold">{b.name}</h2>
+          <section key={b.name} aria-label={b.name} className="border bg-card p-5">
+            <h2 className="text-xl font-medium">{b.name}</h2>
             {sets.length === 0 ? (
               <p className="mt-1 text-sm text-muted-foreground">Not logged</p>
             ) : (
-              <ol className="mt-2 flex flex-col gap-1 text-sm">
+              <ol className="mt-3 flex flex-col divide-y text-sm">
                 {sets.map((s) => (
-                  <li key={s.setNumber} className="flex justify-between gap-4 tabular-nums">
+                  <li key={s.setNumber} className="flex justify-between gap-4 py-2 tabular-nums first:pt-0 last:pb-0">
                     <span className="text-muted-foreground">{s.setType === "warmup" ? "Warm-up" : s.setType === "drop" ? "Drop set" : s.setType === "failure" ? "To failure" : "Working"}</span>
                     <span>
                       {s.weight ? `${s.weight} ${workout.unit} × ` : ""}
@@ -108,7 +111,7 @@ function Summary({ workout }: { workout: Workout }) {
       })}
 
       {workout.effort && <p className="text-sm text-muted-foreground">Effort {workout.effort}/10.</p>}
-      <Link href="/" className="grid h-12 place-items-center rounded-xl bg-primary font-semibold text-primary-foreground">
+      <Link href="/" className="mt-2 grid h-12 place-items-center rounded-md bg-primary font-semibold text-primary-foreground">
         Back to Today
       </Link>
     </main>

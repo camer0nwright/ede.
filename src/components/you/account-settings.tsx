@@ -124,7 +124,7 @@ export function DeleteMyData() {
         <DrawerContent>
           <div className="mx-auto w-full max-w-md px-4 pb-8">
             <DrawerHeader className="px-0 text-left! md:text-left">
-              <DrawerTitle className="text-2xl font-semibold">Delete your data?</DrawerTitle>
+              <DrawerTitle className="text-[28px] leading-tight font-medium tracking-tight">Delete your data?</DrawerTitle>
               <DrawerDescription>This can&apos;t be undone.</DrawerDescription>
             </DrawerHeader>
             <p className="text-sm">ede. will permanently delete everything it holds about you:</p>

@@ -28,7 +28,7 @@ export function InjuryBetter({ area, restart, share }: { area: string; restart: 
         <DrawerContent>
           <div className="mx-auto w-full max-w-md px-4 pb-8">
             <DrawerHeader className="px-0 text-left! md:text-left">
-              <DrawerTitle className="text-2xl font-semibold">Glad your {area} is better</DrawerTitle>
+              <DrawerTitle className="text-[28px] leading-tight font-medium tracking-tight">Glad your {area} is better</DrawerTitle>
               <DrawerDescription>Your plan restarts gently {restart}.</DrawerDescription>
             </DrawerHeader>
             <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm">
