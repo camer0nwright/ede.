@@ -107,8 +107,9 @@ export default function PrivacyPage() {
         <p>ede. is for people aged {MIN_AGE} and over.</p>
       </LegalSection>
 
-      <LegalSection title="Contact">
+      <LegalSection title="Who's responsible">
         <p>
+          ede. (trainwithede.com) is responsible for your data: it decides what&apos;s kept and why, as this page describes.{" "}
           {contact ? (
             <>
               Questions or requests: <a href={`mailto:${contact}`} className="text-foreground underline underline-offset-4">{contact}</a>.
