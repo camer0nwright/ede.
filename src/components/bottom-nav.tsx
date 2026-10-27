@@ -12,8 +12,8 @@ const ITEMS = [
   { href: "/you", label: "You", icon: User },
 ] as const;
 
-/** The bar itself. `active` is null while the current page is still unknown. */
-export function NavBar({ active }: { active: string | null }) {
+/** The bar itself. `active` is null while the current page is still unknown. Visitors' Today is the demo. */
+export function NavBar({ active, todayHref = "/" }: { active: string | null; todayHref?: string }) {
   return (
     <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/85 backdrop-blur-lg pb-safe">
       <ul className="mx-auto grid max-w-md grid-cols-4">
@@ -22,7 +22,7 @@ export function NavBar({ active }: { active: string | null }) {
           return (
             <li key={href}>
               <Link
-                href={href}
+                href={href === "/" ? todayHref : href}
                 aria-current={on ? "page" : undefined}
                 className={cn(
                   "flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
@@ -41,10 +41,10 @@ export function NavBar({ active }: { active: string | null }) {
 }
 
 /** Reads the URL to highlight the current tab. Wrap in Suspense with <NavBar active={null} />. */
-export function BottomNav() {
+export function BottomNav({ todayHref = "/" }: { todayHref?: string }) {
   const pathname = usePathname();
   // Full-screen flows with their own buttons at the bottom.
   if (pathname.startsWith("/onboarding") || pathname.startsWith("/you/edit") || pathname.startsWith("/you/injury") || pathname === "/signup" || pathname === "/login" || pathname.startsWith("/workout")) return null;
-  const active = ITEMS.find(({ href }) => (href === "/" ? pathname === "/" : pathname.startsWith(href)))?.href ?? null;
-  return <NavBar active={active} />;
+  const active = ITEMS.find(({ href }) => (href === "/" ? pathname === "/" || pathname === "/demo" : pathname.startsWith(href)))?.href ?? null;
+  return <NavBar active={active} todayHref={todayHref} />;
 }

@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeftRight, Check, ChevronLeft, Loader2, MoreHorizontal, Plus, Search, Timer, Trash2, TrendingUp, X } from "lucide-react";
 import { toast } from "sonner";
-import { addExercise, discardWorkout, finishWorkout, logSet, removeExercise, swapExercise, unlogSet } from "@/app/workout/actions";
+import { addExercise, discardWorkout, finishWorkout, logSet, removeExercise, swapExercise, unlogSet } from "@/app/(app)/workout/actions";
 import { Note } from "@/components/onboarding/choices";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";

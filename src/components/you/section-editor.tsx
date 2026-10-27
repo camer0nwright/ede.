@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { updatePlanSettings } from "@/app/you/actions";
+import { updatePlanSettings } from "@/app/(app)/you/actions";
 import { Note } from "@/components/onboarding/choices";
 import { sectionProblem, SECTIONS, toAnswers, type Draft, type SectionId } from "@/components/onboarding/draft";
 import { StepExperience, StepGoal, StepStrength, StepWeek } from "@/components/onboarding/steps";

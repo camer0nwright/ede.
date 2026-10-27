@@ -153,7 +153,8 @@ async function requestDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export async function getPlanContext(): Promise<PlanContext> {
+export async function getPlanContext(opts: { demo?: boolean } = {}): Promise<PlanContext> {
+  if (opts.demo) return demoContext();
   const who = await currentAthlete();
   if (!who) return demoContext();
   // A plan nobody has claimed yet: create the account to see it.

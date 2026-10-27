@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowLeftRight, Dumbbell, Footprints, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { moveSession } from "@/app/session/actions";
+import { moveSession } from "@/app/(app)/session/actions";
 import { Note } from "@/components/onboarding/choices";
 import { Button } from "@/components/ui/button";
 import { moveTargets, type MoveMode, type MoveTarget } from "@/lib/move";
