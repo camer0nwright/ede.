@@ -11,7 +11,8 @@ export default function ForgotPasswordPage() {
     <main className="-mb-24 flex min-h-dvh flex-col gap-8 pt-6 pb-10">
       <Logo size="sm" />
       <header>
-        <h1 className="text-4xl font-medium tracking-tighter">Forgot your password?</h1>
+        <p className="label-eyebrow text-muted-foreground">Password reset</p>
+        <h1 className="mt-2 text-5xl font-medium tracking-tighter">Forgot your password?</h1>
         <p className="mt-2 text-sm text-muted-foreground">Enter the email you signed up with and ede. will send you a link to choose a new one.</p>
       </header>
       <ForgotPasswordForm />
