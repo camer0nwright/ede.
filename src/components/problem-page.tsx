@@ -4,7 +4,7 @@ import { Logo } from "@/components/logo";
 /** A calm full-page message for errors and missing pages, with a way back. */
 export function ProblemPage({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <main className="flex flex-1 flex-col gap-6 pt-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-1 flex-col gap-6 px-4 pt-6">
       <Logo size="sm" />
       <div className="rounded-2xl border bg-card p-5">
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
-import { giveHealthConsent, withdrawHealthConsent } from "@/app/you/actions";
+import { giveHealthConsent, withdrawHealthConsent } from "@/app/(app)/you/actions";
 import { Note } from "@/components/onboarding/choices";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";

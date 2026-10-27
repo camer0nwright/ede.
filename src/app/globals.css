@@ -41,6 +41,10 @@
   --panel-foreground: #fbfbf8;
   --panel-muted: #b6b8b0;
 
+  /* Front page sections: the grey stage behind the app preview, and the soft green band. */
+  --stage: #dedfd6;
+  --meadow: #dce8c7;
+
   /* Session and effort colours */
   --run: #1686d0;
   --strength: #e56b23;
@@ -88,6 +92,9 @@
   --panel-foreground: #f3f2ec;
   --panel-muted: #a5a89d;
 
+  --stage: #1d1f19;
+  --meadow: #1c2615;
+
   --run: #3c9be0;
   --strength: #e8813f;
   --rest: #7f8278;
@@ -129,6 +136,8 @@
   --color-panel: var(--panel);
   --color-panel-foreground: var(--panel-foreground);
   --color-panel-muted: var(--panel-muted);
+  --color-stage: var(--stage);
+  --color-meadow: var(--meadow);
 
   --color-run: var(--run);
   --color-strength: var(--strength);

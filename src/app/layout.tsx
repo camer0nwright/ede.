@@ -1,7 +1,5 @@
-import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Manrope } from "next/font/google";
-import { BottomNav, NavBar } from "@/components/bottom-nav";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -21,6 +19,8 @@ const manrope = Manrope({
 export const metadata: Metadata = {
   title: "ede.",
   description: "A hybrid training coach for people who lift and run.",
+  // Absolute links in shared previews.
+  metadataBase: new URL(process.env.APP_URL ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000")),
   // Added to an iPhone home screen, ede. opens full-screen with its own name.
   appleWebApp: { capable: true, title: "ede.", statusBarStyle: "default" },
 };
@@ -39,10 +39,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${dmSans.variable} ${manrope.variable} h-full`}>
       <body className="min-h-full">
-        <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-24">{children}</div>
-        <Suspense fallback={<NavBar active={null} />}>
-          <BottomNav />
-        </Suspense>
+        {children}
         <Toaster position="top-center" />
       </body>
     </html>

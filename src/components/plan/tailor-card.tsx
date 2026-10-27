@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, Sparkles } from "lucide-react";
-import { tailorNextWeek } from "@/app/session/actions";
+import { tailorNextWeek } from "@/app/(app)/session/actions";
 import { Note } from "@/components/onboarding/choices";
 import { Button } from "@/components/ui/button";
 import { safely } from "@/lib/safely";

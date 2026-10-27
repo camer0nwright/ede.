@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { logOut } from "@/app/signup/actions";
+import { logOut } from "@/app/(app)/signup/actions";
 import { DemoBanner } from "@/components/demo-banner";
 import { MedicalNotice } from "@/components/medical-notice";
 import { Note } from "@/components/onboarding/choices";

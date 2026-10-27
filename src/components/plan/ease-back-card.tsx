@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { easeBackIn, keepPlan } from "@/app/session/actions";
+import { easeBackIn, keepPlan } from "@/app/(app)/session/actions";
 import { Note } from "@/components/onboarding/choices";
 import { Button } from "@/components/ui/button";
 import { formatMinutes } from "@/lib/format";

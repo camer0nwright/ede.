@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { saveInjury } from "@/app/you/actions";
+import { saveInjury } from "@/app/(app)/you/actions";
 import { HealthConsentCheck } from "@/components/health-consent";
 import { Note } from "@/components/onboarding/choices";
 import type { Draft } from "@/components/onboarding/draft";
