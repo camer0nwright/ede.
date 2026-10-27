@@ -110,7 +110,7 @@ export function AppShell({ children, sidebar, bottomBar }: { children: React.Rea
     <>
       {!full && sidebar}
       <div className={cn(!full && "md:pl-[230px]")}>
-        <div className={cn("mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-24", !full && "md:max-w-3xl md:px-12 md:pb-16 lg:px-16")}>{children}</div>
+        <div className={cn("mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-24", !full && "md:max-w-3xl md:px-12 md:pb-16 lg:max-w-5xl lg:px-16")}>{children}</div>
       </div>
       {bottomBar}
     </>

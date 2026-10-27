@@ -13,8 +13,19 @@ import { TodaySessions, WeekDays, WeekStrip } from "@/components/plan/week-days"
 import { daysBetween } from "@/lib/dates";
 import { formatLongDate, formatMinutes, PHASE_LABEL, plural } from "@/lib/format";
 import { weekDays } from "@/lib/week-view";
+import type { Phase } from "@/lib/domain";
+import { cn } from "@/lib/utils";
 import { builtWeeks, easeBack, getPlanContext } from "@/server/athlete";
 import { tailorOffer } from "@/server/tailor";
+
+/** The week card's headline, by phase. */
+const WEEK_HEADLINE: Record<Phase, string> = {
+  base: "Building your base.",
+  build: "Building up.",
+  peak: "Your hardest weeks.",
+  recovery: "A lighter week.",
+  taper: "Easing off for race day.",
+};
 
 export type TodayQuery = Record<string, string | string[] | undefined>;
 
@@ -43,34 +54,48 @@ export async function TodayScreen({ demo = false, query = {} }: { demo?: boolean
     <main className="flex flex-col gap-6 pt-6">
       <header>
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">{formatLongDate(ctx.today)}</p>
+          <p className="label-eyebrow text-muted-foreground">{formatLongDate(ctx.today)}</p>
           <Logo size="sm" className="md:hidden" />
         </div>
-        <h1 className="mt-1 text-5xl font-medium tracking-tighter">{notStarted ? "Your first week" : "Today"}</h1>
+        <h1 className="mt-2 text-5xl font-medium tracking-tighter md:text-6xl">{notStarted ? "Your first week" : "Today"}</h1>
       </header>
 
       {query.reset && !ctx.isDemo && <Note>Password changed. Any other devices have been logged out.</Note>}
       {ctx.isDemo && <DemoBanner />}
       {ctx.injury && <InjuryBanner injury={ctx.injury} />}
-      {offer && (
-        <EaseBackCard
-          reason={offer.reason}
-          done={offer.review.doneRunMinutes}
-          planned={offer.review.plannedRunMinutes}
-          startsThisWeek={offer.start === offer.thisWeek.weekStart}
-        />
-      )}
-
-      <WeekStrip days={days} today={ctx.today} />
+      <div className={cn("grid gap-4", offer && "md:grid-cols-2")}>
+        {offer && (
+          <EaseBackCard
+            reason={offer.reason}
+            done={offer.review.doneRunMinutes}
+            planned={offer.review.plannedRunMinutes}
+            startsThisWeek={offer.start === offer.thisWeek.weekStart}
+          />
+        )}
+        <section aria-label="This week at a glance" className="border bg-card p-6">
+          <p className="label-eyebrow text-muted-foreground">
+            Week {week.weekNumber} · {PHASE_LABEL[week.phase]}
+          </p>
+          <h2 className="mt-3 text-[28px] leading-tight font-medium">{notStarted ? "Your first week." : WEEK_HEADLINE[week.phase]}</h2>
+          <p className="mt-1 text-muted-foreground">
+            {formatMinutes(runMinutes)} running · {plural(lifts, "lift")}
+          </p>
+          <div className="mt-6">
+            <WeekStrip days={days} today={ctx.today} />
+          </div>
+        </section>
+      </div>
 
       {today && today.sessions.length > 0 ? (
-        <TodaySessions day={today} options={options} />
+        <div className={cn("grid gap-4", today.sessions.length > 1 && "md:grid-cols-2")}>
+          <TodaySessions day={today} options={options} />
+        </div>
       ) : (
-        <section aria-label="Today" className="rounded-2xl border bg-card p-4">
-          <p className="text-xs font-medium text-muted-foreground">{notStarted ? "Starts Monday" : "Rest day"}</p>
-          <h2 className="mt-1 text-lg font-semibold">{notStarted ? "Your plan starts soon" : "Nothing planned today"}</h2>
+        <section aria-label="Today" className="border bg-card p-6">
+          <p className="label-eyebrow text-muted-foreground">{notStarted ? "Starts Monday" : "Rest day"}</p>
+          <h2 className="mt-3 text-[28px] leading-tight font-medium">{notStarted ? "Your plan starts soon." : "Nothing planned today."}</h2>
           {next && (
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-muted-foreground">
               {notStarted ? "First up" : "Next"}: {next.dayName} · {next.sessions[0].title} · {formatMinutes(next.sessions[0].minutes)}
             </p>
           )}
@@ -87,16 +112,16 @@ export async function TodayScreen({ demo = false, query = {} }: { demo?: boolean
 
       {tailor && <TailorCard weekNumber={tailor.weekNumber} />}
 
-      <section aria-label="This week" className="flex flex-col gap-2">
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className="font-semibold">{notStarted ? "Week 1" : "Rest of the week"}</h2>
-          <Link prefetch href={`/plan/week/${week.weekNumber}`} className="-mr-1 flex items-center text-sm font-medium text-primary-strong">
-            Week {week.weekNumber} <ChevronRight className="size-4" aria-hidden />
-          </Link>
+      <section aria-label="This week" className="mt-4 flex flex-col gap-3">
+        <div>
+          <p className="label-eyebrow text-muted-foreground">{notStarted ? `Week ${week.weekNumber}` : "Rest of the week"}</p>
+          <div className="mt-2 flex items-baseline justify-between gap-3">
+            <h2 className="text-[32px] leading-tight font-medium">What&apos;s next</h2>
+            <Link prefetch href={`/plan/week/${week.weekNumber}`} className="-mr-1 flex shrink-0 items-center text-sm font-medium text-primary-strong">
+              Full week <ChevronRight className="size-4" aria-hidden />
+            </Link>
+          </div>
         </div>
-        <p className="text-sm text-muted-foreground">
-          {PHASE_LABEL[week.phase]} · {formatMinutes(runMinutes)} running · {plural(lifts, "lift")}
-        </p>
         {next ? (
           <WeekDays days={upcoming} options={options} />
         ) : (

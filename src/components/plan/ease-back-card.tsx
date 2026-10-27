@@ -39,9 +39,10 @@ export function EaseBackCard({
   const when = startsThisWeek ? "this week" : "next week";
 
   return (
-    <section aria-label="Last week" className="rounded-2xl border bg-card p-4">
-      <h2 className="text-lg font-semibold">{reason === "time-off" ? "Welcome back" : "Last week got away from you"}</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
+    <section aria-label="Last week" className="flex flex-col bg-panel p-6 text-panel-foreground">
+      <p className="label-eyebrow text-primary">Coach update</p>
+      <h2 className="mt-3 text-[28px] leading-tight font-medium">{reason === "time-off" ? "Welcome back." : "Last week got away from you."}</h2>
+      <p className="mt-2 flex-1 text-panel-muted">
         You ran {formatMinutes(done)} of the {formatMinutes(planned)} planned last week.{" "}
         {reason === "time-off"
           ? `Easing back in carries your plan on from there, with easy running only ${when}.`
@@ -52,11 +53,11 @@ export function EaseBackCard({
           <Note tone="caution">{errors.join(" ")}</Note>
         </div>
       )}
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <Button variant="secondary" className="h-11 rounded-xl" onClick={() => run("keep")} disabled={pending}>
+      <div className="mt-6 grid grid-cols-2 gap-2">
+        <Button className="h-12 rounded-md bg-panel-foreground font-semibold text-panel hover:bg-panel-foreground/90" onClick={() => run("keep")} disabled={pending}>
           {pending && choice === "keep" ? <Loader2 className="animate-spin" /> : "Keep my plan"}
         </Button>
-        <Button className="h-11 rounded-xl font-semibold" onClick={() => run("ease")} disabled={pending}>
+        <Button className="h-12 rounded-md font-semibold" onClick={() => run("ease")} disabled={pending}>
           {pending && choice === "ease" ? <Loader2 className="animate-spin" /> : "Ease back in"}
         </Button>
       </div>
