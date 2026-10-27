@@ -20,16 +20,16 @@ export function WeekCard({ week, current, injured }: { week: WeekPlan; current?:
     <Link
       prefetch
       href={`/plan/week/${week.weekNumber}`}
-      className={cn("flex items-center gap-3 rounded-2xl border bg-card p-4 transition-colors hover:bg-accent", current && "border-primary-strong ring-1 ring-primary-strong")}
+      className={cn("flex items-center gap-4 border bg-card px-5 py-5 transition-colors hover:bg-accent", current && "border-primary-strong ring-1 ring-primary-strong")}
     >
-      <span className="w-7 shrink-0 text-center font-display text-2xl tabular-nums">{week.weekNumber}</span>
+      <span className="w-9 shrink-0 text-center font-display text-3xl font-medium tabular-nums">{week.weekNumber}</span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span className={cn("size-1.5 rounded-full", PHASE_COLOR[week.phase])} aria-hidden />
           {PHASE_LABEL[week.phase]} · {formatWeekRange(week.weekStart)}
           {current && <span className="font-medium text-primary-strong">· This week</span>}
         </span>
-        <span className="mt-0.5 block truncate font-medium">
+        <span className="mt-1 block truncate font-heading text-lg font-medium tracking-tight">
           {injured && <span className="text-hard">Injury · </span>}
           {headline.join(" · ") || (runs.length > 0 ? "Easy running" : "No running")}
         </span>

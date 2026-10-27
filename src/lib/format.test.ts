@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, formatLongDate, formatMinutes, formatDayMinutes, formatDuration, formatMinutesShort, formatWeekRange, plural } from "./format";
+import { blockHeadline, formatDate, formatLongDate, formatMinutes, formatDayMinutes, formatDuration, formatMinutesShort, formatWeekRange, plural } from "./format";
 
 describe("format", () => {
   it("writes a long date with the weekday", () => {
@@ -33,5 +33,30 @@ describe("format", () => {
   it("formats race times", () => {
     expect(formatDuration(1350)).toBe("22:30");
     expect(formatDuration(6600)).toBe("1:50:00");
+  });
+});
+
+describe("training block headline", () => {
+  const phases = ["base", "base", "base", "recovery", "build", "build", "build", "recovery"] as const;
+
+  it("names this phase and the next different one, skipping recovery weeks", () => {
+    expect(blockHeadline([...phases], 1).title).toBe("Base now. Build next.");
+    expect(blockHeadline([...phases], 3).title).toBe("Base now. Build next.");
+  });
+
+  it("uses a recovery week as next only when nothing else follows", () => {
+    expect(blockHeadline([...phases], 5).title).toBe("Build now. Recovery next.");
+    expect(blockHeadline([...phases], 4).title).toBe("Recovery now. Build next.");
+  });
+
+  it("says how the plan ends", () => {
+    expect(blockHeadline([...phases], 8).title).toBe("Recovery to the finish.");
+    expect(blockHeadline(["build", "peak", "taper"], 3).title).toBe("Taper now. Race day next.");
+  });
+
+  it("describes the current phase and copes with weeks outside the plan", () => {
+    expect(blockHeadline([...phases], 1).about).toMatch(/foundation/);
+    expect(blockHeadline([...phases], 0).title).toBe("Base now. Build next.");
+    expect(blockHeadline([...phases], 99).title).toBe("Recovery to the finish.");
   });
 });
