@@ -3,6 +3,7 @@
 // account is remembered by a device cookie and sent to sign-up. Without
 // either, the screens show the demo athlete.
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
@@ -29,7 +30,10 @@ export const ATHLETE_COOKIE = "ede_athlete";
  * Who "you" are: the signed-in athlete, or a plan made on this device that no
  * account has claimed yet. A claimed plan always needs a log-in.
  */
-export async function currentAthlete(): Promise<{ id: string; signedIn: boolean } | null> {
+// Once per request: the page, its layout and the sidebar all ask.
+export const currentAthlete = cache(loadCurrentAthlete);
+
+async function loadCurrentAthlete(): Promise<{ id: string; signedIn: boolean } | null> {
   const signedIn = await sessionAthleteId();
   if (signedIn) return { id: signedIn, signedIn: true };
   const pending = (await cookies()).get(ATHLETE_COOKIE)?.value;
@@ -153,8 +157,12 @@ async function requestDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export async function getPlanContext(opts: { demo?: boolean } = {}): Promise<PlanContext> {
-  if (opts.demo) return demoContext();
+/** The plan the screens show. Loaded once per request, however many parts of the page ask. */
+export function getPlanContext(opts: { demo?: boolean } = {}): Promise<PlanContext> {
+  return opts.demo ? Promise.resolve(demoContext()) : loadPlanContext();
+}
+
+const loadPlanContext = cache(async (): Promise<PlanContext> => {
   const who = await currentAthlete();
   if (!who) return demoContext();
   // A plan nobody has claimed yet: create the account to see it.
@@ -236,7 +244,7 @@ export async function getPlanContext(opts: { demo?: boolean } = {}): Promise<Pla
       },
     }),
   };
-}
+});
 
 /** The current athlete's saved settings, for editing a section in the You section. Null for the demo. */
 export async function getSavedAthlete(): Promise<{ id: string; saved: SavedAthlete } | null> {

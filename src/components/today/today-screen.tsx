@@ -44,7 +44,7 @@ export async function TodayScreen({ demo = false, query = {} }: { demo?: boolean
       <header>
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">{formatLongDate(ctx.today)}</p>
-          <Logo size="sm" />
+          <Logo size="sm" className="md:hidden" />
         </div>
         <h1 className="mt-1 text-5xl font-medium tracking-tighter">{notStarted ? "Your first week" : "Today"}</h1>
       </header>
