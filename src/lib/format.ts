@@ -91,3 +91,24 @@ export const INTENSITY_COLOR: Record<Intensity, string> = {
   moderate: "text-moderate",
   hard: "text-hard",
 };
+
+const PHASE_ABOUT: Record<Phase, string> = {
+  base: "A steady foundation before the intensity climbs.",
+  build: "Harder sessions and longer runs, with lighter weeks to absorb them.",
+  peak: "Your hardest training, building towards your best.",
+  recovery: "A lighter week so the work sinks in.",
+  taper: "Less volume, same sharpness, so you arrive fresh.",
+};
+
+/**
+ * The plan's training-block headline (SPEC decision 66): this phase and the
+ * next different one ("Base now. Build next."), or how it ends, plus a line
+ * about the current phase.
+ */
+export function blockHeadline(phases: Phase[], currentWeek: number): { title: string; about: string } {
+  const index = Math.min(Math.max(currentWeek, 1), phases.length) - 1;
+  const now = phases[index];
+  const next = phases.slice(index + 1).find((p) => p !== now && p !== "recovery") ?? phases.slice(index + 1).find((p) => p !== now);
+  const title = next ? `${PHASE_LABEL[now]} now. ${PHASE_LABEL[next]} next.` : now === "taper" ? "Taper now. Race day next." : `${PHASE_LABEL[now]} to the finish.`;
+  return { title, about: PHASE_ABOUT[now] };
+}

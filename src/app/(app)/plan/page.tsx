@@ -8,7 +8,7 @@ import { WeekCard } from "@/components/plan/week-card";
 import { MedicalNotice } from "@/components/medical-notice";
 import { daysBetween } from "@/lib/dates";
 import { builtWeeks, getPlanContext } from "@/server/athlete";
-import { formatDate, plural } from "@/lib/format";
+import { blockHeadline, formatDate, plural } from "@/lib/format";
 
 export const metadata = { title: "Plan · ede." };
 
@@ -25,29 +25,35 @@ async function Plan() {
   const { weeks, notes } = ctx.outline;
   const currentWeek = Math.max(1, Math.floor(daysBetween(ctx.input.startDate, ctx.today) / 7) + 1);
   const weeksToGo = weeks.length - currentWeek;
+  const block = blockHeadline(
+    weeks.map((w) => w.phase),
+    currentWeek,
+  );
 
   return (
     <main className="flex flex-col gap-6 pt-6">
       <header>
-        <p className="text-sm text-muted-foreground">
+        <p className="label-eyebrow text-muted-foreground">
           {ctx.input.targetDate ? `Race day ${formatDate(ctx.input.targetDate)}` : `${weeks.length}-week block`} · {ctx.goal}
         </p>
-        <h1 className="mt-1 text-4xl font-medium tracking-tighter">{ctx.title}</h1>
+        <h1 className="mt-2 text-5xl font-medium tracking-tighter md:text-6xl">{ctx.title}</h1>
       </header>
 
       {ctx.isDemo && <DemoBanner />}
       {ctx.injury && <InjuryBanner injury={ctx.injury} />}
 
-      <section aria-label="Plan overview" className="flex flex-col gap-3">
-        <p className="flex items-baseline justify-between text-sm">
-          <span>
-            Week <span className="font-display text-xl tabular-nums">{currentWeek}</span> of {weeks.length}
-          </span>
-          <span className="text-muted-foreground">
-            {ctx.input.targetDate ? `${plural(weeksToGo, "week")} to go` : `Started ${formatDate(ctx.input.startDate)}`}
-          </span>
-        </p>
-        <PhaseStrip weeks={weeks} currentWeek={currentWeek} />
+      <section aria-label="Plan overview" className="border border-transparent bg-meadow p-6">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="label-eyebrow text-muted-foreground">Training block</p>
+          <p className="text-xs text-muted-foreground">
+            Week {currentWeek} of {weeks.length} · {ctx.input.targetDate ? `${plural(weeksToGo, "week")} to go` : `started ${formatDate(ctx.input.startDate)}`}
+          </p>
+        </div>
+        <h2 className="mt-3 text-[28px] leading-tight font-medium">{block.title}</h2>
+        <p className="mt-1 text-muted-foreground">{block.about}</p>
+        <div className="mt-6">
+          <PhaseStrip weeks={weeks} currentWeek={currentWeek} ringOffset="ring-offset-meadow" />
+        </div>
       </section>
 
       {notes.length > 0 && (
@@ -61,8 +67,11 @@ async function Plan() {
         </ul>
       )}
 
-      <section aria-label="Weeks" className="flex flex-col gap-2">
-        <h2 className="font-semibold">All weeks</h2>
+      <section aria-label="Weeks" className="mt-4 flex flex-col gap-3">
+        <div>
+          <p className="label-eyebrow text-muted-foreground">Your block</p>
+          <h2 className="mt-2 text-[32px] leading-tight font-medium">All weeks</h2>
+        </div>
         {builtWeeks(ctx).map(({ week, injured }) => (
           <WeekCard key={week.weekNumber} week={week} injured={injured} current={week.weekNumber === currentWeek} />
         ))}
