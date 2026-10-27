@@ -15,8 +15,8 @@ const compact = (n: number) => (n >= 1000 ? `${Number((n / 1000).toFixed(1))}k` 
 
 function Card({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <section aria-label={title} className="rounded-2xl border bg-card p-4">
-      <h2 className="flex items-center gap-2 font-semibold">
+    <section aria-label={title} className="border bg-card p-6">
+      <h2 className="flex items-center gap-2 font-heading text-xl font-medium tracking-tight">
         {icon} {title}
       </h2>
       <div className="mt-2">{children}</div>
