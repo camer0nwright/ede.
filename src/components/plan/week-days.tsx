@@ -187,7 +187,7 @@ function SheetHeader({ kicker, title, minutes }: { kicker: string; title: string
     <DrawerHeader className="px-0 text-left! md:text-left">
       <p className="text-xs text-muted-foreground">{kicker}</p>
       <div className="flex items-baseline justify-between gap-3">
-        <DrawerTitle className="text-2xl font-semibold">{title}</DrawerTitle>
+        <DrawerTitle className="text-[28px] leading-tight font-medium tracking-tight">{title}</DrawerTitle>
         <span className="shrink-0 font-display text-2xl tabular-nums">
           {minutes}
           <span className="text-sm"> min</span>

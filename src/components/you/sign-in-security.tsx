@@ -71,7 +71,7 @@ export function SignInSecurity({ otherDevices }: { otherDevices: number }) {
         <DrawerContent>
           <form onSubmit={submit} className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-8">
             <DrawerHeader className="px-0 text-left! md:text-left">
-              <DrawerTitle className="text-2xl font-semibold">Change password</DrawerTitle>
+              <DrawerTitle className="text-[28px] leading-tight font-medium tracking-tight">Change password</DrawerTitle>
               <DrawerDescription>Other devices are logged out, so only you can get in with the new one.</DrawerDescription>
             </DrawerHeader>
             <label className="text-sm font-medium">
