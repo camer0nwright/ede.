@@ -67,6 +67,10 @@ export default function PrivacyPage() {
             <strong>Hosting:</strong> ede.&apos;s servers (Vercel) and database (Turso) are run by companies that store data for us and can&apos;t use it for anything else.
           </li>
           <li>
+            <strong>Error reports:</strong> when something breaks, a report goes to Sentry so it can be fixed: what went wrong, the page and your browser. Never your
+            name, email, password, cookies or anything you typed into a form.
+          </li>
+          <li>
             <strong>Email:</strong> password reset emails are sent through Resend, which sees your email address and the email itself, only to deliver it.
           </li>
           <li>

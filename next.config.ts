@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -53,4 +54,16 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Error reports (SPEC decision 71). Reports go through ede.'s own /monitoring
+// route, so the security policy stays as it is and ad blockers don't drop
+// them. With SENTRY_AUTH_TOKEN set (Vercel only), builds upload source maps so
+// reports show the real code.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  tunnelRoute: "/monitoring",
+  widenClientFileUpload: true,
+  telemetry: false,
+});
