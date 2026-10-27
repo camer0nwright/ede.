@@ -92,11 +92,16 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
 
   return (
     <main className="flex flex-col gap-4 pt-6">
-      <header>
-        <p className="text-sm text-muted-foreground">
-          {ctx.title} · {ctx.goal}
-        </p>
-        <h1 className="mt-1 text-4xl font-medium tracking-tighter">{ctx.name}</h1>
+      <header className="flex items-end justify-between gap-4">
+        <div className="min-w-0">
+          <p className="label-eyebrow text-muted-foreground">
+            {ctx.title} · {ctx.goal}
+          </p>
+          <h1 className="mt-2 truncate text-5xl font-medium tracking-tighter md:text-6xl">{ctx.name}</h1>
+        </div>
+        <span className="grid size-14 shrink-0 place-items-center rounded-full bg-primary font-heading text-xl font-semibold text-primary-foreground" aria-hidden>
+          {ctx.name.trim().charAt(0).toUpperCase() || "e"}
+        </span>
       </header>
 
       {ctx.isDemo && <DemoBanner />}
@@ -109,10 +114,10 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
       )}
       {typeof query.injury === "string" && INJURY_NOTES[query.injury] && <Note>{INJURY_NOTES[query.injury]}</Note>}
 
-      <section aria-label="Plan progress" className="rounded-2xl border bg-card p-4">
-        <div className="flex items-baseline justify-between">
-          <h2 className="font-semibold">Progress</h2>
-          <span className="text-sm text-muted-foreground">
+      <section aria-label="Plan progress" className="bg-panel p-6 text-panel-foreground">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="label-eyebrow text-primary">Your progress</p>
+          <span className="text-xs text-panel-muted">
             {weeksToRace !== null && weeksToRace >= 0
               ? weeksToRace === 0
                 ? "Race week"
@@ -120,19 +125,19 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
               : `${plural(total, "week")} planned`}
           </span>
         </div>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
+        <h2 className="mt-3 text-[28px] leading-tight font-medium">
+          {index < 0 ? `Starts ${formatDate(input.startDate)}` : `Week ${Math.min(index + 1, total)} of ${total}`}
+        </h2>
+        <div className="mt-4 h-1 overflow-hidden bg-white/15" aria-hidden>
           <div
-            className="h-full rounded-full bg-primary"
+            className="h-full bg-primary"
             style={{
               width: `${(Math.min(Math.max(index + 1, 0), total) / total) * 100}%`,
             }}
           />
         </div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {index < 0
-            ? `Starts ${formatDate(input.startDate)}`
-            : `Week ${Math.min(index + 1, total)} of ${total} · ${PHASE_LABEL[current.phase]} phase`}
-          .
+        <p className="mt-3 text-sm text-panel-muted">
+          {index < 0 ? `${total}-week plan` : `${PHASE_LABEL[current.phase]} phase`}.
           {progress.due > 0 && (
             <>
               {" "}
@@ -141,15 +146,15 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
           )}
         </p>
         {!ctx.isDemo && (
-          <Link href="/you/history" className="mt-3 flex items-center justify-between border-t pt-3 text-sm font-medium">
-            History and records <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+          <Link href="/you/history" className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-primary">
+            History and records <ChevronRight className="size-4" aria-hidden />
           </Link>
         )}
       </section>
 
       {!ctx.isDemo && (
-        <section aria-label="Injuries" className={injury ? "rounded-2xl border border-hard/30 bg-hard/10 p-4" : "rounded-2xl border bg-card p-4"}>
-          <h2 className="font-semibold">Injuries</h2>
+        <section aria-label="Injuries" className={injury ? "border border-hard/30 bg-hard/10 p-6" : "border bg-card p-6"}>
+          <h2 className="font-heading text-xl font-medium tracking-tight">Injuries</h2>
           {injury ? (
             <div className="mt-2">
               <p className="font-medium capitalize">
@@ -201,6 +206,7 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
         </section>
       )}
 
+      <div className="grid gap-4 lg:grid-cols-2">
       {sections.map(({ id, rows }) => (
         <Section key={id} id={id} editable={!ctx.isDemo}>
           <dl className="divide-y">
@@ -217,7 +223,7 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
       <Section id="week" editable={!ctx.isDemo}>
         <ul className="grid grid-cols-7 gap-1.5 text-center">
           {input.availability.map((d, i) => (
-            <li key={DAY_NAMES[i]} className={`rounded-xl py-2 ${d.minutes === null ? "bg-secondary/50" : "bg-secondary"}`}>
+            <li key={DAY_NAMES[i]} className={`py-2 ${d.minutes === null ? "bg-secondary/50" : "bg-secondary"}`}>
               <span className="block text-[11px] text-muted-foreground">{DAY_NAMES[i].slice(0, 3)}</span>
               <span className={`mt-1 block text-sm tabular-nums ${d.minutes === null ? "text-muted-foreground" : "font-medium"}`}>
                 {d.minutes === null ? "Rest" : formatDayMinutes(d.minutes, ultra)}
@@ -233,8 +239,8 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
       </Section>
 
       {saved && (
-        <section aria-label="Settings" className="rounded-2xl border bg-card p-4">
-          <h2 className="mb-3 font-semibold">Settings</h2>
+        <section aria-label="Settings" className="border bg-card p-6">
+          <h2 className="mb-3 font-heading text-xl font-medium tracking-tight">Settings</h2>
           <AccountSettings
             initial={{ name: saved.name ?? "", weightUnit: saved.weightUnit === "lb" ? "lb" : "kg", distanceUnit: saved.distanceUnit === "mi" ? "mi" : "km" }}
           />
@@ -248,8 +254,10 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
         />
       )}
 
-      <section aria-label="Account" className="rounded-2xl border bg-card p-4">
-        <h2 className="font-semibold">Account</h2>
+      </div>
+
+      <section aria-label="Account" className="border bg-card p-6">
+        <h2 className="font-heading text-xl font-medium tracking-tight">Account</h2>
         {ctx.isDemo ? (
           <div className="mt-3 divide-y border-t">
             <Link href="/onboarding" className="flex items-center justify-between py-3 text-sm font-medium">
@@ -298,9 +306,9 @@ function RowLink({ href, children }: { href: string; children: React.ReactNode }
 
 function Section({ id, editable, children }: { id: SectionId; editable: boolean; children: React.ReactNode }) {
   return (
-    <section aria-label={SECTIONS[id].title} className="rounded-2xl border bg-card p-4">
+    <section aria-label={SECTIONS[id].title} className="border bg-card p-6">
       <div className="mb-3 flex items-baseline justify-between">
-        <h2 className="font-semibold">{SECTIONS[id].title}</h2>
+        <h2 className="font-heading text-xl font-medium tracking-tight">{SECTIONS[id].title}</h2>
         {editable && (
           <Link href={`/you/edit/${id}`} className="-mr-1 flex items-center text-sm font-medium text-primary-strong">
             Edit <ChevronRight className="size-4" aria-hidden />
