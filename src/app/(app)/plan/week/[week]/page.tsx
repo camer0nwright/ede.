@@ -74,21 +74,21 @@ async function WeekContent({ params }: { params: PageProps<"/plan/week/[week]">[
       </nav>
 
       <header>
-        <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <p className="label-eyebrow flex items-center gap-1.5 text-muted-foreground">
           <span className={cn("size-2 rounded-full", PHASE_COLOR[week.phase])} aria-hidden />
           {PHASE_LABEL[week.phase]} · {formatWeekRange(week.weekStart)}
         </p>
-        <h1 className="mt-1 text-4xl font-medium tracking-tighter">Week {week.weekNumber}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{PHASE_NOTE[week.phase]}</p>
+        <h1 className="mt-2 text-5xl font-medium tracking-tighter">Week {week.weekNumber}</h1>
+        <p className="mt-2 text-muted-foreground">{PHASE_NOTE[week.phase]}</p>
       </header>
 
       {(summary || built.coachNote) && (
-        <section aria-label="From your coach" className={cn("rounded-2xl px-4 py-3 text-sm", injured ? "bg-hard/10" : "border bg-card")}>
-          <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-            <Sparkles className="size-3.5 text-primary-strong" aria-hidden /> From your coach
+        <section aria-label="From your coach" className={cn("p-6", injured ? "border border-hard/30 bg-hard/10" : "bg-panel text-panel-foreground")}>
+          <p className={cn("label-eyebrow flex items-center gap-1.5", injured ? "text-hard" : "text-primary")}>
+            <Sparkles className="size-3.5" aria-hidden /> From your coach
           </p>
-          {built.coachNote && <p className="mt-1">{built.coachNote}</p>}
-          {summary && <p className="mt-1 text-muted-foreground">{summary}</p>}
+          {built.coachNote && <p className="mt-3 font-heading text-xl leading-snug font-medium tracking-tight">{built.coachNote}</p>}
+          {summary && <p className={cn("mt-2 text-sm", injured ? "text-muted-foreground" : "text-panel-muted")}>{summary}</p>}
         </section>
       )}
 
@@ -98,15 +98,21 @@ async function WeekContent({ params }: { params: PageProps<"/plan/week/[week]">[
           ["Runs", String(runs.length)],
           ["Lifts", String(built.sessions.length - runs.length)],
         ].map(([label, value]) => (
-          <div key={label} className="flex flex-col-reverse rounded-2xl border bg-card p-3">
-            <dt className="text-xs text-muted-foreground">{label}</dt>
-            <dd className="font-display text-2xl tabular-nums">{value}</dd>
+          <div key={label} className="flex flex-col-reverse border bg-card p-4">
+            <dt className="mt-1 text-xs text-muted-foreground">{label}</dt>
+            <dd className="font-display text-3xl font-semibold tabular-nums">{value}</dd>
           </div>
         ))}
       </dl>
 
-      <section aria-label="Sessions by day" className="flex flex-col gap-4">
-        <WeekStrip days={days} today={ctx.today} />
+      <section aria-label="Sessions by day" className="mt-2 flex flex-col gap-4">
+        <div>
+          <p className="label-eyebrow text-muted-foreground">Day by day</p>
+          <h2 className="mt-2 text-[32px] leading-tight font-medium">Sessions</h2>
+        </div>
+        <div className="border bg-card p-5">
+          <WeekStrip days={days} today={ctx.today} />
+        </div>
         <WeekDays days={days} options={{ canCheckIn: !ctx.isDemo, today: ctx.today, unit: ctx.paces.unit, week: days }} showRest />
       </section>
     </>

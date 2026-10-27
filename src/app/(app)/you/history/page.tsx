@@ -35,7 +35,7 @@ async function History() {
     return (
       <main className="flex flex-col gap-6 pt-6">
         {back}
-        <h1 className="text-4xl font-medium tracking-tighter">History</h1>
+        <h1 className="text-5xl font-medium tracking-tighter">History</h1>
         <p className="text-sm text-muted-foreground">Set up your own plan and check in sessions to see your history and records here.</p>
       </main>
     );
@@ -62,26 +62,27 @@ async function History() {
     <main className="flex flex-col gap-4 pt-6">
       {back}
       <header>
-        <h1 className="text-4xl font-medium tracking-tighter">History</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Everything you&apos;ve checked in, and your best so far.</p>
+        <p className="label-eyebrow text-muted-foreground">Your training so far</p>
+        <h1 className="mt-2 text-5xl font-medium tracking-tighter">History</h1>
+        <p className="mt-2 text-muted-foreground">Everything you&apos;ve checked in, and your best so far.</p>
       </header>
 
       {done === 0 ? (
-        <p className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">
+        <p className="border bg-card p-6 text-sm text-muted-foreground">
           Nothing checked in yet. Mark sessions done (or log a workout) and your history and records build up here.
         </p>
       ) : (
         <>
-          <dl className="grid grid-cols-2 gap-2">
+          <dl className="grid grid-cols-2 gap-2 md:grid-cols-4">
             {[
               ["Sessions done", String(done)],
               ["Running", formatMinutes(runMinutes) + (distance > 0 ? ` · ${formatDistance(distance, unit)}` : "")],
               [`Lifted (${ctx.weightUnit})`, liftedKg > 0 ? bigNumber(Number(formatWeight(liftedKg, ctx.weightUnit))) : "–"],
               ["Week streak", streak > 0 ? plural(streak, "week") : "–"],
             ].map(([label, value]) => (
-              <div key={label} className="flex flex-col-reverse rounded-2xl border bg-card p-3">
-                <dt className="text-xs text-muted-foreground">{label}</dt>
-                <dd className="font-display text-xl tabular-nums">{value}</dd>
+              <div key={label} className="flex flex-col-reverse border bg-card p-4">
+                <dt className="mt-1 text-xs text-muted-foreground">{label}</dt>
+                <dd className="font-display text-2xl font-semibold tabular-nums">{value}</dd>
               </div>
             ))}
           </dl>
@@ -95,8 +96,8 @@ async function History() {
       )}
 
       {lifts.length > 0 && (
-        <section aria-label="Lifting records" className="rounded-2xl border bg-card p-4">
-          <h2 className="flex items-center gap-2 font-semibold">
+        <section aria-label="Lifting records" className="border bg-card p-6">
+          <h2 className="flex items-center gap-2 font-heading text-xl font-medium tracking-tight">
             <Trophy className="size-4 text-moderate" aria-hidden /> Lifting records
           </h2>
           <ul className="mt-2 divide-y text-sm">
@@ -110,7 +111,7 @@ async function History() {
                       {r.e1rmKg && ` · est. max ${formatWeight(r.e1rmKg, ctx.weightUnit)} ${ctx.weightUnit}`}
                     </span>
                   </span>
-                  <span className="shrink-0 font-display text-lg tabular-nums">
+                  <span className="shrink-0 font-display text-xl font-semibold tabular-nums">
                     {r.best.weightKg ? `${formatWeight(r.best.weightKg, ctx.weightUnit)} × ${r.best.reps}` : `${r.best.reps} reps`}
                   </span>
                 </Link>
@@ -121,8 +122,8 @@ async function History() {
       )}
 
       {runBests && (
-        <section aria-label="Running records" className="rounded-2xl border bg-card p-4">
-          <h2 className="flex items-center gap-2 font-semibold">
+        <section aria-label="Running records" className="border bg-card p-6">
+          <h2 className="flex items-center gap-2 font-heading text-xl font-medium tracking-tight">
             <Trophy className="size-4 text-moderate" aria-hidden /> Running records
           </h2>
           <dl className="mt-2 divide-y text-sm">
@@ -138,7 +139,7 @@ async function History() {
                   <span className="block font-medium">{label}</span>
                   <span className="block text-xs text-muted-foreground">{formatDate(date)}</span>
                 </dt>
-                <dd className="font-display text-lg tabular-nums">{value}</dd>
+                <dd className="font-display text-xl font-semibold tabular-nums">{value}</dd>
               </div>
             ))}
           </dl>
@@ -147,8 +148,8 @@ async function History() {
       )}
 
       {weeks.length > 0 && (
-        <section aria-label="Week by week" className="rounded-2xl border bg-card p-4">
-          <h2 className="font-semibold">Week by week</h2>
+        <section aria-label="Week by week" className="border bg-card p-6">
+          <h2 className="font-heading text-xl font-medium tracking-tight">Week by week</h2>
           <ul className="mt-2 divide-y">
             {weeks.map((w) => (
               <li key={w.weekStart}>
@@ -177,8 +178,8 @@ async function History() {
       )}
 
       {recent.length > 0 && (
-        <section aria-label="Recent sessions" className="rounded-2xl border bg-card p-4">
-          <h2 className="font-semibold">Recent sessions</h2>
+        <section aria-label="Recent sessions" className="border bg-card p-6">
+          <h2 className="font-heading text-xl font-medium tracking-tight">Recent sessions</h2>
           <ul className="mt-2 divide-y text-sm">
             {recent.map((s) => {
               const row = (
