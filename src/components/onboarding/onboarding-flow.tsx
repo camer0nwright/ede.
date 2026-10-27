@@ -48,8 +48,8 @@ export function OnboardingFlow() {
           <button type="button" onClick={back} className="-ml-2 grid size-11 place-items-center rounded-full hover:bg-accent" aria-label="Back">
             <ArrowLeft className="size-5" />
           </button>
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={1} aria-valuemax={STEPS.length - 1} aria-valuenow={stepIndex}>
-            <div className="h-full rounded-full bg-foreground transition-all duration-300" style={{ width: `${(stepIndex / (STEPS.length - 1)) * 100}%` }} />
+          <div className="h-1 flex-1 overflow-hidden bg-border" role="progressbar" aria-valuemin={1} aria-valuemax={STEPS.length - 1} aria-valuenow={stepIndex}>
+            <div className="h-full bg-foreground transition-all duration-300" style={{ width: `${(stepIndex / (STEPS.length - 1)) * 100}%` }} />
           </div>
           <span className="w-10 text-right text-xs text-muted-foreground">
             {stepIndex}/{STEPS.length - 1}
@@ -61,7 +61,8 @@ export function OnboardingFlow() {
         {step === "welcome" && (
           <div className="flex flex-1 flex-col justify-center gap-6">
             <Logo />
-            <h1 className="text-5xl font-medium tracking-tighter">Run and lift, as one plan</h1>
+            <p className="label-eyebrow text-muted-foreground">Your hybrid training coach</p>
+            <h1 className="text-6xl leading-[0.95] font-medium tracking-tighter">Run and lift, as one plan.</h1>
             <p className="text-lg text-muted-foreground">
               ede. builds your weekly running and lifting together, so they help each other instead of clashing. It
               adapts as your weeks go.

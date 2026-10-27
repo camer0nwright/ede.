@@ -29,8 +29,8 @@ async function SignUp() {
       {athlete ? (
         <>
           <header>
-            <p className="text-sm text-muted-foreground">Your plan is ready</p>
-            <h1 className="mt-1 text-4xl font-medium tracking-tighter">{athlete.name ? `Save it, ${athlete.name}` : "Save your plan"}</h1>
+            <p className="label-eyebrow text-primary-strong">Your plan is ready</p>
+            <h1 className="mt-2 text-5xl font-medium tracking-tighter">{athlete.name ? `Save it, ${athlete.name}` : "Save your plan"}</h1>
             <p className="mt-2 text-sm text-muted-foreground">Create your account to see your plan and log in on any device.</p>
           </header>
           <AuthForm mode="signup" />
@@ -51,7 +51,8 @@ async function SignUp() {
       ) : (
         <>
           <header>
-            <h1 className="text-4xl font-medium tracking-tighter">Set up your plan first</h1>
+            <p className="label-eyebrow text-muted-foreground">Create your account</p>
+            <h1 className="mt-2 text-5xl font-medium tracking-tighter">Set up your plan first</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Answer a few questions about your training, then create your account to save the plan.
             </p>

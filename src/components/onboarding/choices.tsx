@@ -21,7 +21,7 @@ export function Chip({
       aria-pressed={selected}
       onClick={onClick}
       className={cn(
-        "min-h-11 rounded-full border px-4 text-sm font-medium transition-colors active:scale-[0.97]",
+        "min-h-11 rounded-md border px-4 text-sm font-medium transition-colors active:scale-[0.97]",
         selected ? "border-foreground bg-foreground text-background" : "bg-card hover:bg-accent",
         className,
       )}
@@ -51,7 +51,7 @@ export function OptionCard({
       aria-pressed={selected}
       onClick={onClick}
       className={cn(
-        "flex w-full items-start gap-3 rounded-xl border bg-card p-4 text-left transition-colors active:scale-[0.99]",
+        "flex w-full items-start gap-4 border bg-card p-5 text-left transition-colors active:scale-[0.99]",
         selected ? "border-foreground ring-1 ring-foreground" : "hover:bg-accent",
       )}
     >
@@ -65,9 +65,9 @@ export function OptionCard({
         {selected && <Check className="size-3.5" strokeWidth={3} />}
       </span>
       <span className="flex-1">
-        <span className="flex items-center gap-2 font-medium">
+        <span className="flex items-center gap-2 font-heading text-lg font-medium tracking-tight">
           {title}
-          {badge && <span className="text-xs font-medium text-primary-strong">{badge}</span>}
+          {badge && <span className="label-eyebrow font-sans text-primary-strong">{badge}</span>}
         </span>
         {description && <span className="mt-1 block text-sm text-muted-foreground">{description}</span>}
       </span>
@@ -79,7 +79,7 @@ export function OptionCard({
 export function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <fieldset className="flex flex-col gap-2.5">
-      <legend className="mb-2.5 text-sm font-medium">{label}</legend>
+      <legend className="mb-2.5 font-heading text-lg font-medium tracking-tight">{label}</legend>
       {hint && <p className="-mt-1.5 text-sm text-muted-foreground">{hint}</p>}
       {children}
     </fieldset>
