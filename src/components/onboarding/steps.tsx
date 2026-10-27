@@ -322,7 +322,7 @@ export function StepYou({ draft, update }: StepProps) {
 export function Heading({ title, sub }: { title: string; sub?: string }) {
   return (
     <div>
-      <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+      <h1 className="text-4xl font-medium tracking-tighter">{title}</h1>
       {sub && <p className="mt-2 text-sm text-muted-foreground">{sub}</p>}
     </div>
   );

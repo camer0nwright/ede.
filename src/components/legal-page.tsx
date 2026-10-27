@@ -9,7 +9,7 @@ export function LegalPage({ title, updated, intro, children }: { title: string; 
         <ChevronLeft className="size-4" aria-hidden /> You
       </Link>
       <header>
-        <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="text-4xl font-medium tracking-tighter">{title}</h1>
         <p className="mt-1 text-xs text-muted-foreground">Last updated {updated}</p>
         <div className="mt-3 text-sm text-muted-foreground">{intro}</div>
       </header>

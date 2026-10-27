@@ -1,20 +1,21 @@
 import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
-import { Barlow_Condensed, Geist } from "next/font/google";
+import { DM_Sans, Manrope } from "next/font/google";
 import { BottomNav, NavBar } from "@/components/bottom-nav";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Body text.
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
   subsets: ["latin"],
 });
 
-// Condensed display face for headings and big numbers.
-const display = Barlow_Condensed({
-  variable: "--font-display",
+// Headings, numbers and display text.
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
-  weight: ["600", "700"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -29,14 +30,14 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#0b0c0e" },
-    { media: "(prefers-color-scheme: light)", color: "#f7f7f5" },
+    { media: "(prefers-color-scheme: dark)", color: "#121410" },
+    { media: "(prefers-color-scheme: light)", color: "#f3f2ec" },
   ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${display.variable} h-full`}>
+    <html lang="en" className={`${dmSans.variable} ${manrope.variable} h-full`}>
       <body className="min-h-full">
         <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-24">{children}</div>
         <Suspense fallback={<NavBar active={null} />}>

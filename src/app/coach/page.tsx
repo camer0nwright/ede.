@@ -15,7 +15,7 @@ export default function CoachPage() {
     <main className="flex flex-col gap-6 pt-6">
       <header>
         <p className="text-sm text-muted-foreground">Coming soon</p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight">Coach</h1>
+        <h1 className="mt-1 text-4xl font-medium tracking-tighter">Coach</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Ask about your plan, your sessions or how you feel. Your coach knows your plan, check-ins and lifts, and can
           suggest changes for you to approve.

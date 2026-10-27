@@ -96,7 +96,7 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
         <p className="text-sm text-muted-foreground">
           {ctx.title} · {ctx.goal}
         </p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight">{ctx.name}</h1>
+        <h1 className="mt-1 text-4xl font-medium tracking-tighter">{ctx.name}</h1>
       </header>
 
       {ctx.isDemo && <DemoBanner />}

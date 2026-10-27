@@ -28,7 +28,7 @@ async function Reset({ searchParams }: { searchParams: PageProps<"/reset-passwor
     return (
       <>
         <header>
-          <h1 className="text-3xl font-semibold tracking-tight">Link not working</h1>
+          <h1 className="text-4xl font-medium tracking-tighter">Link not working</h1>
           <p className="mt-2 text-sm text-muted-foreground">{problem ?? "That reset link isn't valid. Ask for a new one."}</p>
         </header>
         <Link href="/forgot-password" className="grid h-12 place-items-center rounded-xl bg-primary font-semibold text-primary-foreground">
@@ -41,7 +41,7 @@ async function Reset({ searchParams }: { searchParams: PageProps<"/reset-passwor
   return (
     <>
       <header>
-        <h1 className="text-3xl font-semibold tracking-tight">Choose a new password</h1>
+        <h1 className="text-4xl font-medium tracking-tighter">Choose a new password</h1>
         <p className="mt-2 text-sm text-muted-foreground">For {row.athlete.email}.</p>
       </header>
       <NewPasswordForm token={value} />
