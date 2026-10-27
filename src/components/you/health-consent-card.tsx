@@ -34,8 +34,8 @@ export function HealthConsentCard({ consentedOn, hasHealthData }: { consentedOn?
     });
 
   return (
-    <section aria-label="Injury details" className="rounded-2xl border bg-card p-4">
-      <h2 className="flex items-center gap-2 font-semibold">
+    <section aria-label="Injury details" className="border bg-card p-6">
+      <h2 className="flex items-center gap-2 font-heading text-xl font-medium tracking-tight">
         <ShieldCheck className="size-4 text-muted-foreground" aria-hidden /> Injury details
       </h2>
       {consentedOn ? (
