@@ -105,32 +105,32 @@ export function TodaySessions({ day, options }: { day: DayView; options: CheckIn
   return (
     <>
       {day.sessions.map((s) => (
-        <article key={s.id} className="rounded-2xl border bg-card p-4">
-          <p className={cn("flex items-center gap-1.5 text-xs font-medium", s.type === "run" ? "text-run" : "text-strength")}>
+        <article key={s.id} className="flex flex-col border bg-card p-6">
+          <p className={cn("label-eyebrow flex items-center gap-1.5", s.type === "run" ? "text-run" : "text-strength")}>
             <SessionIcon type={s.type} className="size-3.5" />
             {s.type === "run" ? `Run · ${INTENSITY_LABEL[s.intensity]}` : "Gym"}
           </p>
-          <div className="mt-1 flex items-baseline justify-between gap-3">
-            <h2 className="text-lg leading-snug font-semibold">{s.title}</h2>
-            <span className="shrink-0 font-display text-2xl tabular-nums">
+          <div className="mt-3 flex items-baseline justify-between gap-3">
+            <h2 className="text-[28px] leading-tight font-medium">{s.title}</h2>
+            <span className="shrink-0 font-display text-4xl font-semibold tabular-nums">
               {s.minutes}
-              <span className="text-sm"> min</span>
+              <span className="text-sm font-medium"> min</span>
             </span>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 flex-1 text-muted-foreground">
             {s.type === "run" ? s.purpose : s.exercises.map((e) => e.name).join(", ")}
           </p>
           {s.type === "run" && <EffortBar steps={s.steps} className="mt-3" />}
           {s.checkIn ? (
-            <button type="button" onClick={() => show(s, day)} className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border font-medium hover:bg-accent">
+            <button type="button" onClick={() => show(s, day)} className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-md border font-medium hover:bg-accent">
               {s.checkIn.status === "completed" && <Check className="size-4 text-easy" aria-hidden />}
               {checkInSummary(s.checkIn, options.unit)}
             </button>
           ) : (
             s.type === "strength" && options.canCheckIn ? (
-              <WorkoutButton session={s} className="mt-4 h-11" />
+              <WorkoutButton session={s} className="mt-5 h-12" />
             ) : (
-              <button type="button" onClick={() => show(s, day)} className="mt-4 h-11 w-full rounded-xl bg-primary font-semibold text-primary-foreground active:scale-[0.99]">
+              <button type="button" onClick={() => show(s, day)} className="mt-5 h-12 w-full rounded-md bg-primary font-semibold text-primary-foreground active:scale-[0.99]">
                 Start session
               </button>
             )
@@ -160,8 +160,8 @@ export function WeekDays({ days, options, showRest = false }: { days: DayView[];
           }
           return d.sessions.map((s, i) => (
             <li key={s.id}>
-              <button type="button" onClick={() => show(s, d)} className="flex w-full items-center gap-3 rounded-2xl border bg-card p-4 text-left transition-colors hover:bg-accent active:scale-[0.99]">
-                <span className={cn("grid size-9 shrink-0 place-items-center rounded-xl", s.checkIn?.status === "completed" ? "bg-easy/15" : "bg-secondary")}>
+              <button type="button" onClick={() => show(s, d)} className="flex w-full items-center gap-4 border bg-card px-5 py-[18px] text-left transition-colors hover:bg-accent active:scale-[0.99]">
+                <span className={cn("grid size-10 shrink-0 place-items-center rounded-full", s.checkIn?.status === "completed" ? "bg-easy/15" : "bg-secondary")}>
                   {s.checkIn?.status === "completed" ? <Check className="size-4 text-easy" aria-label="Done" /> : <SessionIcon type={s.type} />}
                 </span>
                 <span className="min-w-0 flex-1">
