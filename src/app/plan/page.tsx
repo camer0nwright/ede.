@@ -32,7 +32,7 @@ async function Plan() {
         <p className="text-sm text-muted-foreground">
           {ctx.input.targetDate ? `Race day ${formatDate(ctx.input.targetDate)}` : `${weeks.length}-week block`} · {ctx.goal}
         </p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight">{ctx.title}</h1>
+        <h1 className="mt-1 text-4xl font-medium tracking-tighter">{ctx.title}</h1>
       </header>
 
       {ctx.isDemo && <DemoBanner />}

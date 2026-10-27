@@ -61,7 +61,7 @@ export function OnboardingFlow() {
         {step === "welcome" && (
           <div className="flex flex-1 flex-col justify-center gap-6">
             <Logo />
-            <h1 className="text-4xl font-semibold tracking-tight">Run and lift, as one plan</h1>
+            <h1 className="text-5xl font-medium tracking-tighter">Run and lift, as one plan</h1>
             <p className="text-lg text-muted-foreground">
               ede. builds your weekly running and lifting together, so they help each other instead of clashing. It
               adapts as your weeks go.

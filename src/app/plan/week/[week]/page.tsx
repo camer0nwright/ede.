@@ -78,7 +78,7 @@ async function WeekContent({ params }: { params: PageProps<"/plan/week/[week]">[
           <span className={cn("size-2 rounded-full", PHASE_COLOR[week.phase])} aria-hidden />
           {PHASE_LABEL[week.phase]} · {formatWeekRange(week.weekStart)}
         </p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight">Week {week.weekNumber}</h1>
+        <h1 className="mt-1 text-4xl font-medium tracking-tighter">Week {week.weekNumber}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{PHASE_NOTE[week.phase]}</p>
       </header>
 

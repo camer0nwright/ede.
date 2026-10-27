@@ -35,7 +35,7 @@ async function History() {
     return (
       <main className="flex flex-col gap-6 pt-6">
         {back}
-        <h1 className="text-3xl font-semibold tracking-tight">History</h1>
+        <h1 className="text-4xl font-medium tracking-tighter">History</h1>
         <p className="text-sm text-muted-foreground">Set up your own plan and check in sessions to see your history and records here.</p>
       </main>
     );
@@ -62,7 +62,7 @@ async function History() {
     <main className="flex flex-col gap-4 pt-6">
       {back}
       <header>
-        <h1 className="text-3xl font-semibold tracking-tight">History</h1>
+        <h1 className="text-4xl font-medium tracking-tighter">History</h1>
         <p className="mt-1 text-sm text-muted-foreground">Everything you&apos;ve checked in, and your best so far.</p>
       </header>
 

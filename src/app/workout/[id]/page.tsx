@@ -49,7 +49,7 @@ function Summary({ workout }: { workout: Workout }) {
         <p className="flex items-center gap-1.5 text-sm font-medium text-easy">
           <Check className="size-4" aria-hidden /> Workout done
         </p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight">{workout.title}</h1>
+        <h1 className="mt-1 text-4xl font-medium tracking-tighter">{workout.title}</h1>
       </header>
 
       <dl className="grid grid-cols-3 gap-2">

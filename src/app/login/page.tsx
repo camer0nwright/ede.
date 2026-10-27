@@ -23,7 +23,7 @@ async function LogIn() {
     <main className="-mb-24 flex min-h-dvh flex-col gap-8 pt-6 pb-10">
       <Logo size="sm" />
       <header>
-        <h1 className="text-3xl font-semibold tracking-tight">Log in</h1>
+        <h1 className="text-4xl font-medium tracking-tighter">Log in</h1>
         <p className="mt-2 text-sm text-muted-foreground">Welcome back. Your plan is where you left it.</p>
       </header>
       <AuthForm mode="login" />

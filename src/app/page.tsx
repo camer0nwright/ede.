@@ -51,7 +51,7 @@ async function Today({ searchParams }: { searchParams: PageProps<"/">["searchPar
           <p className="text-sm text-muted-foreground">{formatLongDate(ctx.today)}</p>
           <Logo size="sm" />
         </div>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight">{notStarted ? "Your first week" : "Today"}</h1>
+        <h1 className="mt-1 text-5xl font-medium tracking-tighter">{notStarted ? "Your first week" : "Today"}</h1>
       </header>
 
       {query.deleted && <Note>Your data has been deleted. This is the demo plan.</Note>}
