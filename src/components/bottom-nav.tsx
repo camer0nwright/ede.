@@ -13,18 +13,6 @@ const ITEMS = [
   { href: "/you", label: "You", icon: User },
 ] as const;
 
-/** Full-screen flows with their own buttons at the bottom: no tab bar or sidebar. */
-export function isFullScreen(pathname: string) {
-  return (
-    pathname.startsWith("/onboarding") ||
-    pathname.startsWith("/you/edit") ||
-    pathname.startsWith("/you/injury") ||
-    pathname === "/signup" ||
-    pathname === "/login" ||
-    pathname.startsWith("/workout")
-  );
-}
-
 const activeItem = (pathname: string) =>
   ITEMS.find(({ href }) => (href === "/" ? pathname === "/" || pathname === "/demo" : pathname.startsWith(href)))?.href ?? null;
 
@@ -59,7 +47,6 @@ export function NavBar({ active, todayHref = "/" }: { active: string | null; tod
 /** Reads the URL to highlight the current tab. Wrap in Suspense with <NavBar active={null} />. */
 export function BottomNav({ todayHref = "/" }: { todayHref?: string }) {
   const pathname = usePathname();
-  if (isFullScreen(pathname)) return null;
   return <NavBar active={activeItem(pathname)} todayHref={todayHref} />;
 }
 
@@ -67,9 +54,7 @@ export function BottomNav({ todayHref = "/" }: { todayHref?: string }) {
  * The dark sidebar on wider screens (SPEC decision 64), from the Figma
  * design: logo, the four sections, and who's signed in at the foot.
  */
-export function SideNav({ todayHref = "/", viewer }: { todayHref?: string; viewer?: React.ReactNode }) {
-  const pathname = usePathname();
-  const active = activeItem(pathname);
+export function SideNavBar({ active, todayHref = "/", viewer }: { active: string | null; todayHref?: string; viewer?: React.ReactNode }) {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-[230px] flex-col bg-panel px-6 pt-9 pb-6 text-panel-foreground md:flex">
       <Link href={todayHref} aria-label="ede. Today" className="px-1">
@@ -102,15 +87,24 @@ export function SideNav({ todayHref = "/", viewer }: { todayHref?: string; viewe
   );
 }
 
-/** The frame around every app screen: sidebar on wide screens, tab bar on phones, none for full-screen flows. */
-export function AppShell({ children, sidebar, bottomBar }: { children: React.ReactNode; sidebar: React.ReactNode; bottomBar: React.ReactNode }) {
+/** The sidebar with the current section highlighted. Reads the URL, so wrap in Suspense with <SideNavBar active={null} />. */
+export function SideNav({ todayHref = "/", viewer }: { todayHref?: string; viewer?: React.ReactNode }) {
   const pathname = usePathname();
-  const full = isFullScreen(pathname);
+  return <SideNavBar active={activeItem(pathname)} todayHref={todayHref} viewer={viewer} />;
+}
+
+/**
+ * The frame around every app screen: sidebar on wide screens, tab bar on
+ * phones. Full-screen flows use the (flow) layout instead, so nothing here
+ * needs to read the URL outside Suspense (which would stop pages being
+ * prerendered).
+ */
+export function AppShell({ children, sidebar, bottomBar }: { children: React.ReactNode; sidebar: React.ReactNode; bottomBar: React.ReactNode }) {
   return (
     <>
-      {!full && sidebar}
-      <div className={cn(!full && "md:pl-[230px]")}>
-        <div className={cn("mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-24", !full && "md:max-w-3xl md:px-12 md:pb-16 lg:max-w-5xl lg:px-16")}>{children}</div>
+      {sidebar}
+      <div className="md:pl-[230px]">
+        <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-24 md:max-w-3xl md:px-12 md:pb-16 lg:max-w-5xl lg:px-16">{children}</div>
       </div>
       {bottomBar}
     </>

@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { AppShell, BottomNav, NavBar, SideNav } from "@/components/bottom-nav";
+import { AppShell, BottomNav, NavBar, SideNav, SideNavBar } from "@/components/bottom-nav";
 import { currentAthlete, getPlanContext } from "@/server/athlete";
 
 /**
@@ -41,7 +41,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
   return (
     <AppShell
       sidebar={
-        <Suspense fallback={<SideNav />}>
+        <Suspense fallback={<SideNavBar active={null} />}>
           <ViewerSideNav />
         </Suspense>
       }

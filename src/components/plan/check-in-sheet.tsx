@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { checkIn, undoCheckIn } from "@/app/(app)/session/actions";
-import { startWorkout } from "@/app/(app)/workout/actions";
+import { startWorkout } from "@/app/(flow)/workout/actions";
 import { Chip, Note } from "@/components/onboarding/choices";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
