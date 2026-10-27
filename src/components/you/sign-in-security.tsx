@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { changePassword, logOutOtherDevices } from "@/app/(app)/signup/actions";
+import { changePassword, logOutOtherDevices } from "@/app/(flow)/signup/actions";
 import { Note } from "@/components/onboarding/choices";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";

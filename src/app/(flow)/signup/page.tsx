@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { resetToDemo } from "@/app/(app)/onboarding/actions";
+import { resetToDemo } from "@/app/(flow)/onboarding/actions";
 import { AuthForm } from "@/components/auth/auth-form";
 import { Logo } from "@/components/logo";
 import { PageSkeleton } from "@/components/page-skeleton";

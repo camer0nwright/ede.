@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
-import { logIn, signUp } from "@/app/(app)/signup/actions";
+import { logIn, signUp } from "@/app/(flow)/signup/actions";
 import { Note } from "@/components/onboarding/choices";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

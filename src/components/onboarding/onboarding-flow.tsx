@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { saveOnboarding } from "@/app/(app)/onboarding/actions";
+import { saveOnboarding } from "@/app/(flow)/onboarding/actions";
 import { Logo } from "@/components/logo";
 import { MedicalNotice } from "@/components/medical-notice";
 import { Button } from "@/components/ui/button";
