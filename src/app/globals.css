@@ -191,6 +191,10 @@
     height: env(safe-area-inset-top);
     background: var(--background);
   }
+  /* The app's welcome photo runs up behind the status bar. */
+  body:has(.app-welcome)::before {
+    display: none;
+  }
   /* Headings are Manrope, medium weight, tightly spaced. */
   h1,
   h2,

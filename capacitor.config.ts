@@ -9,6 +9,8 @@ const devServer = process.env.CAP_SERVER_URL;
 const config: CapacitorConfig = {
   appId: "com.trainwithede.app",
   appName: "ede.",
+  // Lets the site tell the app from a browser (src/lib/app-client.ts).
+  appendUserAgent: "ede-app",
   // Shown only if the site can't be reached when the app opens.
   webDir: "mobile/www",
   server: {
