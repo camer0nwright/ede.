@@ -6,7 +6,7 @@
 // the result.
 import { addDays, daysBetween } from "./dates";
 import { isUpperOnly, type BodyArea, type Equipment, type ExperienceLevel, type Injury, type PlannedSession, type StrengthVolume, type WeekPlan } from "./domain";
-import { findExercise } from "./exercise-library";
+import { findExercise, isPlyo } from "./exercise-library";
 import { keyRunFlags } from "./key-runs";
 import { buildRunSteps, minMinutes, RUN_LIBRARY } from "./session-library";
 import { buildStrengthSession, focusTitle } from "./strength-builder";
@@ -161,7 +161,8 @@ export function adaptWeekForInjury(week: WeekPlan, input: InjuryAdaptInput): Wee
       if (kept) sessions.push(kept);
     } else if (band === "severe" && !isUpperOnly(s.bodyFocus)) {
       sessions.push(safeLift(s, "upper", upperCount++ % 2 === 0 ? "B" : "A", input));
-    } else if (loadsArea(s, input.injury.area)) {
+    } else if (loadsArea(s, input.injury.area) || s.exercises.some((e) => isPlyo(e.name))) {
+      // No jumping while injured (SPEC decision 76): rebuilt sessions have no plyos.
       sessions.push(safeLift(s, s.bodyFocus, "A", input));
     } else sessions.push(s);
   }

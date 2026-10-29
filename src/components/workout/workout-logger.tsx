@@ -94,7 +94,7 @@ function RestTimer({ endsAt, onChange, onDone }: { endsAt: number; onChange: (en
 /** The exercise's effort target in words, from its working sets. */
 const blockEffort = (block: ExerciseBlock) => {
   const working = block.sets.find((s) => s.setType === "working");
-  return effortWords(working?.plannedRpe ?? 9, working?.plannedReps);
+  return effortWords(working?.plannedRpe ?? 9, working?.plannedReps, block.name);
 };
 
 const numberOrUndefined = (v: string) => (v.trim() === "" || Number.isNaN(Number(v)) ? undefined : Number(v));

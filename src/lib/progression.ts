@@ -38,6 +38,8 @@ export type Suggestion = {
  * starts with their own weights.
  */
 export function suggestNext(planned: StrengthExercise, last: LoggedSet[], unit: WeightUnit, hold?: string): Suggestion | undefined {
+  // Jumps stay the same: quality contacts, never more load (SPEC decision 76).
+  if (findExercise(planned.name)?.plyo) return undefined;
   const range = repRange(planned.reps);
   const working = last.filter((s) => s.setType !== "warmup" && s.reps !== null && s.reps > 0);
   if (!range || working.length === 0) return undefined;

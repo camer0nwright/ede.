@@ -61,7 +61,7 @@ export type SessionView = RunView | LiftView;
 export type DayView = { date: string; dayName: string; sessions: SessionView[]; note?: string };
 
 const LIFT_PURPOSE: Record<BodyFocus, string> = {
-  lower: "Builds leg strength and resilience, so running feels stronger and you stay injury-free.",
+  lower: "Running-specific leg strength: single-leg work, calves and springy jumps, so you run stronger and stay injury-free.",
   upper: "Builds upper-body strength and posture without tiring your legs.",
   full: "Whole-body strength in one efficient session.",
   push: "Chest, shoulders and triceps: pushing strength and muscle, without tiring your legs.",

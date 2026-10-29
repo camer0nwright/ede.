@@ -3,7 +3,7 @@
 // finish summary. Weights are stored in kg and shown in the athlete's unit.
 import { fromKg } from "./db-mapping";
 import type { SetType, StrengthExercise } from "./domain";
-import { defaultRestSeconds, findExercise } from "./exercise-library";
+import { defaultRestSeconds, findExercise, isPlyo } from "./exercise-library";
 
 export type WeightUnit = "kg" | "lb";
 
@@ -148,7 +148,8 @@ export function workoutSummary(logged: LoggedSet[], previous: Record<string, Log
  * How hard a working set should be, in plain words rather than RPE (SPEC
  * decision 74). Timed holds get their own words.
  */
-export function effortWords(targetRpe: number, reps = ""): string {
+export function effortWords(targetRpe: number, reps = "", name = ""): string {
+  if (isPlyo(name)) return "Quick and springy: stop before you slow down";
   if (/s\s*$/i.test(reps.trim())) return targetRpe >= 9 ? "Hard hold" : "Steady hold";
   if (targetRpe >= 10) return "To failure";
   if (targetRpe >= 9) return "1 rep short of failure";
