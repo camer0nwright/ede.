@@ -74,7 +74,8 @@ describe("changing exercises", () => {
   });
 
   it("plans an added exercise with sensible sets and reps", () => {
-    expect(plannedFromLibrary(findExercise("Back squat")!)).toMatchObject({ warmupSets: 1, workingSets: 3, reps: "5-8", failureAllowed: false });
-    expect(plannedFromLibrary(findExercise("Leg extension")!)).toMatchObject({ warmupSets: 0, reps: "10-12", failureAllowed: true });
+    expect(plannedFromLibrary(findExercise("Back squat")!)).toMatchObject({ warmupSets: 1, workingSets: 2, reps: "5-8", targetRpe: 9, failureAllowed: false });
+    expect(plannedFromLibrary(findExercise("Leg extension")!)).toMatchObject({ warmupSets: 0, workingSets: 2, reps: "10-12", targetRpe: 10, failureAllowed: true });
+    expect(plannedFromLibrary(findExercise("Box jump")!)).toMatchObject({ workingSets: 2, reps: "5", targetRpe: 7, failureAllowed: false });
   });
 });

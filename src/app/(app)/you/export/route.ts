@@ -40,6 +40,7 @@ export async function GET() {
         },
       },
       coachMessages: { orderBy: { createdAt: "asc" }, omit: { athleteId: true } },
+      exerciseSwaps: { orderBy: { createdAt: "asc" }, select: { fromName: true, toName: true, keep: true, createdAt: true } },
       authSessions: { select: { createdAt: true, expiresAt: true } },
     },
   });

@@ -85,7 +85,8 @@ export function holdReason(opts: { phase: string; injuryArea?: BodyArea; light: 
   return undefined;
 }
 
-const usable = (e: ExerciseInfo, equipment: Equipment[], avoid?: BodyArea) => equipment.includes(e.equipment) && !(avoid && e.loads.includes(avoid));
+/** Whether an exercise suits the equipment and stays off an injured area. */
+export const usable = (e: ExerciseInfo, equipment: Equipment[], avoid?: BodyArea) => equipment.includes(e.equipment) && !(avoid && e.loads.includes(avoid));
 
 /** Exercises to swap to: the library's alternatives that suit the equipment and avoid an injured area. */
 export function swapOptions(name: string, equipment: Equipment[], avoid?: BodyArea, exclude: string[] = []): ExerciseInfo[] {
@@ -109,14 +110,19 @@ export function addOptions(query: string, equipment: Equipment[], avoid?: BodyAr
   );
 }
 
-/** A library exercise as a planned one: three working sets in a sensible rep range. */
-export function plannedFromLibrary(info: ExerciseInfo, targetRpe = 8): StrengthExercise {
+/**
+ * A library exercise as a planned one, like the plan's own (SPEC decision 74):
+ * two all-out working sets, to failure unless it's a heavy barbell lift, and
+ * plyos springy (decision 76).
+ */
+export function plannedFromLibrary(info: ExerciseInfo): StrengthExercise {
+  const allOut = failureAllowed(info);
   return {
     name: info.name,
     warmupSets: info.isMainLift ? 1 : 0,
-    workingSets: 3,
-    reps: info.category === "isolation" ? "10-12" : info.isMainLift ? "5-8" : "8-10",
-    targetRpe,
-    failureAllowed: failureAllowed(info),
+    workingSets: 2,
+    reps: info.plyo ? "5" : info.category === "isolation" ? "10-12" : info.isMainLift ? "5-8" : "8-10",
+    targetRpe: info.plyo ? 7 : allOut ? 10 : 9,
+    failureAllowed: allOut,
   };
 }

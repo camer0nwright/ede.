@@ -26,7 +26,7 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Your training:</strong> your plan, sessions you mark done or skip (with time, distance, effort, notes and reasons), and the sets, weights and
-            reps you log.
+            reps you log, and the exercise swaps you choose to keep.
           </li>
           <li>
             <strong>Injury details, only if you add them:</strong> where it hurts, how much, when, your notes, and past injuries. These count as health data, so

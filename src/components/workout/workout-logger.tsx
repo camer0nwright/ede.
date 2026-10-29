@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeftRight, Check, ChevronLeft, Dumbbell, Loader2, MoreHorizontal, Plus, Search, Timer, Trash2, TrendingUp, X } from "lucide-react";
 import { toast } from "sonner";
-import { addExercise, discardWorkout, finishWorkout, logSet, removeExercise, swapExercise, unlogSet } from "@/app/(flow)/workout/actions";
+import { addExercise, answerSwap, discardWorkout, finishWorkout, logSet, removeExercise, swapExercise, unlogSet } from "@/app/(flow)/workout/actions";
 import { Note } from "@/components/onboarding/choices";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
@@ -123,6 +123,8 @@ export function WorkoutLogger({
   const [plannedCounts, setPlannedCounts] = useState(() => initial.map((b) => b.sets.length));
   const [menu, setMenu] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
+  /** After a swap: "Use X instead of Y from now on?" (SPEC decision 77). */
+  const [keepPrompt, setKeepPrompt] = useState<{ from: string; to: string } | null>(null);
 
   /** Puts a block from the server in place (a swap) or at the end (an add). */
   const placeBlock = (block: ExerciseBlock, at?: number) => {
@@ -237,6 +239,7 @@ export function WorkoutLogger({
                 <MoreHorizontal className="size-5" />
               </button>
             </div>
+            {keepPrompt?.to === block.name && <KeepSwap {...keepPrompt} onDone={() => setKeepPrompt(null)} />}
             {block.suggestion && (
               <p className="mt-3 border-l-2 border-primary-strong bg-secondary px-3 py-2 text-xs">
                 <TrendingUp className="mr-1 inline size-3.5 align-[-2px] text-primary-strong" aria-hidden />
@@ -285,7 +288,11 @@ export function WorkoutLogger({
           equipment={equipment}
           avoid={avoid}
           onClose={() => setMenu(null)}
-          onSwapped={(block) => placeBlock(block, menu)}
+          onSwapped={(block, askToKeep) => {
+            const from = blocks[menu].name;
+            placeBlock(block, menu);
+            setKeepPrompt(askToKeep ? { from, to: block.name } : null);
+          }}
           onRemoved={() => dropBlock(menu)}
         />
       )}
@@ -437,6 +444,33 @@ function FinishSheet({ open, onOpenChange, sessionId, setsDone }: { open: boolea
   );
 }
 
+/** Asks once whether a swap should carry on into future sessions. */
+function KeepSwap({ from, to, onDone }: { from: string; to: string; onDone: () => void }) {
+  const [pending, startTransition] = useTransition();
+  const answer = (keep: boolean) =>
+    startTransition(async () => {
+      const result = await safely(() => answerSwap({ from, to, keep }));
+      if (!result.ok) return void toast(result.errors[0]);
+      if (keep) toast(`Future sessions will use ${to}. You can undo this in You.`);
+      onDone();
+    });
+  return (
+    <div className="mt-3 border bg-muted p-3 text-sm">
+      <p>
+        Use <span className="font-medium">{to}</span> instead of <span className="font-medium">{from}</span> from now on?
+      </p>
+      <div className="mt-2.5 flex gap-2">
+        <Button size="sm" className="h-9 flex-1 rounded-md" disabled={pending} onClick={() => answer(true)}>
+          Yes, from now on
+        </Button>
+        <Button size="sm" variant="outline" className="h-9 flex-1 rounded-md" disabled={pending} onClick={() => answer(false)}>
+          Just today
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /** An exercise's menu: swap it for an alternative, or remove it (only before any of its sets are logged). */
 function ExerciseMenu({
   sessionId,
@@ -454,17 +488,17 @@ function ExerciseMenu({
   equipment: Equipment[];
   avoid?: BodyArea;
   onClose: () => void;
-  onSwapped: (block: ExerciseBlock) => void;
+  onSwapped: (block: ExerciseBlock, askToKeep: boolean) => void;
   onRemoved: () => void;
 }) {
   const [pending, startTransition] = useTransition();
   const logged = block.sets.some((s) => s.done);
   const options = swapOptions(block.name, equipment, avoid, others);
-  const run = (action: () => ReturnType<typeof swapExercise>, done: (block?: ExerciseBlock) => void, message: string) =>
+  const run = (action: () => ReturnType<typeof swapExercise>, done: (block?: ExerciseBlock, askToKeep?: boolean) => void, message: string) =>
     startTransition(async () => {
       const result = await safely(() => action());
       if (!result.ok) return void toast(result.errors[0]);
-      done(result.block);
+      done(result.block, result.askToKeep);
       toast(message);
       onClose();
     });
@@ -491,7 +525,7 @@ function ExerciseMenu({
                       <button
                         type="button"
                         disabled={pending}
-                        onClick={() => run(() => swapExercise({ sessionId, from: block.name, to: e.name }), (b) => b && onSwapped(b), `Swapped to ${e.name}.`)}
+                        onClick={() => run(() => swapExercise({ sessionId, from: block.name, to: e.name }), (b, ask) => b && onSwapped(b, !!ask), `Swapped to ${e.name}.`)}
                         className="flex w-full items-center justify-between gap-3 border bg-card px-4 py-3 text-left hover:bg-accent disabled:opacity-50"
                       >
                         <span className="font-medium">{e.name}</span>

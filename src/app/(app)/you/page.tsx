@@ -20,6 +20,7 @@ import { progressSummary, sessionKey } from "@/lib/checkin";
 import { AccountSettings, DeleteMyData } from "@/components/you/account-settings";
 import { InjuryBetter } from "@/components/you/injury-better";
 import { HealthConsentCard } from "@/components/you/health-consent-card";
+import { KeptSwaps } from "@/components/you/kept-swaps";
 import { SignInSecurity } from "@/components/you/sign-in-security";
 import { accountSessions } from "@/server/auth";
 import { LegalLinks } from "@/components/legal-page";
@@ -240,6 +241,8 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
           {plural(summary.restDays, "full rest day")}.
         </p>
       </Section>
+
+      {!ctx.isDemo && Object.keys(ctx.swaps).length > 0 && <KeptSwaps swaps={Object.entries(ctx.swaps)} />}
 
       {saved && (
         <section aria-label="Settings" className="border bg-card p-6">
