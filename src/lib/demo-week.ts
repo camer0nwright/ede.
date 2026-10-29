@@ -29,7 +29,7 @@ const easyRun = (minutes: number, title = "Easy run") => ({
   exercises: [],
 });
 
-// Low strength volume: 3-5 exercises, exactly 2 working sets, RPE 8.5-9.5.
+// Low strength volume (older demo data): 2 working sets per exercise.
 // Failure only on machine, cable or isolation exercises.
 // Running: 185 of 230 min easy (80%). Strength: 80 min. Total: 310 min.
 export const demoEngineWeek = EngineWeek.parse({

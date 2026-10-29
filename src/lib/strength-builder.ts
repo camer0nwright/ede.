@@ -26,6 +26,7 @@ const TEMPLATES: Record<BodyFocus, Slot[]> = {
     { role: "isolation", candidates: ["Standing calf raise", "Seated calf raise", "Single-leg calf raise", "Hip abduction", "Banded lateral walk"] },
     CORE,
     { role: "isolation", candidates: ["Leg extension", "Spanish squat", "Wall sit"] },
+    { role: "accessory", candidates: ["Hip thrust", "Glute bridge", "Single-leg Romanian deadlift"] },
   ],
   upper: [
     { role: "main", candidates: ["Bench press", "Dumbbell bench press", "Machine chest press", "Push-up"] },
@@ -34,7 +35,8 @@ const TEMPLATES: Record<BodyFocus, Slot[]> = {
     { role: "accessory", candidates: ["Overhead press", "Dumbbell shoulder press", "Machine shoulder press", "Pike push-up"] },
     { role: "isolation", candidates: ["Dumbbell lateral raise", "Cable lateral raise", "Face pull", "Reverse fly", "Band pull-apart"] },
     CORE,
-    { role: "isolation", candidates: ["Dumbbell curl", "Triceps pushdown", "Cable curl", "Overhead triceps extension"] },
+    { role: "isolation", candidates: ["Dumbbell curl", "Cable curl"] },
+    { role: "isolation", candidates: ["Triceps pushdown", "Overhead triceps extension"] },
   ],
   full: [
     { role: "main", candidates: ["Trap bar deadlift", "Back squat", "Goblet squat", "Leg press", "Dumbbell Romanian deadlift", "Bodyweight squat"] },
@@ -44,11 +46,24 @@ const TEMPLATES: Record<BodyFocus, Slot[]> = {
     { role: "accessory", candidates: ["Dumbbell shoulder press", "Machine shoulder press", "Seated cable row", "Pike push-up"] },
     CORE,
     { role: "isolation", candidates: ["Face pull", "Dumbbell lateral raise", "Band pull-apart"] },
+    { role: "isolation", candidates: ["Dumbbell curl", "Triceps pushdown", "Cable curl"] },
   ],
 };
 
-/** Exercises per session for each strength volume (SPEC: Low 3-5, Moderate 4-6, Higher 5-7). */
-const EXERCISE_COUNT: Record<StrengthVolume, number> = { low: 4, moderate: 5, high: 6 };
+/**
+ * Exercises per session for each strength volume (SPEC decision 74): Low 3-4,
+ * Moderate 5-6, Higher 7-8. Every exercise has 2 working sets, so the volume
+ * setting only changes how many exercises there are. Sessions start at the top
+ * of the range and drop to the bottom to fit the day's time.
+ */
+export const EXERCISE_COUNT: Record<StrengthVolume, { min: number; max: number }> = {
+  low: { min: 3, max: 4 },
+  moderate: { min: 5, max: 6 },
+  high: { min: 7, max: 8 },
+};
+
+/** Every exercise, at every volume: two all-out working sets (SPEC decision 74). */
+export const WORKING_SETS = 2;
 
 /** What onboarding's equipment answers make available. */
 export const EQUIPMENT_FROM_ANSWERS: Record<string, Equipment[]> = {
@@ -106,23 +121,22 @@ function reps(info: ExerciseInfo, role: SlotRole, volume: StrengthVolume): strin
   return "8-10";
 }
 
-/** Target RPE for working sets: hard by default (most lifts are hard), lighter in light or technique weeks. */
+/**
+ * How hard the working sets are (SPEC decision 74), on the effort scale the
+ * plan checker uses (10 = failure): all-out by default, so to failure, except
+ * heavy barbell compound lifts, which stop one rep short. Core holds are hard
+ * but controlled. Light weeks, a beginner's technique weeks, and leg work the
+ * day after a hard or long run stay easier.
+ */
 function targetRpe(info: ExerciseInfo, role: SlotRole, req: StrengthRequest): number {
   let rpe: number;
   if (req.effort === "light") rpe = 7;
   else if (req.effort === "technique") rpe = 6.5;
-  else if (role === "core") rpe = 8;
-  else if (info.category === "isolation") rpe = { low: 9.5, moderate: 9, high: 8.5 }[req.volume];
-  else rpe = { low: 9, moderate: 8.5, high: 8 }[req.volume];
-  if (info.equipment === "barbell" && info.category === "compound") rpe = Math.min(rpe, 9);
-  if (info.isLowerBody && req.maxLowerRpe !== undefined) rpe = Math.min(rpe, req.maxLowerRpe);
+  else if (role === "core") rpe = 9;
+  else rpe = failureAllowed(info) ? 10 : 9;
+  // The day after a hard or long run, a leg session stays easier throughout, core included.
+  if ((info.isLowerBody || role === "core") && req.maxLowerRpe !== undefined) rpe = Math.min(rpe, req.maxLowerRpe);
   return rpe;
-}
-
-function workingSets(role: SlotRole, volume: StrengthVolume): number {
-  if (volume === "low") return 2;
-  if (volume === "moderate") return 3;
-  return role === "main" ? 4 : 3;
 }
 
 const usable = (name: string, req: StrengthRequest): ExerciseInfo | undefined => {
@@ -142,9 +156,10 @@ export function sessionMinutes(exercises: BuiltExercise[]): number {
 
 export function buildStrengthSession(req: StrengthRequest): BuiltSession {
   const used = new Set<string>();
+  const warmedUp = new Set<string>();
   const exercises: BuiltExercise[] = [];
   for (const slot of TEMPLATES[req.focus]) {
-    if (exercises.length >= EXERCISE_COUNT[req.volume]) break;
+    if (exercises.length >= EXERCISE_COUNT[req.volume].max) break;
     const options = slot.candidates.map((n) => usable(n, req)).filter((e): e is ExerciseInfo => !!e && !used.has(e.name));
     if (options.length === 0) continue;
     // Main lifts change only between blocks; accessories alternate A/B.
@@ -155,19 +170,22 @@ export function buildStrengthSession(req: StrengthRequest): BuiltSession {
         : options[req.variant === "B" && options.length > 1 ? 1 : 0];
     used.add(pick.name);
     const rpe = targetRpe(pick, slot.role, req);
+    // One warm-up set before the first exercise for each muscle group, if it's loaded.
+    const warmUp = slot.role !== "core" && pick.equipment !== "bodyweight" && pick.equipment !== "band" && !warmedUp.has(pick.muscleGroup);
+    warmedUp.add(pick.muscleGroup);
     exercises.push({
       name: pick.name,
-      // Light and technique weeks need fewer warm-up sets: the working sets are lighter.
-      warmupSets: slot.role === "main" && pick.equipment !== "bodyweight" ? (pick.equipment === "barbell" && req.effort === "hard" ? 2 : 1) : 0,
-      workingSets: workingSets(slot.role, req.volume),
+      warmupSets: warmUp ? 1 : 0,
+      workingSets: WORKING_SETS,
       reps: reps(pick, slot.role, req.volume),
       targetRpe: rpe,
-      failureAllowed: failureAllowed(pick) && rpe >= 9.5,
+      failureAllowed: failureAllowed(pick) && rpe >= 10,
       restSeconds: defaultRestSeconds(pick),
       isMainLift: slot.role === "main",
     });
   }
-  // Fit the time available by dropping the least important exercises (keep at least 2).
+  // Fit the time available by dropping the least important exercises: down to
+  // the bottom of the volume's range, or further (to 2) if the day is short.
   const keep = req.minExercises ?? 2;
   while (req.maxMinutes !== undefined && exercises.length > keep && sessionMinutes(exercises) > req.maxMinutes) exercises.pop();
   return { exercises, minutes: sessionMinutes(exercises) };

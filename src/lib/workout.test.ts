@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { StrengthExercise } from "./domain";
-import { buildWorkout, formatWeight, workoutSummary, type LoggedSet } from "./workout";
+import { buildWorkout, formatWeight, workoutSummary, type LoggedSet, effortWords } from "./workout";
 
 const squat: StrengthExercise = { name: "Back squat", warmupSets: 2, workingSets: 3, reps: "5", targetRpe: 8, failureAllowed: false };
 const set = (setNumber: number, weightKg: number, reps: number, setType: LoggedSet["setType"] = "working"): LoggedSet => ({
@@ -55,5 +55,20 @@ describe("gym logging", () => {
     expect(block.sets[0].targetReps).toBeUndefined();
     expect(block.sets[2]).toMatchObject({ weight: "82.5", done: true }); // already logged
     expect(block.sets[3]).toMatchObject({ weight: "85", targetReps: 5, done: false });
+  });
+});
+
+describe("gym effort in plain words (SPEC decision 74)", () => {
+  it("says how close to failure a set should go", () => {
+    expect(effortWords(10)).toBe("To failure");
+    expect(effortWords(9)).toBe("1 rep short of failure");
+    expect(effortWords(8)).toBe("2 reps short of failure");
+    expect(effortWords(7)).toBe("Comfortable: 3 reps short");
+    expect(effortWords(6.5)).toBe("Easy: focus on form");
+  });
+
+  it("describes timed holds differently", () => {
+    expect(effortWords(9, "30-45s")).toBe("Hard hold");
+    expect(effortWords(7, "30-45s")).toBe("Steady hold");
   });
 });

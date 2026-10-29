@@ -102,8 +102,12 @@ export const EXERCISES: ExerciseInfo[] = [
  * Failure (RPE 10) is allowed only on machine, cable or isolation exercises,
  * never on heavy barbell lifts (SPEC: Strength volume setting).
  */
-export const failureAllowed = (e: ExerciseInfo) =>
-  e.equipment === "machine" || e.equipment === "cable" || e.category === "isolation";
+/**
+ * Whether an exercise may be taken to true failure (SPEC decision 74): anything
+ * except heavy barbell compound lifts (squats, deadlifts, bench and similar),
+ * which stop one rep short. Isolation work with a barbell (curls) is fine.
+ */
+export const failureAllowed = (e: ExerciseInfo) => e.equipment !== "barbell" || e.category === "isolation";
 
 /** Seconds of rest between sets, by type of exercise (SPEC: Gym sessions and logging). */
 export const defaultRestSeconds = (e: ExerciseInfo) =>

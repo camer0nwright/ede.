@@ -110,7 +110,7 @@ function liftView(s: Extract<PlannedSession, { type: "strength" }>, checkIn?: Ch
     purpose: light ? "A lighter week: the same lifts with less effort, so you recover and come back stronger." : LIFT_PURPOSE[s.bodyFocus],
     tip: light
       ? "Keep every set smooth and comfortable, well short of your limit."
-      : "Pick weights where the last rep of each working set is hard, with about 1-2 reps left in the tank.",
+      : "Two working sets, both all-out: pick a weight you can just finish in the rep range. Heavy barbell lifts stop one rep short; everything else goes to failure.",
     exercises: s.exercises.map((e) => {
       const info = findExercise(e.name);
       return { ...e, restSeconds: info ? defaultRestSeconds(info) : 90, isMainLift: info?.isMainLift ?? false };

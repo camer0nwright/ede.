@@ -15,7 +15,7 @@ import { plural } from "@/lib/format";
 import type { BodyArea, Equipment, SetType } from "@/lib/domain";
 import { addOptions, swapOptions } from "@/lib/progression";
 import { cn } from "@/lib/utils";
-import type { ExerciseBlock, SetRow, WeightUnit } from "@/lib/workout";
+import { effortWords, type ExerciseBlock, type SetRow, type WeightUnit } from "@/lib/workout";
 import { safely } from "@/lib/safely";
 
 const WARMUP_REST_SECONDS = 60;
@@ -90,6 +90,12 @@ function RestTimer({ endsAt, onChange, onDone }: { endsAt: number; onChange: (en
     </div>
   );
 }
+
+/** The exercise's effort target in words, from its working sets. */
+const blockEffort = (block: ExerciseBlock) => {
+  const working = block.sets.find((s) => s.setType === "working");
+  return effortWords(working?.plannedRpe ?? 9, working?.plannedReps);
+};
 
 const numberOrUndefined = (v: string) => (v.trim() === "" || Number.isNaN(Number(v)) ? undefined : Number(v));
 
@@ -223,8 +229,8 @@ export function WorkoutLogger({
                 {block.isMainLift && <p className="label-eyebrow mb-1.5 text-primary-strong">Main lift</p>}
                 <h2 className="text-2xl leading-tight font-medium">{block.name}</h2>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Rest {block.restSeconds >= 120 ? `${Math.round(block.restSeconds / 60)} min` : `${block.restSeconds}s`}
-                  {block.failureAllowed && " · last set to failure is fine"}
+                  <span className="font-medium text-foreground">{blockEffort(block)}</span> · rest{" "}
+                  {block.restSeconds >= 120 ? `${Math.round(block.restSeconds / 60)} min` : `${block.restSeconds}s`}
                 </p>
               </div>
               <button type="button" onClick={() => setMenu(b)} aria-label={`More for ${block.name}`} className="-mt-1 -mr-1 grid size-9 shrink-0 place-items-center rounded-full hover:bg-accent">
@@ -238,12 +244,11 @@ export function WorkoutLogger({
               </p>
             )}
 
-            <div className="mt-4 grid grid-cols-[1.75rem_minmax(0,1fr)_4rem_3rem_2.75rem_2.5rem] items-center gap-x-1.5 gap-y-2 text-[11px] text-muted-foreground">
+            <div className="mt-4 grid grid-cols-[1.75rem_minmax(0,1fr)_4.5rem_3.5rem_2.5rem] items-center gap-x-1.5 gap-y-2 text-[11px] text-muted-foreground">
               <span className="text-center">Set</span>
               <span>Last</span>
               <span className="text-center">{unit}</span>
               <span className="text-center">Reps</span>
-              <span className="text-center">RPE</span>
               <span>
                 <span className="sr-only">Done</span>
               </span>
@@ -317,7 +322,7 @@ function SetRowInputs({
   onRemove: () => void;
 }) {
   const input = "h-10 w-full rounded-md border bg-background px-1 text-center text-base text-foreground tabular-nums disabled:border-transparent disabled:bg-transparent disabled:opacity-100";
-  const target = row.plannedReps ? `${row.plannedReps}${row.plannedRpe ? ` @ ${row.plannedRpe}` : ""}` : "";
+  const target = row.plannedReps ? `${row.plannedReps} reps` : "";
   return (
     <>
       <button
@@ -339,7 +344,6 @@ function SetRowInputs({
       </span>
       <input aria-label="Weight" inputMode="decimal" className={input} value={row.weight} disabled={row.done} onChange={(e) => onChange({ weight: e.target.value })} placeholder="–" />
       <input aria-label="Reps" inputMode="numeric" className={input} value={row.reps} disabled={row.done} onChange={(e) => onChange({ reps: e.target.value })} placeholder={row.targetReps ? String(row.targetReps) : (row.plannedReps?.split("-")[0] ?? "–")} />
-      <input aria-label="RPE (optional)" inputMode="decimal" className={input} value={row.rpe} disabled={row.done} onChange={(e) => onChange({ rpe: e.target.value })} placeholder={row.plannedRpe ? String(row.plannedRpe) : "–"} />
       {extra && !row.done ? (
         <button type="button" onClick={onRemove} aria-label="Remove this set" className="grid h-10 place-items-center rounded-lg text-muted-foreground hover:bg-accent">
           <X className="size-4" />

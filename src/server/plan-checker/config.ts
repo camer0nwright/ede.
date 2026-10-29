@@ -40,14 +40,14 @@ export const CHECKER_CONFIG = {
   /** Ultras of at least this distance count as 100-mile races. */
   longUltraMinKm: 160,
 
-  /** Working sets per exercise for each strength volume setting. */
+  /** Working sets per exercise for each strength volume setting: 2 at every volume (SPEC decision 74). */
   workingSets: {
     low: { min: 2, max: 2 },
-    moderate: { min: 3, max: 3 },
-    high: { min: 3, max: 4 },
+    moderate: { min: 2, max: 2 },
+    high: { min: 2, max: 2 },
   },
-  /** Lowest working-set RPE that counts as hard for each strength volume setting. */
-  hardLiftMinRpe: { low: 8.5, moderate: 8, high: 7.5 },
+  /** Lowest working-set effort that counts as hard: one rep short of failure or more, at every volume. */
+  hardLiftMinRpe: { low: 9, moderate: 9, high: 9 },
   /** More than this share of a session's exercises must be hard ("most lifts are hard"). */
   minHardExerciseShare: 0.5,
 

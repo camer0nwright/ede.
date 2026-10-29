@@ -238,9 +238,9 @@ export function StepStrength({ draft, update, editing = false }: StepProps) {
           <>
         <Heading title="How much lifting?" sub={editing ? undefined : "You can change this later in your profile."} />
         <div className="flex flex-col gap-2">
-          <OptionCard selected={eff.volume === "low"} onClick={() => update({ strengthVolume: "low" })} title="Low" badge={eff.recVolume === "low" ? "Recommended" : undefined} description="3-5 exercises, 2 hard working sets each, 30-45 min. Keeps your legs fresh for running." />
-          <OptionCard selected={eff.volume === "moderate"} onClick={() => update({ strengthVolume: "moderate" })} title="Moderate" badge={eff.recVolume === "moderate" ? "Recommended" : undefined} description="4-6 exercises, 3 working sets each, 45-60 min. A solid balance of strength and running." />
-          <OptionCard selected={eff.volume === "high"} onClick={() => update({ strengthVolume: "high" })} title="Higher" description="5-7 exercises, 3-4 working sets each, 60-75 min." />
+          <OptionCard selected={eff.volume === "low"} onClick={() => update({ strengthVolume: "low" })} title="Low" badge={eff.recVolume === "low" ? "Recommended" : undefined} description="3-4 exercises, about 35 min. Keeps your legs fresh for running." />
+          <OptionCard selected={eff.volume === "moderate"} onClick={() => update({ strengthVolume: "moderate" })} title="Moderate" badge={eff.recVolume === "moderate" ? "Recommended" : undefined} description="5-6 exercises, about 50 min. A solid balance of strength and running." />
+          <OptionCard selected={eff.volume === "high"} onClick={() => update({ strengthVolume: "high" })} title="Higher" description="7-8 exercises, about 65 min. The most muscle-building." />
         </div>
         {volumeNote && <Note>{volumeNote}</Note>}
         <Field label="What equipment can you use?">

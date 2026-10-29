@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Check, Dumbbell, Footprints } from "lucide-react";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { formatMinutes, INTENSITY_COLOR, INTENSITY_LABEL } from "@/lib/format";
+import { effortWords } from "@/lib/workout";
 import { cn } from "@/lib/utils";
 import type { DayView, Effort, LiftView, RunView, SessionView } from "@/lib/week-view";
 import { CheckInPanel, checkInSummary, WorkoutButton, type CheckInOptions } from "./check-in-sheet";
@@ -257,8 +258,8 @@ function LiftSheet({ lift, day }: { lift: LiftView; day: DayView }) {
             </div>
             <p className="mt-0.5 text-xs text-muted-foreground">
               {e.isMainLift && <span className="font-medium text-foreground">Main lift · </span>}
-              {e.warmupSets > 0 && `${e.warmupSets} warm-up sets · `}RPE {e.targetRpe}
-              {e.failureAllowed && " · last set to failure is fine"} · rest {rest(e.restSeconds)}
+              {e.warmupSets > 0 && `${e.warmupSets === 1 ? "1 warm-up set" : `${e.warmupSets} warm-up sets`} · `}
+              {effortWords(e.targetRpe, e.reps)} · rest {rest(e.restSeconds)}
             </p>
           </li>
         ))}
