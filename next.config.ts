@@ -6,7 +6,8 @@ const isDev = process.env.NODE_ENV === "development";
 // What the browser may load. Everything comes from ede. itself: fonts are
 // bundled, there are no third-party scripts, and AI calls happen on the server.
 // Next's inline start-up scripts need 'unsafe-inline' (nonces don't work with
-// prerendered pages); the dev server also needs 'unsafe-eval'.
+// prerendered pages); the dev server also needs 'unsafe-eval'. The one outside
+// frame is a form video from youtube-nocookie.com, loaded only on tap.
 const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
@@ -14,6 +15,7 @@ const contentSecurityPolicy = [
   "img-src 'self' blob: data:",
   "font-src 'self'",
   "connect-src 'self'",
+  "frame-src https://www.youtube-nocookie.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeftRight, Check, ChevronLeft, Dumbbell, Loader2, MoreHorizontal, Plus, Search, Timer, Trash2, TrendingUp, X } from "lucide-react";
+import { ArrowLeftRight, Check, ChevronLeft, Dumbbell, Loader2, MoreHorizontal, Play, Plus, Search, Timer, Trash2, TrendingUp, X } from "lucide-react";
 import { toast } from "sonner";
 import { addExercise, answerSwap, discardWorkout, finishWorkout, logSet, removeExercise, swapExercise, unlogSet } from "@/app/(flow)/workout/actions";
 import { Note } from "@/components/onboarding/choices";
@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { EFFORT_LABEL } from "@/lib/checkin";
 import { plural } from "@/lib/format";
 import type { BodyArea, Equipment, SetType } from "@/lib/domain";
+import { embedUrl, formVideo } from "@/lib/form-videos";
 import { addOptions, swapOptions } from "@/lib/progression";
 import { cn } from "@/lib/utils";
 import { effortWords, type ExerciseBlock, type SetRow, type WeightUnit } from "@/lib/workout";
@@ -239,6 +240,7 @@ export function WorkoutLogger({
                 <MoreHorizontal className="size-5" />
               </button>
             </div>
+            <FormVideo key={block.name} name={block.name} />
             {keepPrompt?.to === block.name && <KeepSwap {...keepPrompt} onDone={() => setKeepPrompt(null)} />}
             {block.suggestion && (
               <p className="mt-3 border-l-2 border-primary-strong bg-secondary px-3 py-2 text-xs">
@@ -467,6 +469,36 @@ function KeepSwap({ from, to, onDone }: { from: string; to: string; onDone: () =
           Just today
         </Button>
       </div>
+    </div>
+  );
+}
+
+/** A "Watch form" button that loads the exercise's video in place, only once tapped. */
+function FormVideo({ name }: { name: string }) {
+  const [open, setOpen] = useState(false);
+  const id = formVideo(name);
+  if (!id) return null;
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-primary-strong hover:underline"
+      >
+        {open ? <X className="size-3.5" aria-hidden /> : <Play className="size-3.5" aria-hidden />}
+        {open ? "Hide video" : "Watch form"}
+      </button>
+      {open && (
+        <iframe
+          src={embedUrl(id)}
+          title={`${name} form video`}
+          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+          allowFullScreen
+          referrerPolicy="strict-origin-when-cross-origin"
+          className="mt-2 aspect-video w-full border bg-muted"
+        />
+      )}
     </div>
   );
 }

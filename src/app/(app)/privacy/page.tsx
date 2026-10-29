@@ -74,6 +74,10 @@ export default function PrivacyPage() {
             <strong>Email:</strong> password reset emails are sent through Resend, which sees your email address and the email itself, only to deliver it.
           </li>
           <li>
+            <strong>Form videos:</strong> exercise videos come from YouTube, using its privacy-enhanced mode. Nothing loads from YouTube until you tap Watch form;
+            then YouTube sees your browser and which video you watched, and may store its own cookies, as any website would.
+          </li>
+          <li>
             <strong>AI tailoring, when it&apos;s used:</strong> when you ask ede. to adjust your next week, your plan, recent check-ins (with any notes) and any injury
             details are sent to Anthropic (the maker of Claude) to do it. Your name and email are not. Anthropic doesn&apos;t use this to train its models.
           </li>
