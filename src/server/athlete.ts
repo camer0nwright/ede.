@@ -8,6 +8,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { pendingTokenHash, sessionAthleteId } from "@/server/auth";
+import { ESTIMATED_5K_SECONDS } from "@/lib/paces";
 import { db } from "@/lib/db";
 import type { SavedAthlete } from "@/components/onboarding/draft";
 import { sessionKey, type CheckIn } from "@/lib/checkin";
@@ -210,7 +211,11 @@ const loadPlanContext = cache(async (): Promise<PlanContext> => {
     today: await requestDate(),
     build: buildInput(input, equipment, injury?.area as BodyArea | undefined),
     paces: {
-      fiveKSeconds: athlete.recent5kMinutes ? Math.round(athlete.recent5kMinutes * 60) : undefined,
+      // Without a recent time, paces come from an estimate for their experience (SPEC decision 73).
+      fiveKSeconds: athlete.recent5kMinutes
+        ? Math.round(athlete.recent5kMinutes * 60)
+        : ESTIMATED_5K_SECONDS[input.experienceLevel as keyof typeof ESTIMATED_5K_SECONDS] ?? ESTIMATED_5K_SECONDS.intermediate,
+      estimated: !athlete.recent5kMinutes,
       unit: athlete.distanceUnit === "mi" ? "mi" : "km",
     },
     storedWeeks: athlete.weeks.map(rowToWeekPlan),

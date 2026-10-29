@@ -1,6 +1,7 @@
 // The onboarding draft: what the setup screens hold while someone answers,
 // how unanswered choices fall back to recommendations, and what's missing
 // before each screen can be left. Shared by onboarding and the You section.
+import { fiveKFromRace } from "@/lib/paces";
 import type {
   Availability,
   ExperienceLevel,
@@ -41,6 +42,9 @@ export type Draft = {
   /** Optional recent 5K, as typed. */
   fiveKMin: string;
   fiveKSec: string;
+  /** Which race the recent time is for (SPEC decision 73); the time is hours (half and marathon), minutes and seconds. */
+  recentDistance: "5k" | "10k" | "half" | "marathon";
+  recentHours: string;
   /** Unset until chosen; the recommended value is used meanwhile. */
   runsPerWeek?: number;
   liftsPerWeek?: number;
@@ -68,6 +72,8 @@ export const START: Draft = {
   goalDetail: "",
   fiveKMin: "",
   fiveKSec: "",
+  recentDistance: "5k",
+  recentHours: "",
   equipment: [],
   injury: { area: "knee", painLevel: 2, painWhen: "running", notes: "" },
   injuryHistory: "",
@@ -107,9 +113,16 @@ export function targetSeconds(d: Draft): number | undefined {
   return seconds > 0 ? seconds : undefined;
 }
 
-export function fiveKSeconds(d: Draft): number | undefined {
-  const seconds = Number(d.fiveKMin || 0) * 60 + Number(d.fiveKSec || 0);
+/** The recent race time as typed, in seconds. */
+export function recentSeconds(d: Draft): number | undefined {
+  const seconds = Number(d.recentHours || 0) * 3600 + Number(d.fiveKMin || 0) * 60 + Number(d.fiveKSec || 0);
   return seconds > 0 ? seconds : undefined;
+}
+
+/** The 5K time the recent race implies: what paces are worked out from. */
+export function fiveKSeconds(d: Draft): number | undefined {
+  const seconds = recentSeconds(d);
+  return seconds === undefined ? undefined : fiveKFromRace(d.recentDistance ?? "5k", seconds);
 }
 
 /** Choices the user hasn't made yet fall back to the recommendation. */
@@ -174,7 +187,7 @@ export function stepProblem(step: Step, d: Draft): string | null {
       if (d.longestRecentRunMinutes === undefined) return "Choose your longest recent run";
       {
         const five = fiveKSeconds(d);
-        if (five !== undefined && (five < 600 || five > 3600)) return "Check your 5K time (minutes and seconds)";
+        if (five !== undefined && (five < 600 || five > 3600)) return "Check your recent race time";
       }
       return null;
     case "strength":

@@ -2,8 +2,8 @@
 // Riegel's formula, T2 = T1 × (D2 / D1)^1.06, which is usually within a few
 // percent for trained runners (less for newer runners, hilly courses, or
 // distances far from 5K). Training paces are bands around 5K pace, close to
-// the zones used in common VDOT-style tables. Effort (RPE) stays the main
-// target; paces are a guide.
+// the zones used in common VDOT-style tables. Runners see paces (SPEC
+// decision 73); the effort scale behind them stays in the plan checker.
 import type { RaceDistance } from "./domain";
 
 export const RACE_KM: Record<Exclude<RaceDistance, "ultra">, number> = { "5k": 5, "10k": 10, half: 21.0975, marathon: 42.195 };
@@ -12,6 +12,34 @@ const KM_PER_MILE = 1.609344;
 /** Riegel's prediction for a race distance from a 5K time, in seconds. */
 export function predictRaceSeconds(fiveKSeconds: number, distanceKm: number): number {
   return fiveKSeconds * (distanceKm / 5) ** 1.06;
+}
+
+/** The 5K time a recent race implies (Riegel, the other way round), in whole seconds. */
+export function fiveKFromRace(distance: Exclude<RaceDistance, "ultra">, seconds: number): number {
+  return Math.round(seconds * (5 / RACE_KM[distance]) ** 1.06);
+}
+
+/**
+ * A rough 5K time when the athlete hasn't given a recent one (SPEC decision
+ * 73), so every run can still show paces and a distance; shown as estimated.
+ */
+export const ESTIMATED_5K_SECONDS = { beginner: 33 * 60, intermediate: 27 * 60, advanced: 22 * 60 } as const;
+
+/**
+ * About how far a run goes: each step's minutes at the middle of its pace
+ * band (SPEC decision 73). Rounded to the nearest half km or mile.
+ */
+export function estimatedKm(steps: { minutes: number; targetRpe: number }[], fiveKSeconds: number): number {
+  return steps.reduce((km, st) => {
+    const band = paceForRpe(fiveKSeconds, st.targetRpe);
+    return km + (st.minutes * 60) / ((band.fromSecPerKm + band.toSecPerKm) / 2);
+  }, 0);
+}
+
+/** "≈ 8.5 km" or "≈ 5 mi": a distance estimate, to the nearest half. */
+export function formatEstimate(km: number, unit: "km" | "mi"): string {
+  const value = Math.round((unit === "km" ? km : km / KM_PER_MILE) * 2) / 2;
+  return `≈ ${Number.isInteger(value) ? value : value.toFixed(1)} ${unit}`;
 }
 
 export type PaceBand = { name: string; fromSecPerKm: number; toSecPerKm: number };

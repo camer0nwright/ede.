@@ -20,8 +20,15 @@ import {
 import { desiredVsPredicted } from "@/lib/paces";
 import { HealthConsentCheck } from "@/components/health-consent";
 import { Chip, Field, Note, OptionCard } from "./choices";
-import { DISTANCES, effective, fiveKSeconds, PAIN_WHEN, shortRace, targetSeconds, today, type Draft } from "./draft";
+import { DISTANCES, effective, fiveKSeconds, recentSeconds, PAIN_WHEN, shortRace, targetSeconds, today, type Draft } from "./draft";
 import { WeekPlanner } from "./week-planner";
+
+const RECENT_DISTANCES: { value: Draft["recentDistance"]; label: string }[] = [
+  { value: "5k", label: "5K" },
+  { value: "10k", label: "10K" },
+  { value: "half", label: "Half marathon" },
+  { value: "marathon", label: "Marathon" },
+];
 
 export type StepProps = {
   draft: Draft;
@@ -190,12 +197,25 @@ export function StepExperience({ draft, update, editing = false }: StepProps) {
         </Field>
           </>
         )}
-        <Field label="A recent 5K time (optional)" hint="Adds pace guides to your sessions. A race or a hard solo 5K in the last couple of months is best.">
+        <Field label="A recent race time" hint="ede. turns it into the paces on every run. A race or a hard solo effort in the last couple of months is best. No recent time? Leave it blank and ede. estimates from your experience.">
+          <div className="flex flex-wrap gap-2">
+            {RECENT_DISTANCES.map((o) => (
+              <Chip key={o.value} selected={draft.recentDistance === o.value} onClick={() => update({ recentDistance: o.value, ...(o.value === "5k" || o.value === "10k" ? { recentHours: "" } : {}) })}>
+                {o.label}
+              </Chip>
+            ))}
+          </div>
           <div className="flex items-center gap-2">
-            <Input type="number" inputMode="numeric" min={10} max={60} className="w-20 text-center" value={draft.fiveKMin} onChange={(e) => update({ fiveKMin: e.target.value })} aria-label="5K minutes" placeholder="mm" />
+            {(draft.recentDistance === "half" || draft.recentDistance === "marathon") && (
+              <>
+                <Input type="number" inputMode="numeric" min={0} max={9} className="w-16 text-center" value={draft.recentHours} onChange={(e) => update({ recentHours: e.target.value })} aria-label="Hours" placeholder="h" />
+                <span className="font-display text-2xl">:</span>
+              </>
+            )}
+            <Input type="number" inputMode="numeric" min={0} max={draft.recentDistance === "10k" ? 120 : 59} className="w-20 text-center" value={draft.fiveKMin} onChange={(e) => update({ fiveKMin: e.target.value })} aria-label="Minutes" placeholder="mm" />
             <span className="font-display text-2xl">:</span>
-            <Input type="number" inputMode="numeric" min={0} max={59} className="w-20 text-center" value={draft.fiveKSec} onChange={(e) => update({ fiveKSec: e.target.value })} aria-label="5K seconds" placeholder="ss" />
-            <span className="text-sm text-muted-foreground">min : sec</span>
+            <Input type="number" inputMode="numeric" min={0} max={59} className="w-20 text-center" value={draft.fiveKSec} onChange={(e) => update({ fiveKSec: e.target.value })} aria-label="Seconds" placeholder="ss" />
+            <span className="text-sm text-muted-foreground">{draft.recentDistance === "half" || draft.recentDistance === "marathon" ? "h : min : sec" : "min : sec"}</span>
           </div>
           {predictedNote && <Note>{predictedNote}</Note>}
         </Field>
@@ -346,7 +366,7 @@ export function Review({ draft, caution }: { draft: Draft; caution: string | nul
     ["Goal", [goal, draft.goalType === "race" ? time : draft.goalDetail].filter(Boolean).join(" · ")],
     ["Each week", `${plural(eff.runs, "run")} · ${plural(eff.lifts, "gym session")}`],
     ["Longest recent run", LONGEST_RUN_OPTIONS.find((o) => o.minutes === draft.longestRecentRunMinutes)?.label ?? ""],
-    ...(fiveKSeconds(draft) ? ([["Recent 5K", formatDuration(fiveKSeconds(draft)!)]] as [string, string][]) : []),
+    ...(fiveKSeconds(draft) ? ([["Paces from", `${RECENT_DISTANCES.find((o) => o.value === draft.recentDistance)?.label} in ${formatDuration(recentSeconds(draft)!)}`]] as [string, string][]) : [["Paces from", "an estimate for your experience"]] as [string, string][]),
     ["Experience", `${{ beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced" }[draft.experienceLevel ?? "intermediate"]} · ${LAST_WEEK_RUN_OPTIONS.find((o) => o.minutes === draft.lastWeekRunMinutes)?.label ?? ""} running last week`],
     ["Lifting", `${{ low: "Low", moderate: "Moderate", high: "Higher" }[eff.volume]} · ${draft.equipment.join(", ")}`],
     ["Injury", draft.hasInjury ? `${draft.injury.area}, ${draft.injury.painLevel}/10` : "None"],

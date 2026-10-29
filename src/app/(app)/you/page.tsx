@@ -77,7 +77,7 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
       rows: [
         ["Experience", EXPERIENCE[input.experienceLevel]],
         ["Runs a week", String(input.runsPerWeek ?? "-")],
-        ["Recent 5K", five ?? "Not set"],
+        ["Paces from", five ? `5K in ${five}` : "An estimate (add a recent race time)"],
       ],
     },
     {
