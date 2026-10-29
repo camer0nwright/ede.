@@ -20,6 +20,7 @@ const saved: SavedAthlete = {
   justFinish: false,
   runsPerWeek: 4,
   liftsPerWeek: 3,
+  gymSplit: "arnold",
   recent5kMinutes: 24.5,
   equipment: "Full gym, Dumbbells",
   injuryHistory: null,

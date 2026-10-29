@@ -2,15 +2,16 @@
 // how unanswered choices fall back to recommendations, and what's missing
 // before each screen can be left. Shared by onboarding and the You section.
 import { fiveKFromRace } from "@/lib/paces";
-import type {
-  Availability,
-  ExperienceLevel,
-  GoalType,
-  Injury,
-  PainWhen,
-  RaceDistance,
-  StrengthVolume,
-  Terrain,
+import {
+  GymSplit,
+  type Availability,
+  type ExperienceLevel,
+  type GoalType,
+  type Injury,
+  type PainWhen,
+  type RaceDistance,
+  type StrengthVolume,
+  type Terrain,
 } from "@/lib/domain";
 import {
   EQUIPMENT_OPTIONS,
@@ -21,7 +22,7 @@ import {
   type QuickWeek,
   healthConsentProblem,
 } from "@/lib/onboarding";
-import { recommendedSessions } from "@/lib/plan-outline";
+import { defaultSplit, recommendedSessions } from "@/lib/plan-outline";
 
 export type Draft = {
   name: string;
@@ -49,6 +50,8 @@ export type Draft = {
   runsPerWeek?: number;
   liftsPerWeek?: number;
   strengthVolume?: StrengthVolume;
+  /** Unset until chosen: ede.'s default for the gym days is used meanwhile, and follows them if they change. */
+  gymSplit?: GymSplit;
   quick: QuickWeek;
   equipment: (typeof EQUIPMENT_OPTIONS)[number][];
   hasInjury?: boolean;
@@ -136,7 +139,9 @@ export function effective(d: Draft) {
   });
   const runs = d.runsPerWeek ?? rec.runs;
   const recVolume = recommendedVolume({ experienceLevel: d.experienceLevel, raceDistance: d.raceDistance, runsPerWeek: runs });
-  return { runs, lifts: d.liftsPerWeek ?? rec.lifts, rec, recVolume, volume: d.strengthVolume ?? recVolume };
+  const lifts = d.liftsPerWeek ?? rec.lifts;
+  const recSplit = defaultSplit(lifts, d.experienceLevel ?? "intermediate");
+  return { runs, lifts, rec, recVolume, volume: d.strengthVolume ?? recVolume, recSplit, split: d.gymSplit ?? recSplit };
 }
 
 /** The draft as the answers the server expects (validation happens there too). */
@@ -157,6 +162,7 @@ export function toAnswers(d: Draft) {
     runsPerWeek: effective(d).runs,
     liftsPerWeek: effective(d).lifts,
     strengthVolume: effective(d).volume,
+    ...(d.gymSplit && { gymSplit: d.gymSplit }),
     equipment: d.equipment,
     ...(d.hasInjury && { injury: { ...d.injury, notes: d.injury.notes.trim() || undefined } }),
     ...(d.injuryHistory.trim() && { injuryHistory: d.injuryHistory.trim() }),
@@ -226,6 +232,7 @@ export type SavedAthlete = {
   justFinish: boolean;
   runsPerWeek: number | null;
   liftsPerWeek: number | null;
+  gymSplit: string | null;
   recent5kMinutes: number | null;
   equipment: string | null;
   injuryHistory: string | null;
@@ -267,6 +274,7 @@ export function athleteToDraft(a: SavedAthlete): Draft {
     ...(a.runsPerWeek !== null && { runsPerWeek: a.runsPerWeek }),
     ...(a.liftsPerWeek !== null && { liftsPerWeek: a.liftsPerWeek }),
     strengthVolume: a.strengthVolume as StrengthVolume,
+    ...(a.gymSplit && GymSplit.safeParse(a.gymSplit).success && { gymSplit: a.gymSplit as GymSplit }),
     quick: { days, weekdayMinutes: minutesOn(false) || START_WEEK.weekdayMinutes, weekendMinutes: minutesOn(true) || START_WEEK.weekendMinutes },
     equipment: (a.equipment ?? "Full gym").split(", ").filter((e): e is Draft["equipment"][number] => (EQUIPMENT_OPTIONS as readonly string[]).includes(e)),
     hasInjury: a.injury !== null,

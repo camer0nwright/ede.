@@ -3,10 +3,12 @@
 // guide the user) and the server (which validates again before saving).
 import { z } from "zod";
 import { addDays, dayOfWeek } from "./dates";
+import { plural } from "./format";
 import {
   Availability,
   ExperienceLevel,
   GoalType,
+  GymSplit,
   Injury,
   IsoDate,
   RaceDistance,
@@ -81,6 +83,8 @@ export const OnboardingAnswers = z
     runsPerWeek: z.number().int().min(1).max(6),
     liftsPerWeek: z.number().int().min(1).max(5),
     strengthVolume: StrengthVolume,
+    /** Unset means ede.'s default for the number of gym days (SPEC decision 75). */
+    gymSplit: GymSplit.optional(),
     equipment: z.array(z.enum(EQUIPMENT_OPTIONS)).min(1, "Pick at least one"),
     injury: Injury.extend({ notes: z.string().trim().max(500).optional() }).optional(),
     injuryHistory: z.string().trim().max(500).optional(),
@@ -149,6 +153,7 @@ export function toOutlineInput(a: OnboardingAnswers, today: string): OutlineInpu
     ...(race && a.justFinish && { justFinish: true }),
     runsPerWeek: a.runsPerWeek,
     liftsPerWeek: a.liftsPerWeek,
+    ...(a.gymSplit && { gymSplit: a.gymSplit }),
   };
 }
 
@@ -261,4 +266,20 @@ export function cautionFor(a: Pick<OnboardingAnswers, "injury" | "injuryHistory"
     return "ede. will pause running while this settles. A physio or doctor can help you get back sooner.";
   }
   return null;
+}
+
+/** The gym splits as setup offers them (SPEC decision 75). */
+export const SPLIT_OPTIONS: { value: GymSplit; title: string; description: string }[] = [
+  { value: "upper_lower", title: "Upper/Lower", description: "Upper body one day, legs the next." },
+  { value: "ppl", title: "Push/Pull/Legs", description: "Chest, shoulders and triceps; back and biceps; then legs." },
+  { value: "arnold", title: "Arnold", description: "Chest and back; shoulders and arms; then legs." },
+  { value: "full_body", title: "Full body", description: "A bit of everything each session. Best when you're new to lifting." },
+];
+
+/** A heads-up when the split has more days than the week has gym sessions, so it rotates. */
+export function splitNote(split: GymSplit, lifts: number): string | null {
+  const length = { upper_lower: 2, ppl: 3, arnold: 3, full_body: 1 }[split];
+  if (lifts % length === 0) return null;
+  const name = SPLIT_OPTIONS.find((o) => o.value === split)!.title;
+  return `${name} has ${length} different sessions and you have ${plural(lifts, "gym day")}, so it rotates: each week carries on where the last one stopped.`;
 }

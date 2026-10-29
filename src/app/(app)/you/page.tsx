@@ -12,6 +12,8 @@ import { addDays, daysBetween } from "@/lib/dates";
 import { DAY_NAMES, summariseAvailability } from "@/lib/domain";
 import { formatDate, formatDayMinutes, formatDuration, PHASE_LABEL, plural } from "@/lib/format";
 import { bandSummary, injuryBand } from "@/lib/injury";
+import { SPLIT_OPTIONS } from "@/lib/onboarding";
+import { splitFor } from "@/lib/plan-outline";
 import { mondayOf, returnShare } from "@/lib/plan-rebuild";
 import { builtWeeks, getInjuryHistory, getPlanContext, getSavedAthlete } from "@/server/athlete";
 import { progressSummary, sessionKey } from "@/lib/checkin";
@@ -85,6 +87,7 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
       rows: [
         ["Gym sessions a week", String(input.liftsPerWeek ?? "-")],
         ["Volume", VOLUME[input.strengthVolume]],
+        ["Split", SPLIT_OPTIONS.find((o) => o.value === splitFor(input))!.title + (input.gymSplit ? "" : " (recommended)")],
         ["Equipment", saved?.equipment ?? "Full gym"],
       ],
     },

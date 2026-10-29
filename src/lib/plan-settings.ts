@@ -6,7 +6,7 @@ import type { OnboardingAnswers } from "./onboarding";
 export const SECTION_FIELDS = {
   goal: ["goalType", "raceDistance", "ultraDistanceKm", "terrain", "elevationGainM", "targetDate", "targetTimeSeconds", "justFinish", "goalDetail"],
   training: ["experienceLevel", "recent5kSeconds", "runsPerWeek", "liftsPerWeek"],
-  lifting: ["strengthVolume", "equipment"],
+  lifting: ["strengthVolume", "gymSplit", "equipment"],
   week: ["availability"],
 } as const satisfies Record<string, readonly (keyof OnboardingAnswers)[]>;
 export type SettingsSection = keyof typeof SECTION_FIELDS;

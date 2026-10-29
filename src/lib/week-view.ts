@@ -64,6 +64,10 @@ const LIFT_PURPOSE: Record<BodyFocus, string> = {
   lower: "Builds leg strength and resilience, so running feels stronger and you stay injury-free.",
   upper: "Builds upper-body strength and posture without tiring your legs.",
   full: "Whole-body strength in one efficient session.",
+  push: "Chest, shoulders and triceps: pushing strength and muscle, without tiring your legs.",
+  pull: "Back, rear shoulders and biceps: builds posture that holds up late in a run, without tiring your legs.",
+  chest_back: "Chest and back together, so both get plenty of work without tiring your legs.",
+  shoulders_arms: "Shoulders and arms: builds muscle and steady shoulders, without tiring your legs.",
 };
 
 function runView(s: Extract<PlannedSession, { type: "run" }>, dayName: string, paces?: PaceOptions, checkIn?: CheckIn): RunView {

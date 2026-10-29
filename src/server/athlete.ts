@@ -19,7 +19,7 @@ import { formatDuration } from "@/lib/format";
 import { adaptWeeksForInjury } from "@/lib/injury";
 import { easeAfterSkips, easeBackOffer, easeBackStart, reviewWeek } from "@/lib/skips";
 import { addDays } from "@/lib/dates";
-import type { OutlineInput, PlanOutline } from "@/lib/plan-outline";
+import { splitFor, type OutlineInput, type PlanOutline } from "@/lib/plan-outline";
 import { equipmentFromAnswers } from "@/lib/strength-builder";
 import { buildPlanWeeks, type BuiltWeek, type WeekBuildInput } from "@/lib/week-builder";
 import type { PaceOptions } from "@/lib/week-view";
@@ -123,6 +123,7 @@ const buildInput = (input: OutlineInput, equipment: string[], avoid?: BodyArea):
   strengthVolume: input.strengthVolume,
   experienceLevel: input.experienceLevel,
   equipment: equipmentFromAnswers(equipment),
+  gymSplit: splitFor(input),
   ...(avoid && { avoid }),
 });
 

@@ -4,6 +4,7 @@ import "server-only";
 import { sessionKey } from "@/lib/checkin";
 import { addDays, dayOfWeek } from "@/lib/dates";
 import { DAY_NAMES } from "@/lib/domain";
+import { splitFor } from "@/lib/plan-outline";
 import { RUN_LIBRARY } from "@/lib/session-library";
 import { runMinutes, totalMinutes, type CheckContext, type PastWeek } from "@/server/plan-checker/rules";
 import { aiConfigured } from "@/server/plan-ai";
@@ -42,6 +43,7 @@ export function tailorInput(ctx: PlanContext, index: number) {
     strength_sessions_per_week: outline.strength.length,
     experience_level: ctx.input.experienceLevel,
     strength_volume: ctx.input.strengthVolume,
+    gym_split: splitFor(ctx.input),
     equipment: ctx.build.equipment,
     ...(ctx.injury && { injury: { area: ctx.injury.area, pain_level: ctx.injury.painLevel, pain_when: ctx.injury.painWhen }, injury_notes: ctx.injury.notes ?? "" }),
     week_number: week.weekNumber,

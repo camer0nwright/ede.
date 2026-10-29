@@ -3,7 +3,7 @@ import { runMinutes } from "@/server/plan-checker/rules";
 import { build, equipment, injuredPlan } from "@/test/injured-plan";
 import { PROFILES } from "@/test/profiles";
 import { addDays } from "./dates";
-import { isHeavyLowerBody, mayBeLowerBody, type Injury } from "./domain";
+import { isHeavyLowerBody, isUpperOnly, mayBeLowerBody, type Injury } from "./domain";
 import { findExercise } from "./exercise-library";
 import { adaptWeekForInjury, adaptWeeksForInjury, bandSummary, injuryBand } from "./injury";
 import { buildPlanOutline } from "./plan-outline";
@@ -74,7 +74,7 @@ describe("adapting a week", () => {
 
   it("severe pain: upper body only, and see a doctor", () => {
     const w = adaptWeekForInjury(week, { injury: INJURIES["severe knee"], from: week.weekStart, beforeRunMinutes: lastWeek, strength });
-    expect(w.sessions.every((s) => s.type === "strength" && s.bodyFocus === "upper")).toBe(true);
+    expect(w.sessions.every((s) => s.type === "strength" && isUpperOnly(s.bodyFocus))).toBe(true);
     for (const s of w.sessions) if (s.type === "strength") expect(isHeavyLowerBody(s) || s.exercises.some((e) => mayBeLowerBody(e.name))).toBe(false);
     expect(w.coachNote).toMatch(/doctor/);
   });

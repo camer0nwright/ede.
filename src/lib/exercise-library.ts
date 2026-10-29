@@ -81,6 +81,8 @@ export const EXERCISES: ExerciseInfo[] = [
   ex({ name: "Cable curl", muscleGroup: "Biceps", equipment: "cable", category: "isolation", isLowerBody: false, loads: ["elbow"], alternatives: ["Dumbbell curl"] }),
   ex({ name: "Triceps pushdown", aliases: ["Cable pushdown", "Tricep pushdown"], muscleGroup: "Triceps", equipment: "cable", category: "isolation", isLowerBody: false, loads: ["elbow"], alternatives: ["Overhead triceps extension"] }),
   ex({ name: "Overhead triceps extension", muscleGroup: "Triceps", equipment: "dumbbell", category: "isolation", isLowerBody: false, loads: ["elbow", "shoulder"], alternatives: ["Triceps pushdown"] }),
+  ex({ name: "Cable fly", aliases: ["Cable crossover"], muscleGroup: "Chest", equipment: "cable", category: "isolation", isLowerBody: false, loads: ["shoulder"], alternatives: ["Dumbbell fly"] }),
+  ex({ name: "Dumbbell fly", aliases: ["Chest fly"], muscleGroup: "Chest", equipment: "dumbbell", category: "isolation", isLowerBody: false, loads: ["shoulder"], alternatives: ["Cable fly"] }),
 
   // ----- Bodyweight and band options (for home or minimal equipment) -----
   ex({ name: "Bodyweight squat", aliases: ["Air squat"], muscleGroup: "Quads", equipment: "bodyweight", category: "compound", isLowerBody: true, loads: ["knee", "hip"], alternatives: ["Goblet squat", "Wall sit"] }),
@@ -90,6 +92,9 @@ export const EXERCISES: ExerciseInfo[] = [
   ex({ name: "Pike push-up", muscleGroup: "Shoulders", equipment: "bodyweight", category: "compound", isLowerBody: false, loads: ["shoulder"], alternatives: ["Dumbbell shoulder press"] }),
   ex({ name: "Band row", muscleGroup: "Back", equipment: "band", category: "compound", isLowerBody: false, loads: [], alternatives: ["Seated cable row", "Inverted row"] }),
   ex({ name: "Band pull-apart", muscleGroup: "Rear shoulders", equipment: "band", category: "isolation", isLowerBody: false, loads: ["shoulder"], alternatives: ["Face pull", "Reverse fly"] }),
+  ex({ name: "Diamond push-up", aliases: ["Close-grip push-up"], muscleGroup: "Triceps", equipment: "bodyweight", category: "compound", isLowerBody: false, loads: ["elbow", "shoulder"], alternatives: ["Triceps pushdown", "Band triceps extension"] }),
+  ex({ name: "Band curl", muscleGroup: "Biceps", equipment: "band", category: "isolation", isLowerBody: false, loads: ["elbow"], alternatives: ["Dumbbell curl"] }),
+  ex({ name: "Band triceps extension", muscleGroup: "Triceps", equipment: "band", category: "isolation", isLowerBody: false, loads: ["elbow"], alternatives: ["Triceps pushdown"] }),
 
   // ----- Core -----
   ex({ name: "Plank", muscleGroup: "Core", equipment: "bodyweight", category: "isolation", isLowerBody: false, loads: [], alternatives: ["Dead bug"] }),
