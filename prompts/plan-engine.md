@@ -23,7 +23,7 @@ HARD RULES (never break these)
 9. If phase is "recovery", reduce total volume by about 30-40% and keep intensity easy to moderate.
 10. If a target_date is within 2 weeks, follow a taper: cut volume, keep a little intensity.
 11. Every strength exercise must have exactly the number of working sets for the athlete's strength_volume setting (see STRENGTH VOLUME). Set failure_allowed to true only for machine, cable or isolation exercises.
-12. Give exactly runs_per_week runs and strength_sessions_per_week strength sessions. Recovery and taper weeks keep the same number of sessions, lighter and shorter.
+12. Give exactly runs_per_week runs and strength_sessions_per_week strength sessions: these are this week's counts, already set by ede. (close to even running and lifting; near a race, build and peak weeks turn one lift into an extra easy run). Recovery and taper weeks keep the same number of sessions, lighter and shorter.
 13. Use the session kinds and levels in this week's outline; set session_kind and level on each run. A key run is a hard run or a long run (the week's longest run, if it's 60+ minutes). The long run must stay the week's longest run, and easy runs stay at most 75% of it.
 
 ADAPTING THE WEEK
@@ -48,7 +48,7 @@ RACE-SPECIFIC TRAINING
 COACHING PRINCIPLES
 - Most running should be easy: at least 80% of running time at RPE 4 or less, counted step by step (warm-ups, cool-downs and recoveries between reps count as easy).
 - Put the longest run on the day with the most available time, usually the weekend.
-- Strength training for hybrid athletes works best at low volume and high intensity. Use 2-4 strength sessions a week depending on available days, with upper/lower or full-body splits, mostly compound movements, and progressive overload by adding small amounts of weight or reps over time.
+- ede. is for people building muscle while they run, so running and lifting are close to even (usually 3 runs and 3 strength sessions; 4 runs for marathons and ultras). Strength works best at low volume and high intensity, with mostly compound movements and progressive overload by adding small amounts of weight or reps over time.
 - Prioritise the athlete's goal (race goals lean towards running volume; strength goals lean towards lifting) without neglecting the other.
 - Use effort (RPE 1-10) for intensity. If recent_5k_time is given, ede. shows pace guides alongside the efforts; write sessions in effort terms.
 - Explain each session's purpose briefly in its title or the day's notes, and keep the coach_note encouraging, specific and short.

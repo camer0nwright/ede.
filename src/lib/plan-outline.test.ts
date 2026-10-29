@@ -10,6 +10,9 @@ import {
   type OutlineInput,
   type OutlineWeek,
   type PlanOutline,
+  raceSwap,
+  recommendedSessions,
+  swapLiftForRun,
 } from "./plan-outline";
 import { RUN_LIBRARY } from "./session-library";
 
@@ -181,10 +184,15 @@ describe.each(outlines)("plan outline: %s", (_name, input, outline) => {
     }
   });
 
-  it("gives exactly the chosen runs and lifts every week (fewer runs only in noted build-up weeks)", () => {
+  it("gives the chosen runs and lifts every week (fewer runs only in noted build-up weeks; near a race one lift can become a run)", () => {
     if (input.runsPerWeek === undefined) return;
     const noted = outline.notes.find((n) => /fewer than the \d+ runs you chose/.test(n));
     for (const w of weeks) {
+      const swapped = w.strength.length === input.liftsPerWeek! - 1;
+      if (swapped) {
+        expect(raceSwap(input, w.phase, input.liftsPerWeek!), `week ${w.weekNumber} swapped outside build/peak`).toBe(true);
+        continue;
+      }
       expect(w.strength.length, `lifts in week ${w.weekNumber}`).toBe(input.liftsPerWeek);
       if (w.runs.length !== input.runsPerWeek) {
         expect(noted, `week ${w.weekNumber} has ${w.runs.length} runs with no note`).toBeDefined();
@@ -292,7 +300,7 @@ describe("plan outline details", () => {
 
   it("plans more lifting for a strength goal", () => {
     const o = get("strength goal, moderate volume");
-    expect(o.weeks.filter((w) => w.phase === "build").every((w) => w.strength.length === 3)).toBe(true);
+    expect(o.weeks.filter((w) => w.phase === "build").every((w) => w.strength.length === 4)).toBe(true);
     expect(o.weeks.every((w) => w.runs.length <= 2)).toBe(true);
   });
 
@@ -310,5 +318,67 @@ describe("plan outline details", () => {
   it("refuses a start that isn't a Monday, or a target date before the start", () => {
     expect(() => buildPlanOutline({ ...base, startDate: "2026-10-13" })).toThrow(/Monday/);
     expect(() => buildPlanOutline({ ...base, goalType: "race", raceDistance: "5k", targetDate: "2026-10-01" })).toThrow(/before the plan starts/);
+  });
+});
+
+describe("run and gym balance (SPEC decision 72)", () => {
+  const rec = (goalType: "race" | "general" | "strength", raceDistance?: "5k" | "10k" | "half" | "marathon" | "ultra", experienceLevel: "beginner" | "intermediate" | "advanced" = "intermediate") =>
+    recommendedSessions({ goalType, raceDistance, experienceLevel, strengthVolume: "low", justFinish: false });
+
+  it("suggests close to even running and lifting", () => {
+    expect(rec("race", "5k")).toEqual({ runs: 3, lifts: 3 });
+    expect(rec("race", "10k")).toEqual({ runs: 3, lifts: 3 });
+    expect(rec("race", "half")).toEqual({ runs: 3, lifts: 3 });
+    expect(rec("general")).toEqual({ runs: 3, lifts: 3 });
+  });
+
+  it("adds a run for a marathon or ultra, and lifts for a strength goal", () => {
+    expect(rec("race", "marathon")).toEqual({ runs: 4, lifts: 3 });
+    expect(rec("race", "ultra")).toEqual({ runs: 4, lifts: 3 });
+    expect(rec("strength")).toEqual({ runs: 2, lifts: 4 });
+  });
+
+  it("starts beginners on two of each, and doesn't add runs for advanced", () => {
+    expect(rec("race", "half", "beginner")).toEqual({ runs: 2, lifts: 2 });
+    expect(rec("race", "half", "advanced")).toEqual({ runs: 3, lifts: 3 });
+  });
+
+  it("swaps a lift for a run only in build and peak weeks of a race plan, keeping two lifts", () => {
+    const race = { goalType: "race" as const, targetDate: "2027-03-01" };
+    expect(raceSwap(race, "build", 3)).toBe(true);
+    expect(raceSwap(race, "peak", 3)).toBe(true);
+    for (const phase of ["base", "recovery", "taper"] as const) expect(raceSwap(race, phase, 3)).toBe(false);
+    expect(raceSwap(race, "build", 2)).toBe(false);
+    expect(raceSwap({ goalType: "general" }, "build", 3)).toBe(false);
+  });
+
+  describe("turning a lift into a run", () => {
+    const race = { goalType: "race" as const, targetDate: "2027-03-01" };
+    const runs = [
+      { role: "quality" as const, kind: "tempo" as const, level: 2, minutes: 45 },
+      { role: "long" as const, kind: "long_easy" as const, level: 1, minutes: 90 },
+      { role: "easy" as const, kind: "strides" as const, level: 1, minutes: 50 },
+    ];
+    const lifts = [
+      { focus: "lower" as const, variant: "A" as const, effort: "hard" as const, minutes: 55 },
+      { focus: "upper" as const, variant: "A" as const, effort: "hard" as const, minutes: 55 },
+      { focus: "full" as const, variant: "A" as const, effort: "hard" as const, minutes: 55 },
+    ];
+    const days = [120, 60, 60, 60, 60];
+
+    it("splits the longest easy run in two and drops the full-body lift", () => {
+      const out = swapLiftForRun("build", runs, lifts, race, days);
+      expect(out.runs.map((r) => r.minutes)).toEqual([45, 90, 25, 25]);
+      expect(out.runs.at(-1)).toMatchObject({ role: "easy", kind: "easy" });
+      expect(out.runs.reduce((s, r) => s + r.minutes, 0)).toBe(185); // running unchanged
+      expect(out.strength.map((x) => x.focus)).toEqual(["lower", "upper"]);
+    });
+
+    it("keeps the week when no easy run is long enough to split, or the runs wouldn't fit the days", () => {
+      const short = runs.map((r) => (r.role === "easy" ? { ...r, minutes: 35 } : r));
+      expect(swapLiftForRun("build", short, lifts, race, days)).toEqual({ runs: short, strength: lifts });
+      expect(swapLiftForRun("build", runs, lifts, race, [120, 60, 60])).toEqual({ runs, strength: lifts });
+      expect(swapLiftForRun("base", runs, lifts, race, days)).toEqual({ runs, strength: lifts });
+    });
   });
 });
