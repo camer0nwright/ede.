@@ -5,11 +5,11 @@
 // Lifts always avoid the injured area. The plan checker's injury rule checks
 // the result.
 import { addDays, daysBetween } from "./dates";
-import type { BodyArea, Equipment, ExperienceLevel, Injury, PlannedSession, StrengthVolume, WeekPlan } from "./domain";
+import { isUpperOnly, type BodyArea, type Equipment, type ExperienceLevel, type Injury, type PlannedSession, type StrengthVolume, type WeekPlan } from "./domain";
 import { findExercise } from "./exercise-library";
 import { keyRunFlags } from "./key-runs";
 import { buildRunSteps, minMinutes, RUN_LIBRARY } from "./session-library";
-import { buildStrengthSession } from "./strength-builder";
+import { buildStrengthSession, focusTitle } from "./strength-builder";
 
 export const INJURY_BANDS = {
   /** Pain up to this level (during running or specific lifts only): reduced, easy running. */
@@ -127,7 +127,7 @@ function safeLift(s: Lift, focus: Lift["bodyFocus"], variant: "A" | "B", input: 
   });
   return {
     ...s,
-    title: { upper: "Upper body", lower: "Lower body", full: "Full body" }[focus],
+    title: focus === s.bodyFocus ? s.title : focusTitle(focus),
     bodyFocus: focus,
     plannedMinutes: built.minutes,
     exercises: built.exercises.map((e) => ({ name: e.name, warmupSets: e.warmupSets, workingSets: e.workingSets, reps: e.reps, targetRpe: e.targetRpe, failureAllowed: e.failureAllowed })),
@@ -159,7 +159,7 @@ export function adaptWeekForInjury(week: WeekPlan, input: InjuryAdaptInput): Wee
     else if (s.type === "run") {
       const kept = keptRuns.find((r) => r.date === s.date && r.slot === s.slot);
       if (kept) sessions.push(kept);
-    } else if (band === "severe" && s.bodyFocus !== "upper") {
+    } else if (band === "severe" && !isUpperOnly(s.bodyFocus)) {
       sessions.push(safeLift(s, "upper", upperCount++ % 2 === 0 ? "B" : "A", input));
     } else if (loadsArea(s, input.injury.area)) {
       sessions.push(safeLift(s, s.bodyFocus, "A", input));
@@ -171,7 +171,7 @@ export function adaptWeekForInjury(week: WeekPlan, input: InjuryAdaptInput): Wee
   const keyBefore = keyRunDates(week);
   const keyAfter = keyRunDates({ ...week, sessions });
   sessions.forEach((s, i) => {
-    if (s.type !== "strength" || !isFuture(s) || s.bodyFocus === "upper") return;
+    if (s.type !== "strength" || !isFuture(s) || isUpperOnly(s.bodyFocus)) return;
     const dayBefore = addDays(s.date, -1);
     if (keyBefore.has(dayBefore) && !keyAfter.has(dayBefore)) sessions[i] = safeLift(s, s.bodyFocus, "A", input);
   });

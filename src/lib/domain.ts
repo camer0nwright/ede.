@@ -99,9 +99,22 @@ export const IsoDate = z.iso.date();
 
 // ---------- Session steps ----------
 
-export const BODY_FOCUSES = ["upper", "lower", "full"] as const;
+/**
+ * What a gym session works (SPEC decision 75). Upper/Lower uses upper and
+ * lower, Push/Pull/Legs uses push, pull and lower, Arnold uses chest_back,
+ * shoulders_arms and lower, and Full body uses full.
+ */
+export const BODY_FOCUSES = ["upper", "lower", "full", "push", "pull", "chest_back", "shoulders_arms"] as const;
 export const BodyFocus = z.enum(BODY_FOCUSES);
 export type BodyFocus = z.infer<typeof BodyFocus>;
+
+/** Sessions with no leg work at all. */
+export const isUpperOnly = (focus: BodyFocus) => focus !== "lower" && focus !== "full";
+
+/** How the gym week is split (SPEC decision 75). */
+export const GYM_SPLITS = ["upper_lower", "ppl", "arnold", "full_body"] as const;
+export const GymSplit = z.enum(GYM_SPLITS);
+export type GymSplit = z.infer<typeof GymSplit>;
 
 export const PHASES = ["base", "build", "peak", "taper", "recovery"] as const;
 export const Phase = z.enum(PHASES);

@@ -54,6 +54,7 @@ COACHING PRINCIPLES
 - Explain each session's purpose briefly in its title or the day's notes, and keep the coach_note encouraging, specific and short.
 - The athlete sees paces and plain effort words ("easy", "tempo", "5K effort"), never RPE numbers: target_rpe in steps is for ede.'s checks only, so don't mention RPE in titles or notes.
 - Keep exercise choices to the equipment listed.
+- Keep each strength session's body_focus and title as in baseline_week: they follow the athlete's chosen gym_split (upper_lower, ppl for push/pull/legs, arnold for chest and back / shoulders and arms / legs, or full_body), which rotates across weeks. "lower" sessions are leg days; push, pull, chest_back and shoulders_arms have no leg work.
 
 STRENGTH VOLUME
 Every exercise has exactly 2 working sets, at every strength_volume; the setting only changes how many exercises a session has:
@@ -98,7 +99,7 @@ Return ONLY valid JSON, no extra text, in exactly this shape: { "week": <the wee
           "duration_minutes": number,
           "intensity": "easy" | "moderate" | "hard",
           "is_key_session": boolean,
-          "body_focus": "upper" | "lower" | "full" | null,
+          "body_focus": "upper" | "lower" | "full" | "push" | "pull" | "chest_back" | "shoulders_arms" | null,
           "session_kind": string (runs, from the outline) or null (strength),
           "level": number (runs, from the outline) or null (strength),
           "steps": [ { "name": string, "duration_minutes": number, "target_effort_rpe": number } ],

@@ -6,10 +6,12 @@ import { addDays, dayOfWeek, daysBetween } from "./dates";
 import {
   dayCap,
   easyRunMinutes,
+  isUpperOnly,
   type Availability,
   type BodyFocus,
   type ExperienceLevel,
   type GoalType,
+  type GymSplit,
   type Phase,
   type PlannedSession,
   type RaceDistance,
@@ -48,6 +50,8 @@ export type OutlineInput = {
   /** Runs and lifts a week the athlete chose. The plan gives exactly these every week (SPEC decision 29). */
   runsPerWeek?: number;
   liftsPerWeek?: number;
+  /** How gym sessions are split; without one, a default for the number of gym days (SPEC decision 75). */
+  gymSplit?: GymSplit;
 };
 
 export type OutlineRun = {
@@ -300,13 +304,29 @@ export function raceSwap(input: Pick<OutlineInput, "goalType" | "targetDate">, p
   return input.goalType === "race" && !!input.targetDate && (phase === "build" || phase === "peak") && lifts > RACE_SWAP_MIN_LIFTS;
 }
 
-const FOCUS_PATTERNS: Record<number, BodyFocus[]> = {
-  1: ["full"],
-  2: ["lower", "upper"],
-  3: ["lower", "upper", "full"],
-  4: ["lower", "upper", "lower", "upper"],
-  5: ["lower", "upper", "full", "lower", "upper"],
+/**
+ * The order each split's sessions come in (SPEC decision 75). A week takes the
+ * next sessions in the order, carrying on from last week, so a split that
+ * doesn't fit the number of gym days keeps rotating (Push/Pull/Legs on 2 days:
+ * push and pull, then legs and push, then pull and legs).
+ */
+export const SPLIT_SEQUENCE: Record<GymSplit, BodyFocus[]> = {
+  upper_lower: ["lower", "upper"],
+  ppl: ["push", "pull", "lower"],
+  arnold: ["chest_back", "shoulders_arms", "lower"],
+  full_body: ["full"],
 };
+
+/** The split ede. suggests: full body for beginners and 1 gym day, Upper/Lower for 2 or 4, Push/Pull/Legs for 3 or 5. */
+export function defaultSplit(lifts: number, experienceLevel: ExperienceLevel): GymSplit {
+  if (experienceLevel === "beginner" || lifts <= 1) return "full_body";
+  return lifts === 3 || lifts === 5 ? "ppl" : "upper_lower";
+}
+
+/** The split a plan uses: the athlete's choice, or the default for their gym days. */
+export function splitFor(input: OutlineInput): GymSplit {
+  return input.gymSplit ?? defaultSplit(input.liftsPerWeek ?? desiredStrength(input), input.experienceLevel);
+}
 
 /** Recommended runs and lifts a week, offered as the default in onboarding. */
 export function recommendedSessions(
@@ -446,6 +466,13 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
   /** Quality kinds used in the previous week, so fallbacks don't repeat them. */
   let lastWeekQuality: RunKind[] = [];
   let lPointer = 0;
+  // Where the gym split carries on from.
+  const split = splitFor(input);
+  const splitOrder = SPLIT_SEQUENCE[split];
+  // Race week keeps legs fresh: only the split's upper-body sessions.
+  const upperOrder = splitOrder.filter(isUpperOnly);
+  const raceWeekOrder: BodyFocus[] = upperOrder.length > 0 ? upperOrder : ["upper"];
+  let sPointer = 0;
   let nonRecoveryWeeks = 0;
   // A rebuilt plan carries on the rotation and levels from the old plan's weeks.
   for (const w of input.priorWeeks ?? []) {
@@ -718,10 +745,10 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
 
     // ----- strength -----
     // Race week: every lift is upper body, to keep legs fresh.
-    const focuses =
-      phase === "taper" && weeksOut === 0
-        ? (Array(input.liftsPerWeek ? lifts : 1).fill("upper") as BodyFocus[])
-        : FOCUS_PATTERNS[Math.min(lifts, 5)] ?? [];
+    const raceWeek = phase === "taper" && weeksOut === 0;
+    const focuses: BodyFocus[] = raceWeek
+      ? Array.from({ length: input.liftsPerWeek ? lifts : 1 }, (_, k) => raceWeekOrder[k % raceWeekOrder.length])
+      : Array.from({ length: lifts }, (_, k) => splitOrder[(sPointer + k) % splitOrder.length]);
     const effort: StrengthEffort =
       phase === "recovery" || phase === "taper" ? "light" : beginner && i < 4 ? "technique" : "hard";
     const liftMinutes = effort === "light" ? O.lightStrengthMinutes : strengthMin;
@@ -763,6 +790,8 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
     const strengthMinutes = sum(strength);
 
     // ----- bookkeeping for rotation and progression -----
+    // Sessions are only ever dropped from the end, so the split carries on after the last one kept.
+    if (!raceWeek) sPointer += strength.length;
     // Move the rotation on even if this week's quality session was dropped, so it can't get stuck.
     if (quality.length > 0) qPointer += 1;
     lastWeekQuality = weekRuns.filter((r) => r.role === "quality").map((r) => r.kind);
@@ -832,9 +861,8 @@ export function swapLiftForRun(
   // Every run still needs a day long enough: longest runs on the longest days.
   const lengths = next.map((x) => x.minutes).sort((a, b) => b - a);
   if (lengths.some((m, i) => m > dayCaps[i])) return unchanged;
-  // Drop the most general lift: a full-body session if there is one, otherwise the last.
-  const drop = strength.findLastIndex((x) => x.focus === "full");
-  return { runs: next, strength: strength.filter((_, i) => i !== (drop === -1 ? strength.length - 1 : drop)) };
+  // Drop the last lift, so the gym split carries on from there next week.
+  return { runs: next, strength: strength.slice(0, -1) };
 }
 
 const sum = (items: { minutes: number }[]) => items.reduce((s, r) => s + r.minutes, 0);

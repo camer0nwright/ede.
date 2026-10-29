@@ -2,7 +2,7 @@
 // what to do, how many sets, reps and how hard, fitted to the athlete's
 // equipment, strength volume and injuries. See SPEC "Strength volume setting"
 // and "Gym sessions and logging".
-import type { BodyArea, BodyFocus, Equipment, StrengthExercise, StrengthVolume } from "./domain";
+import type { BodyArea, BodyFocus, Equipment, GymSplit, StrengthExercise, StrengthVolume } from "./domain";
 import {
   defaultRestSeconds,
   failureAllowed,
@@ -48,7 +48,53 @@ const TEMPLATES: Record<BodyFocus, Slot[]> = {
     { role: "isolation", candidates: ["Face pull", "Dumbbell lateral raise", "Band pull-apart"] },
     { role: "isolation", candidates: ["Dumbbell curl", "Triceps pushdown", "Cable curl"] },
   ],
+  push: [
+    { role: "main", candidates: ["Bench press", "Dumbbell bench press", "Machine chest press", "Push-up"] },
+    { role: "main", candidates: ["Overhead press", "Dumbbell shoulder press", "Machine shoulder press", "Pike push-up"] },
+    { role: "accessory", candidates: ["Incline dumbbell press", "Machine chest press", "Dumbbell bench press", "Push-up"] },
+    { role: "isolation", candidates: ["Dumbbell lateral raise", "Cable lateral raise", "Pike push-up"] },
+    { role: "isolation", candidates: ["Triceps pushdown", "Overhead triceps extension", "Band triceps extension", "Diamond push-up"] },
+    CORE,
+    { role: "isolation", candidates: ["Cable fly", "Dumbbell fly"] },
+    { role: "isolation", candidates: ["Overhead triceps extension", "Triceps pushdown", "Band triceps extension", "Diamond push-up"] },
+  ],
+  pull: [
+    { role: "main", candidates: ["Pull-up", "Lat pulldown", "Assisted pull-up", "Inverted row", "Band row"] },
+    { role: "main", candidates: ["Barbell row", "Chest-supported row", "Seated cable row", "Single-arm dumbbell row", "Inverted row", "Band row"] },
+    { role: "accessory", candidates: ["Seated cable row", "Single-arm dumbbell row", "Chest-supported row", "Inverted row", "Band row"] },
+    { role: "isolation", candidates: ["Face pull", "Reverse fly", "Band pull-apart"] },
+    { role: "isolation", candidates: ["Dumbbell curl", "Cable curl", "Band curl"] },
+    CORE,
+    { role: "accessory", candidates: ["Lat pulldown", "Assisted pull-up", "Inverted row", "Band row"] },
+    { role: "isolation", candidates: ["Cable curl", "Dumbbell curl", "Band curl"] },
+  ],
+  chest_back: [
+    { role: "main", candidates: ["Bench press", "Dumbbell bench press", "Machine chest press", "Push-up"] },
+    { role: "main", candidates: ["Pull-up", "Lat pulldown", "Assisted pull-up", "Inverted row", "Band row"] },
+    { role: "accessory", candidates: ["Incline dumbbell press", "Machine chest press", "Dumbbell bench press", "Push-up"] },
+    { role: "accessory", candidates: ["Barbell row", "Chest-supported row", "Seated cable row", "Single-arm dumbbell row", "Inverted row", "Band row"] },
+    { role: "isolation", candidates: ["Cable fly", "Dumbbell fly"] },
+    CORE,
+    { role: "accessory", candidates: ["Seated cable row", "Single-arm dumbbell row", "Inverted row", "Band row"] },
+    { role: "isolation", candidates: ["Face pull", "Reverse fly", "Band pull-apart"] },
+  ],
+  shoulders_arms: [
+    { role: "main", candidates: ["Overhead press", "Dumbbell shoulder press", "Machine shoulder press", "Pike push-up"] },
+    { role: "isolation", candidates: ["Dumbbell lateral raise", "Cable lateral raise"] },
+    { role: "isolation", candidates: ["Dumbbell curl", "Cable curl", "Band curl"] },
+    { role: "isolation", candidates: ["Triceps pushdown", "Overhead triceps extension", "Band triceps extension", "Diamond push-up"] },
+    { role: "isolation", candidates: ["Face pull", "Reverse fly", "Band pull-apart"] },
+    CORE,
+    { role: "isolation", candidates: ["Cable curl", "Dumbbell curl", "Band curl"] },
+    { role: "isolation", candidates: ["Overhead triceps extension", "Triceps pushdown", "Band triceps extension", "Diamond push-up"] },
+  ],
 };
+
+/** A session's title; lower-body days are "Legs" in the splits that name them that way. */
+export function focusTitle(focus: BodyFocus, split?: GymSplit): string {
+  if (focus === "lower" && (split === "ppl" || split === "arnold")) return "Legs";
+  return { upper: "Upper body", lower: "Lower body", full: "Full body", push: "Push", pull: "Pull", chest_back: "Chest and back", shoulders_arms: "Shoulders and arms" }[focus];
+}
 
 /**
  * Exercises per session for each strength volume (SPEC decision 74): Low 3-4,

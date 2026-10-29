@@ -191,6 +191,7 @@ export function answersToAthleteRow(a: OnboardingAnswers, input: OutlineInput) {
     justFinish: race && (a.justFinish ?? false),
     runsPerWeek: a.runsPerWeek,
     liftsPerWeek: a.liftsPerWeek,
+    gymSplit: a.gymSplit ?? null,
     equipment: a.equipment.join(", "),
   };
 }

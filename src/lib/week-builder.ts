@@ -3,11 +3,11 @@
 // runs get their steps, and lifts get their exercises. The plan checker
 // validates the result like any other week. The AI may adjust days later.
 import { addDays } from "./dates";
-import { dayCap, type Availability, type BodyArea, type Equipment, type ExperienceLevel, type PlannedSession, type StrengthVolume, type WeekPlan } from "./domain";
+import { dayCap, easyRunMinutes, type Availability, type BodyArea, type Equipment, type ExperienceLevel, type GymSplit, type PlannedSession, type StrengthVolume, type WeekPlan } from "./domain";
 import { OUTLINE_CONFIG, type OutlineRun, type OutlineStrength, type OutlineWeek, type PlanOutline } from "./plan-outline";
 import { keyRunFlags } from "./key-runs";
 import { buildRunSteps, RUN_LIBRARY } from "./session-library";
-import { buildStrengthSession } from "./strength-builder";
+import { buildStrengthSession, focusTitle } from "./strength-builder";
 
 export type WeekBuildInput = {
   availability: Availability;
@@ -15,19 +15,27 @@ export type WeekBuildInput = {
   strengthVolume: StrengthVolume;
   experienceLevel: ExperienceLevel;
   equipment: Equipment[];
+  /** For session titles ("Legs" in Push/Pull/Legs). */
+  gymSplit?: GymSplit;
   /** Body area to keep lifts away from (an active injury). */
   avoid?: BodyArea;
 };
 
 /** Lower-body effort the day after a hard or long run (checker: lower-body-after-key-run). */
 const LOWER_RPE_AFTER_KEY_RUN = 8;
+/**
+ * A full-body session that can't be a heavy leg day (on 3 or more full-body
+ * days, they can't all be kept away from hard and long runs) keeps its leg
+ * work below heavy (checker: heavy lower-body is RPE 8+, SPEC decision 4).
+ */
+const LIGHT_LEGS_RPE = 7;
 /** Beginners stay off heavy barbell lifts for their first 8 weeks (SPEC: Beginner adjustments). */
 const BEGINNER_MACHINE_WEEKS = 8;
 const MIN_LIFT_MINUTES = 25;
 
 type DaySlots = { day: number; cap1: number; cap2: number };
 type RunPlace = { run: OutlineRun; day: number };
-type LiftPlace = { lift: OutlineStrength; day: number; slot: 1 | 2; cap: number };
+type LiftPlace = { lift: OutlineStrength; day: number; slot: 1 | 2; cap: number; lightLegs?: boolean };
 
 const isHardRun = (r: OutlineRun) => RUN_LIBRARY[r.kind].intensity === "hard";
 
@@ -91,6 +99,8 @@ function placeRuns(runs: OutlineRun[], days: DaySlots[]): RunPlace[][] {
   return results.sort((a, b) => b.score - a.score).map((r) => r.places);
 }
 
+const heavy = (p: LiftPlace) => isHeavyLegs(p.lift) && !p.lightLegs;
+
 /** Places lifts around the runs, keeping heavy legs away from key runs and off consecutive days. */
 function placeLifts(lifts: OutlineStrength[], runs: RunPlace[], days: DaySlots[]): LiftPlace[] | null {
   const runOn = new Map(runs.map((p) => [p.day, p.run]));
@@ -118,7 +128,8 @@ function placeLifts(lifts: OutlineStrength[], runs: RunPlace[], days: DaySlots[]
     let s = 0;
     for (const p of ps) {
       if (p.slot === 1) s += 2; // a lift on its own day is easier to fit into life than a double
-      if (isHeavyLegs(p.lift) && keyDays.has(p.day - 1)) s -= 3; // allowed (capped at RPE 8) but not ideal
+      if (heavy(p) && keyDays.has(p.day - 1)) s -= 3; // allowed (capped at RPE 8) but not ideal
+      if (p.lightLegs) s -= 2; // full body is best with its leg work at full effort
     }
     const sorted = ps.map((p) => p.day).sort((a, b) => a - b);
     for (let i = 1; i < sorted.length; i++) if (sorted[i] - sorted[i - 1] === 1) s -= 1; // spread lifts out
@@ -133,13 +144,12 @@ function placeLifts(lifts: OutlineStrength[], runs: RunPlace[], days: DaySlots[]
     }
     const lift = order[k];
     for (const o of options(lift)) {
-      if (isHeavyLegs(lift)) {
-        // No heavy legs the day before or the same day as a hard or long run.
-        if (keyDays.has(o.day) || keyDays.has(o.day + 1)) continue;
-        // No heavy leg days back to back.
-        if (places.some((p) => isHeavyLegs(p.lift) && Math.abs(p.day - o.day) === 1)) continue;
-      }
-      places.push({ lift, ...o });
+      // No heavy legs the day before or the same day as a hard or long run, and no heavy leg days back to back.
+      const heavyFits = !keyDays.has(o.day) && !keyDays.has(o.day + 1) && !places.some((p) => heavy(p) && Math.abs(p.day - o.day) === 1);
+      if (!isHeavyLegs(lift) || heavyFits) places.push({ lift, ...o });
+      // A full-body session that doesn't fit as a heavy leg day can go there with lighter leg work.
+      else if (lift.focus === "full") places.push({ lift, ...o, lightLegs: true });
+      else continue;
       search(k + 1);
       places.pop();
     }
@@ -204,13 +214,23 @@ export function buildPlanWeeks(outline: PlanOutline, input: WeekBuildInput): Bui
 function trimWeek(week: WeekPlan, cap: number, input: WeekBuildInput, o: OutlineWeek) {
   const MIN_RUN = 20;
   const over = () => weekTotal(week) - cap;
-  const runs = week.sessions.filter((x) => x.type === "run");
-  while (over() > 0 && runs.some((r) => r.plannedMinutes > MIN_RUN)) {
-    const longest = runs.reduce((a, b) => (b.plannedMinutes > a.plannedMinutes ? b : a));
-    const cut = Math.min(5, longest.plannedMinutes - MIN_RUN);
-    longest.plannedMinutes -= cut;
-    if (longest.type === "run" && longest.kind) longest.steps = buildRunSteps(longest.kind, longest.level ?? 1, longest.plannedMinutes);
-  }
+  const runs = week.sessions.filter((x): x is Extract<PlannedSession, { type: "run" }> => x.type === "run");
+  // Cuts never take easy running below the checker's share (checker: easy-running).
+  const easyFloor = input.ultra ? OUTLINE_CONFIG.easyShare.ultra : OUTLINE_CONFIG.easyShare.default;
+  const easyShare = () => runs.reduce((s, r) => s + easyRunMinutes(r), 0) / Math.max(1, runs.reduce((s, r) => s + r.plannedMinutes, 0));
+  const cutOne = () => {
+    for (const run of [...runs].sort((a, b) => b.plannedMinutes - a.plannedMinutes)) {
+      if (run.plannedMinutes <= MIN_RUN) break;
+      const before = { minutes: run.plannedMinutes, steps: run.steps };
+      run.plannedMinutes -= Math.min(5, run.plannedMinutes - MIN_RUN);
+      if (run.kind) run.steps = buildRunSteps(run.kind, run.level ?? 1, run.plannedMinutes);
+      if (easyShare() >= easyFloor) return true;
+      run.plannedMinutes = before.minutes;
+      run.steps = before.steps;
+    }
+    return false;
+  };
+  while (over() > 0 && cutOne());
   for (const lift of week.sessions) {
     if (over() <= 0) break;
     if (lift.type !== "strength") continue;
@@ -278,7 +298,7 @@ export function buildWeek(o: OutlineWeek, input: WeekBuildInput): BuiltWeek {
     });
   }
 
-  for (const { lift, day, slot, cap } of liftPlaces ?? []) {
+  for (const { lift, day, slot, cap, lightLegs } of liftPlaces ?? []) {
     const built = buildStrengthSession({
       focus: lift.focus,
       volume: input.strengthVolume,
@@ -288,7 +308,7 @@ export function buildWeek(o: OutlineWeek, input: WeekBuildInput): BuiltWeek {
       variant: lift.variant,
       avoid: input.avoid,
       avoidBarbell: input.experienceLevel === "beginner" && o.weekNumber <= BEGINNER_MACHINE_WEEKS,
-      maxLowerRpe: keyDays.has(day - 1) ? LOWER_RPE_AFTER_KEY_RUN : undefined,
+      maxLowerRpe: lightLegs ? LIGHT_LEGS_RPE : keyDays.has(day - 1) ? LOWER_RPE_AFTER_KEY_RUN : undefined,
       // Light weeks keep to the outline's shorter time; hard sessions get a little leeway.
       maxMinutes: Math.min(cap, lift.effort === "hard" ? lift.minutes + 15 : lift.minutes),
     });
@@ -296,7 +316,7 @@ export function buildWeek(o: OutlineWeek, input: WeekBuildInput): BuiltWeek {
       date: date(day),
       slot,
       type: "strength",
-      title: { upper: "Upper body", lower: "Lower body", full: "Full body" }[lift.focus],
+      title: focusTitle(lift.focus, input.gymSplit),
       intensity: lift.effort === "hard" ? "hard" : "moderate",
       plannedMinutes: built.minutes,
       isKeySession: false,

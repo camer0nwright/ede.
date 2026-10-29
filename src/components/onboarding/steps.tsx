@@ -14,6 +14,8 @@ import {
   LAST_WEEK_RUN_OPTIONS,
   LONGEST_RUN_OPTIONS,
   planStartDate,
+  SPLIT_OPTIONS,
+  splitNote,
   strengthVolumeNote,
   ULTRA_PRESETS,
 } from "@/lib/onboarding";
@@ -243,6 +245,14 @@ export function StepStrength({ draft, update, editing = false }: StepProps) {
           <OptionCard selected={eff.volume === "high"} onClick={() => update({ strengthVolume: "high" })} title="Higher" description="7-8 exercises, about 65 min. The most muscle-building." />
         </div>
         {volumeNote && <Note>{volumeNote}</Note>}
+        <Field label="How to split your gym week" hint="Whichever you pick, leg days are kept away from your hard and long runs.">
+          <div className="flex flex-col gap-2">
+            {SPLIT_OPTIONS.map((o) => (
+              <OptionCard key={o.value} selected={eff.split === o.value} onClick={() => update({ gymSplit: o.value })} title={o.title} badge={eff.recSplit === o.value ? "Recommended" : undefined} description={o.description} />
+            ))}
+          </div>
+          {splitNote(eff.split, eff.lifts) && <Note>{splitNote(eff.split, eff.lifts)}</Note>}
+        </Field>
         <Field label="What equipment can you use?">
           <div className="flex flex-wrap gap-2">
             {EQUIPMENT_OPTIONS.map((e) => {

@@ -40,6 +40,7 @@ model Athlete {
   justFinish              Boolean   @default(false)
   runsPerWeek             Int? // chosen in onboarding; the plan gives exactly these
   liftsPerWeek            Int?
+  gymSplit                String? // "upper_lower" | "ppl" | "arnold" | "full_body"; null = ede.'s default for the gym days
   recent5kMinutes         Float? // for pace targets (v2)
   equipment               String? // free text: gym, home weights, etc.
   injuryHistory           String?

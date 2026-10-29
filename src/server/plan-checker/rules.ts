@@ -10,7 +10,7 @@ import type {
   StrengthVolume,
   WeekPlan,
 } from "@/lib/domain";
-import { DAY_NAMES, dayCap, EASY_MAX_RPE, easyRunMinutes, isHeavyLowerBody, mayBeLowerBody } from "@/lib/domain";
+import { DAY_NAMES, dayCap, EASY_MAX_RPE, easyRunMinutes, isHeavyLowerBody, isUpperOnly, mayBeLowerBody } from "@/lib/domain";
 import { failureAllowed, findExercise } from "@/lib/exercise-library";
 import { keyRunFlags, longRunFlags } from "@/lib/key-runs";
 import { addDays, dayOfWeek, daysBetween } from "@/lib/dates";
@@ -26,6 +26,7 @@ export type RuleId =
   | "heavy-legs-near-key-run"
   | "consecutive-hard-runs"
   | "lower-body-after-key-run"
+  | "upper-body-only"
   | "easy-running"
   | "beginner-easy-running"
   | "working-sets"
@@ -266,7 +267,7 @@ export const lowerBodyAfterKeyRun: Rule = (week) => {
   for (const run of keyRuns(week)) {
     const dayAfter = addDays(run.date, 1);
     for (const s of byDate.get(dayAfter) ?? []) {
-      if (s.type !== "strength" || s.bodyFocus === "upper") continue;
+      if (s.type !== "strength" || isUpperOnly(s.bodyFocus)) continue;
       // In a full-body session only lower-body work counts (unknown exercises
       // are treated as possibly lower-body, SPEC decision 4).
       const lower = s.bodyFocus === "lower" ? s.exercises : s.exercises.filter((e) => mayBeLowerBody(e.name));
@@ -274,6 +275,24 @@ export const lowerBodyAfterKeyRun: Rule = (week) => {
       if (tooHard.length > 0) {
         out.push({ rule: "lower-body-after-key-run", date: dayAfter, message: `"${s.title}" on ${label(dayAfter)} is the day after the hard or long run "${run.title}"; prefer upper body, or keep lower-body work at RPE ${C.maxLowerRpeAfterKeyRun} or less (${tooHard.map((e) => e.name).join(", ")} ${tooHard.length === 1 ? "is" : "are"} higher).` });
       }
+    }
+  }
+  return out;
+};
+
+/**
+ * Upper-body sessions (upper, push, pull, chest and back, shoulders and arms)
+ * have no leg exercises (SPEC decision 75): they're the ones placed next to
+ * hard and long runs. Only known lower-body exercises count here, so an
+ * unfamiliar upper-body name isn't rejected.
+ */
+export const upperBodyOnly: Rule = (week) => {
+  const out: Violation[] = [];
+  for (const s of week.sessions) {
+    if (s.type !== "strength" || !isUpperOnly(s.bodyFocus)) continue;
+    const legs = s.exercises.filter((e) => findExercise(e.name)?.isLowerBody);
+    if (legs.length > 0) {
+      out.push({ rule: "upper-body-only", date: s.date, message: `"${s.title}" on ${label(s.date)} is an upper-body session but has leg exercises (${legs.map((e) => e.name).join(", ")}); move them to a leg day.` });
     }
   }
   return out;
@@ -332,11 +351,16 @@ export const strengthEffort: Rule = (week, { strengthVolume = "low", experienceL
   const out: Violation[] = [];
   for (const s of week.sessions) {
     if (s.type !== "strength" || s.exercises.length === 0) continue;
-    const cappedAfterKeyRun = s.bodyFocus !== "upper" && keyRunDates.has(addDays(s.date, -1));
+    const cappedAfterKeyRun = !isUpperOnly(s.bodyFocus) && keyRunDates.has(addDays(s.date, -1));
     if (cappedAfterKeyRun) continue;
-    const hard = s.exercises.filter((e) => e.targetRpe >= minRpe).length;
-    if (hard / s.exercises.length <= C.minHardExerciseShare) {
-      out.push({ rule: "strength-effort", date: s.date, message: `Only ${hard} of ${s.exercises.length} exercises in "${s.title}" on ${label(s.date)} are at RPE ${minRpe}+; most lifts should be hard on ${strengthVolume} strength volume.` });
+    // A full-body session kept light on legs (to stay clear of hard and long
+    // runs, SPEC decision 75) is judged on its upper-body work.
+    const lightLegs = s.bodyFocus === "full" && !isHeavyLowerBody(s);
+    const judged = lightLegs ? s.exercises.filter((e) => !mayBeLowerBody(e.name) && findExercise(e.name)?.muscleGroup !== "Core") : s.exercises;
+    if (judged.length === 0) continue;
+    const hard = judged.filter((e) => e.targetRpe >= minRpe).length;
+    if (hard / judged.length <= C.minHardExerciseShare) {
+      out.push({ rule: "strength-effort", date: s.date, message: `Only ${hard} of ${judged.length} ${lightLegs ? "upper-body " : ""}exercises in "${s.title}" on ${label(s.date)} are at RPE ${minRpe}+; most lifts should be hard on ${strengthVolume} strength volume.` });
     }
   }
   return out;
@@ -413,7 +437,7 @@ export const injuryRule: Rule = (week, ctx) => {
 
   for (const s of week.sessions) {
     if (s.type !== "strength") continue;
-    if (band === "severe" && (s.bodyFocus !== "upper" || s.exercises.some((e) => mayBeLowerBody(e.name)))) {
+    if (band === "severe" && (!isUpperOnly(s.bodyFocus) || s.exercises.some((e) => mayBeLowerBody(e.name)))) {
       out.push({ rule: "injury", date: s.date, message: `With ${where}, no lower-body lifting: make "${s.title}" on ${label(s.date)} upper body only.` });
     }
     for (const e of s.exercises) {
@@ -608,6 +632,7 @@ export const ALL_RULES: Rule[] = [
   heavyLegsNearKeyRun,
   consecutiveHardRuns,
   lowerBodyAfterKeyRun,
+  upperBodyOnly,
   easyRunning,
   beginnerEasyRunning,
   workingSets,

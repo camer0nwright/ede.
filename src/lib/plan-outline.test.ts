@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CHECKER_CONFIG as C } from "@/server/plan-checker";
 import { addDays } from "./dates";
-import { dayCap } from "./domain";
+import { dayCap, isUpperOnly } from "./domain";
 import { base, PROFILES } from "@/test/profiles";
 import {
   buildPlanOutline,
@@ -156,7 +156,7 @@ describe.each(outlines)("plan outline: %s", (_name, input, outline) => {
       }
     });
     if (input.targetDate) {
-      expect(weeks.at(-1)!.strength.every((s) => s.focus === "upper")).toBe(true);
+      expect(weeks.at(-1)!.strength.every((s) => isUpperOnly(s.focus))).toBe(true);
     }
   });
 

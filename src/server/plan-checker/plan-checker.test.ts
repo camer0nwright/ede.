@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { demoAvailability, demoWeek } from "@/lib/demo-week";
-import type { Availability, PlannedSession, StrengthExercise, WeekPlan } from "@/lib/domain";
+import type { Availability, BodyFocus, PlannedSession, StrengthExercise, WeekPlan } from "@/lib/domain";
 import { checkWeekPlan, describeViolations } from "./index";
 import {
   beginnerEasyRunning,
@@ -25,6 +25,7 @@ import {
   sessionVariety,
   taper,
   totalMinutes,
+  upperBodyOnly,
   weekStructure,
   workingSets,
   type CheckContext,
@@ -97,7 +98,7 @@ const exercise = (name: string, targetRpe: number, workingSets = 2): StrengthExe
 
 const lift = (
   date: string,
-  bodyFocus: "upper" | "lower" | "full",
+  bodyFocus: BodyFocus,
   exercises: StrengthExercise[],
   slot: 1 | 2 = 1,
 ): PlannedSession => ({
@@ -301,6 +302,35 @@ describe("consecutive-hard-runs", () => {
   });
 });
 
+describe("upper-body-only", () => {
+  it("passes upper-body sessions in every split with no leg work", () => {
+    const w = add(
+      lift("2026-10-14", "push", [exercise("Bench press", 9), exercise("Triceps pushdown", 10)], 2),
+      lift("2026-10-17", "pull", [exercise("Lat pulldown", 10), exercise("Plank", 9)], 2),
+    );
+    expect(upperBodyOnly(w, ctx)).toEqual([]);
+  });
+
+  it("rejects a leg exercise in a push, pull, chest and back, or shoulders and arms day", () => {
+    for (const focus of ["push", "pull", "chest_back", "shoulders_arms", "upper"] as const) {
+      const w = add(lift("2026-10-14", focus, [exercise("Dumbbell curl", 10), exercise("Back squat", 9)], 2));
+      const v = upperBodyOnly(w, ctx);
+      expect(v, focus).toHaveLength(1);
+      expect(v[0].message).toMatch(/Back squat/);
+    }
+  });
+
+  it("leaves leg days and full-body days alone", () => {
+    const w = add(lift("2026-10-14", "full", [exercise("Back squat", 9), exercise("Bench press", 9)], 2));
+    expect(upperBodyOnly(w, ctx)).toEqual([]);
+  });
+
+  it("doesn't reject an exercise it doesn't know", () => {
+    const w = add(lift("2026-10-14", "push", [exercise("Landmine press", 9)], 2));
+    expect(upperBodyOnly(w, ctx)).toEqual([]);
+  });
+});
+
 describe("lower-body-after-key-run", () => {
   it("passes upper body the day after a hard run", () => {
     expect(lowerBodyAfterKeyRun(week(), ctx)).toEqual([]);
@@ -468,6 +498,18 @@ describe("strength-effort (most lifts are hard)", () => {
       exercises: [exercise("Leg press", 8), exercise("Hip thrust", 7.5)],
     } as Partial<PlannedSession>);
     expect(strengthEffort(w, ctx)).toEqual([]);
+  });
+
+  it("judges a full-body day kept light on legs by its upper-body work", () => {
+    const fullBody = (upper: number) =>
+      week({ sessions: [lift("2026-10-13", "full", [exercise("Trap bar deadlift", 7), exercise("Bench press", upper), exercise("Lat pulldown", upper), exercise("Reverse lunge", 7), exercise("Plank", 7)])] });
+    expect(strengthEffort(fullBody(9), ctx)).toEqual([]);
+    expect(strengthEffort(fullBody(7), ctx)[0].message).toMatch(/Only 0 of 2 upper-body exercises/);
+  });
+
+  it("judges a heavy full-body day on everything", () => {
+    const w = week({ sessions: [lift("2026-10-13", "full", [exercise("Back squat", 9), exercise("Bench press", 7), exercise("Lat pulldown", 7)])] });
+    expect(strengthEffort(w, ctx)[0].message).toMatch(/Only 1 of 3 exercises/);
   });
 });
 
