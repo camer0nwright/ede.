@@ -200,7 +200,7 @@ export function WorkoutLogger({
 
   return (
     <div className={cn("-mb-24 flex min-h-dvh flex-col pt-4", restEndsAt ? "pb-28" : "pb-10")}>
-      <header className="sticky top-0 z-30 -mx-4 border-b bg-background/95 px-4 backdrop-blur">
+      <header className="sticky top-[env(safe-area-inset-top)] z-30 -mx-4 border-b bg-background/95 px-4 backdrop-blur">
         <div className="flex items-center gap-2 py-2">
           <Link href="/" className="-ml-2 grid size-10 place-items-center rounded-full hover:bg-accent" aria-label="Back to Today (the workout keeps going)">
             <ChevronLeft className="size-5" />
