@@ -4,7 +4,7 @@
 // running so the progression continues smoothly.
 import { addDays, dayOfWeek } from "./dates";
 import type { WeekPlan } from "./domain";
-import { buildPlanOutline, type OutlineInput, type PlanOutline } from "./plan-outline";
+import { buildPlanOutline, PLAN_VERSION, type OutlineInput, type PlanOutline } from "./plan-outline";
 
 /** The Monday of the week containing `date`. */
 export const mondayOf = (date: string) => addDays(date, -dayOfWeek(date));
@@ -42,6 +42,7 @@ export function rebuildOutline(old: PlanOutline, input: OutlineInput, start: str
   const fresh = buildPlanOutline({ ...input, startDate: start, priorWeeks: kept });
   const blockOffset = kept.length > 0 ? kept.at(-1)!.block : 0;
   return {
+    version: fresh.version,
     weeks: [
       ...kept,
       ...fresh.weeks.map((w, i) => ({ ...w, weekNumber: kept.length + i + 1, block: w.block + blockOffset })),
@@ -71,4 +72,20 @@ export function returnFromInjury(
     lastWeekRunMinutes: Math.round(before.lastWeekRunMinutes * share),
     longestRecentRunMinutes: Math.round(before.longestRecentRunMinutes * share),
   };
+}
+
+/** A saved plan built with older coaching, to be rebuilt from next Monday (SPEC decision 79). */
+export const isOutdated = (outline: PlanOutline) => (outline.version ?? 1) < PLAN_VERSION;
+
+/**
+ * What Today says about a plan moved to newer coaching, until the end of the
+ * first week on it; null otherwise.
+ */
+export function coachingUpdateNote(outline: PlanOutline, today: string): string | null {
+  const from = outline.refreshedFrom;
+  if (!from || today >= addDays(from, 7)) return null;
+  const what = "gym splits, running-specific leg days with jumps, two all-out working sets, and paces for every run";
+  return today < from
+    ? `ede.'s coaching has been updated. From Monday your plan brings in ${what}. This week stays as it is, and your run and gym days are unchanged.`
+    : `Your plan now follows ede.'s updated coaching: ${what}. Your run and gym days are unchanged.`;
 }

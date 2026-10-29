@@ -85,7 +85,17 @@ export type OutlineWeek = {
   strength: OutlineStrength[];
 };
 
+/**
+ * Bumped when the coaching changes enough that saved plans should be rebuilt
+ * from next Monday (SPEC decision 79). Version 2: coaching v2 (decisions 71-78).
+ */
+export const PLAN_VERSION = 2;
+
 export type PlanOutline = {
+  /** The coaching this outline was built with; missing on plans from before version 2. */
+  version?: number;
+  /** Set when a saved plan was moved to newer coaching: the Monday the new coaching starts. */
+  refreshedFrom?: string;
   weeks: OutlineWeek[];
   taperWeeks: number;
   /** Gentle notes for the user, such as a plan shorter than recommended. */
@@ -828,7 +838,7 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
   if (fewerRunsWeeks.length > 0) {
     notes.push(`While your running builds up, ${fewerRunsWeeks.length === 1 ? `week ${fewerRunsWeeks[0]} has` : `${fewerRunsWeeks.length} weeks have`} fewer than the ${input.runsPerWeek} runs you chose, so each run is long enough to be worthwhile.`);
   }
-  return { weeks, taperWeeks: taper, notes };
+  return { version: PLAN_VERSION, weeks, taperWeeks: taper, notes };
 }
 
 /**

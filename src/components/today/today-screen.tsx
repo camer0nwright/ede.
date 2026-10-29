@@ -12,6 +12,7 @@ import { TailorCard } from "@/components/plan/tailor-card";
 import { TodaySessions, WeekDays, WeekStrip } from "@/components/plan/week-days";
 import { daysBetween } from "@/lib/dates";
 import { formatLongDate, formatMinutes, PHASE_LABEL, plural } from "@/lib/format";
+import { coachingUpdateNote } from "@/lib/plan-rebuild";
 import { weekDays } from "@/lib/week-view";
 import type { Phase } from "@/lib/domain";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,7 @@ export async function TodayScreen({ demo = false, query = {} }: { demo?: boolean
   const ctx = await getPlanContext({ demo });
   const weeks = builtWeeks(ctx);
   const offer = easeBack(ctx);
+  const coachingNote = ctx.isDemo ? null : coachingUpdateNote(ctx.outline, ctx.today);
   const tailor = tailorOffer(ctx);
   const index = Math.floor(daysBetween(ctx.input.startDate, ctx.today) / 7);
   const notStarted = index < 0;
@@ -63,6 +65,7 @@ export async function TodayScreen({ demo = false, query = {} }: { demo?: boolean
       {query.reset && !ctx.isDemo && <Note>Password changed. Any other devices have been logged out.</Note>}
       {ctx.isDemo && <DemoBanner />}
       {ctx.injury && <InjuryBanner injury={ctx.injury} />}
+      {coachingNote && <Note>{coachingNote}</Note>}
       <div className={cn("grid gap-4", offer && "md:grid-cols-2")}>
         {offer && (
           <EaseBackCard
