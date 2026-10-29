@@ -20,6 +20,7 @@ import { adaptWeeksForInjury } from "@/lib/injury";
 import { easeAfterSkips, easeBackOffer, easeBackStart, reviewWeek } from "@/lib/skips";
 import { addDays } from "@/lib/dates";
 import { splitFor, type OutlineInput, type PlanOutline } from "@/lib/plan-outline";
+import { isOutdated } from "@/lib/plan-rebuild";
 import { equipmentFromAnswers } from "@/lib/strength-builder";
 import { applySwapsToWeeks, type Swaps } from "@/lib/swaps";
 import { buildPlanWeeks, type BuiltWeek, type WeekBuildInput } from "@/lib/week-builder";
@@ -47,6 +48,8 @@ async function loadCurrentAthlete(): Promise<{ id: string; signedIn: boolean } |
 export type PlanContext = {
   isDemo: boolean;
   athleteId?: string;
+  /** The active plan outline's row. */
+  outlineId?: string;
   /** The account's email, when signed in. */
   email?: string;
   name: string;
@@ -180,8 +183,15 @@ const loadPlanContext = cache(async (): Promise<PlanContext> => {
   if (!who) return demoContext();
   // A plan nobody has claimed yet: create the account to see it.
   if (!who.signedIn) redirect("/signup");
-  const id = who.id;
+  const ctx = await readPlanContext(who.id);
+  // A plan built with older coaching is rebuilt from next Monday (SPEC decision 79).
+  if (ctx.isDemo || !ctx.athleteId || !ctx.outlineId || !isOutdated(ctx.outline)) return ctx;
+  const { refreshPlan } = await import("@/server/plan-refresh");
+  await refreshPlan({ ...ctx, athleteId: ctx.athleteId, outlineId: ctx.outlineId });
+  return readPlanContext(who.id);
+});
 
+async function readPlanContext(id: string): Promise<PlanContext> {
   const athlete = await db.athlete.findUnique({
     where: { id },
     include: {
@@ -207,6 +217,7 @@ const loadPlanContext = cache(async (): Promise<PlanContext> => {
   return {
     isDemo: false,
     athleteId: athlete.id,
+    outlineId: current.id,
     email: athlete.email ?? undefined,
     name: athlete.name || "You",
     goal:
@@ -263,7 +274,7 @@ const loadPlanContext = cache(async (): Promise<PlanContext> => {
       },
     }),
   };
-});
+}
 
 /** The current athlete's saved settings, for editing a section in the You section. Null for the demo. */
 export async function getSavedAthlete(): Promise<{ id: string; saved: SavedAthlete } | null> {
