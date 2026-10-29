@@ -21,6 +21,7 @@ import { easeAfterSkips, easeBackOffer, easeBackStart, reviewWeek } from "@/lib/
 import { addDays } from "@/lib/dates";
 import { splitFor, type OutlineInput, type PlanOutline } from "@/lib/plan-outline";
 import { equipmentFromAnswers } from "@/lib/strength-builder";
+import { applySwapsToWeeks, type Swaps } from "@/lib/swaps";
 import { buildPlanWeeks, type BuiltWeek, type WeekBuildInput } from "@/lib/week-builder";
 import type { PaceOptions } from "@/lib/week-view";
 
@@ -74,6 +75,8 @@ export type PlanContext = {
   checkIns: Record<string, CheckIn>;
   /** Gym workouts started or finished, by session key: where to open them. */
   workouts: Record<string, { id: string; inProgress: boolean }>;
+  /** Kept exercise swaps (SPEC decision 77): planned exercise → the athlete's choice. */
+  swaps: Swaps;
   /** The active injury, if any: the plan adapts around it from the day it was reported. */
   injury?: ActiveInjury;
 };
@@ -92,7 +95,14 @@ export function builtWeeks(ctx: PlanContext): (BuiltWeek & { injured: boolean })
     ctx.checkIns,
     ctx.today,
   );
-  return adapted.map((b, i) => ({ ...b, week: eased[i] }));
+  // Kept swaps change the gym sessions still to come (SPEC decision 77).
+  const swapped = applySwapsToWeeks(eased, ctx.swaps, {
+    equipment: ctx.build.equipment,
+    avoid: ctx.build.avoid,
+    from: ctx.today,
+    started: (date, slot) => !!ctx.workouts[sessionKey(date, slot)] || !!ctx.checkIns[sessionKey(date, slot)],
+  });
+  return adapted.map((b, i) => ({ ...b, week: swapped[i] }));
 }
 
 function adaptedWeeks(ctx: PlanContext): (BuiltWeek & { injured: boolean })[] {
@@ -150,6 +160,7 @@ const demoContext = (): PlanContext => ({
   weightUnit: "kg",
   checkIns: {},
   workouts: {},
+  swaps: {},
   weekSummaries: {},
 });
 
@@ -177,6 +188,7 @@ const loadPlanContext = cache(async (): Promise<PlanContext> => {
       outlines: { where: { active: true }, orderBy: { createdAt: "desc" }, take: 1 },
       injuries: { where: { resolvedAt: null }, orderBy: { startedAt: "desc" }, take: 1 },
       weeks: { include: { sessions: { include: { runLog: true } } }, orderBy: { weekStart: "asc" } },
+      exerciseSwaps: { where: { keep: true }, orderBy: { createdAt: "asc" } },
     },
   });
   const current = athlete?.outlines[0];
@@ -232,6 +244,7 @@ const loadPlanContext = cache(async (): Promise<PlanContext> => {
         }),
       ),
     ),
+    swaps: Object.fromEntries(athlete.exerciseSwaps.map((s) => [s.fromName, s.toName])),
     workouts: Object.fromEntries(
       athlete.weeks.flatMap((w) =>
         w.sessions

@@ -58,6 +58,7 @@ model Athlete {
   coachMessages CoachMessage[]
   authSessions  AuthSession[]
   passwordResets PasswordReset[]
+  exerciseSwaps  ExerciseSwap[]
 }
 
 /// A "forgot password" link. The email holds a random token; only its SHA-256 hash is stored. Works once, for an hour.
@@ -267,4 +268,20 @@ model AuthAttempt {
   createdAt DateTime @default(now())
 
   @@index([key, kind, createdAt])
+}
+
+/// An answer to "Use X instead of Y from now on?" after a workout swap (SPEC decision 77).
+/// keep = true: future sessions use toName instead of fromName (one per fromName).
+/// keep = false: "just today", so ede. doesn't ask again for that pair.
+model ExerciseSwap {
+  id        String   @id @default(cuid())
+  athleteId String
+  fromName  String
+  toName    String
+  keep      Boolean
+  createdAt DateTime @default(now())
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@unique([athleteId, fromName, toName])
 }

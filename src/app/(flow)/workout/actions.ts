@@ -5,8 +5,9 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { toKg } from "@/lib/db-mapping";
 import { IsoDate, SetType, type StrengthExercise } from "@/lib/domain";
-import { failureAllowed } from "@/lib/exercise-library";
+import { failureAllowed, findExercise } from "@/lib/exercise-library";
 import { addOptions, plannedFromLibrary, swapOptions } from "@/lib/progression";
+import { applySwaps } from "@/lib/swaps";
 import type { ExerciseBlock } from "@/lib/workout";
 import { signedInContext, storedSessionId } from "@/server/sessions";
 import { blockFor, exerciseId, ownSession, plannedExercises, workoutSettings } from "@/server/workout";
@@ -24,9 +25,14 @@ export async function startWorkout(raw: unknown): Promise<WorkoutResult> {
 
   const id = await storedSessionId(ctx, parsed.data.date, parsed.data.slot);
   if (!id) return fail("That session isn't in your plan any more. Refresh and try again.");
-  const session = await db.session.findUniqueOrThrow({ where: { id }, select: { status: true, type: true } });
+  const session = await db.session.findUniqueOrThrow({ where: { id }, select: { status: true, type: true, exercises: true } });
   if (session.type !== "strength") return fail("Only gym sessions have a workout screen.");
-  if (session.status === "planned") await db.session.update({ where: { id }, data: { status: "in_progress", startedAt: new Date() } });
+  if (session.status === "planned") {
+    // A week saved before a swap was kept still has the old exercise: use the athlete's choice (SPEC decision 77).
+    const planned = JSON.parse(session.exercises ?? "[]") as StrengthExercise[];
+    const exercises = applySwaps(planned, ctx.swaps, { equipment: ctx.build.equipment, avoid: ctx.build.avoid });
+    await db.session.update({ where: { id }, data: { status: "in_progress", startedAt: new Date(), exercises: JSON.stringify(exercises) } });
+  }
   redirect(`/workout/${id}`);
 }
 
@@ -119,13 +125,13 @@ export async function discardWorkout(raw: unknown): Promise<WorkoutResult> {
   redirect("/");
 }
 
-export type ExerciseResult = { ok: true; block?: ExerciseBlock } | { ok: false; errors: string[] };
+export type ExerciseResult = { ok: true; block?: ExerciseBlock; askToKeep?: boolean } | { ok: false; errors: string[] };
 
 async function changeExercises(
   raw: unknown,
   shape: z.ZodType<{ sessionId: string }>,
   change: (args: { session: NonNullable<Awaited<ReturnType<typeof workoutInProgress>>>; planned: StrengthExercise[] }) => Promise<
-    { planned: StrengthExercise[]; added?: StrengthExercise } | string
+    { planned: StrengthExercise[]; added?: StrengthExercise; askToKeep?: boolean } | string
   >,
 ): Promise<ExerciseResult> {
   const parsed = shape.safeParse(raw);
@@ -135,7 +141,7 @@ async function changeExercises(
   const result = await change({ session, planned: plannedExercises(session) });
   if (typeof result === "string") return { ok: false, errors: [result] };
   await db.session.update({ where: { id: session.id }, data: { exercises: JSON.stringify(result.planned) } });
-  return { ok: true, ...(result.added && { block: await blockFor(session, result.added) }) };
+  return { ok: true, ...(result.added && { block: await blockFor(session, result.added) }), ...(result.askToKeep && { askToKeep: true }) };
 }
 
 const loggedFor = (sessionId: string, name: string) => db.setLog.count({ where: { sessionId, exercise: { name } } });
@@ -152,8 +158,48 @@ export async function swapExercise(raw: unknown): Promise<ExerciseResult> {
     const choice = swapOptions(from, equipment, avoid, planned.map((e) => e.name)).find((e) => e.name === to);
     if (!choice) return `${to} isn't a swap that suits your equipment.`;
     const swapped = { ...planned[index], name: choice.name, failureAllowed: planned[index].failureAllowed && failureAllowed(choice) };
-    return { planned: planned.map((e, i) => (i === index ? swapped : e)), added: swapped };
+    // Ask "from now on?" once per pair (SPEC decision 77).
+    const answered = await db.exerciseSwap.count({ where: { athleteId: session.week.athleteId, fromName: from, toName: choice.name } });
+    return { planned: planned.map((e, i) => (i === index ? swapped : e)), added: swapped, askToKeep: answered === 0 };
   });
+}
+
+const SwapAnswer = z.object({ from: z.string().min(1).max(100), to: z.string().min(1).max(100), keep: z.boolean() });
+
+/**
+ * Answers "Use X instead of Y from now on?" (SPEC decision 77). Yes: future
+ * gym sessions use X, replacing any earlier choice for Y. Just today: ede.
+ * doesn't ask again for this pair.
+ */
+export async function answerSwap(raw: unknown): Promise<WorkoutResult> {
+  const parsed = SwapAnswer.safeParse(raw);
+  if (!parsed.success) return fail("Something went wrong. Try again.");
+  const ctx = await signedInContext();
+  if (!ctx) return fail("Set up your own plan to keep swaps.");
+  const { from, to, keep } = parsed.data;
+  const fromInfo = findExercise(from);
+  const toInfo = findExercise(to);
+  if (!fromInfo || !toInfo || fromInfo.name === toInfo.name) return fail("Those exercises aren't in the library.");
+  const athleteId = ctx.athleteId;
+  await db.$transaction([
+    ...(keep ? [db.exerciseSwap.deleteMany({ where: { athleteId, fromName: fromInfo.name, keep: true } })] : []),
+    db.exerciseSwap.upsert({
+      where: { athleteId_fromName_toName: { athleteId, fromName: fromInfo.name, toName: toInfo.name } },
+      create: { athleteId, fromName: fromInfo.name, toName: toInfo.name, keep },
+      update: { keep },
+    }),
+  ]);
+  return { ok: true };
+}
+
+/** Stops using a kept swap (from You): the plan's own exercise comes back in future sessions. */
+export async function forgetSwap(raw: unknown): Promise<WorkoutResult> {
+  const parsed = z.object({ from: z.string().min(1).max(100) }).safeParse(raw);
+  if (!parsed.success) return fail("Something went wrong. Try again.");
+  const ctx = await signedInContext();
+  if (!ctx) return fail("Set up your own plan to change swaps.");
+  await db.exerciseSwap.deleteMany({ where: { athleteId: ctx.athleteId, fromName: parsed.data.from, keep: true } });
+  return { ok: true };
 }
 
 /** Adds a library exercise to the end of the workout. */
