@@ -28,10 +28,12 @@ describe("exercise library", () => {
     expect(findExercise("Underwater basket weaving")).toBeUndefined();
   });
 
-  it("allows failure only on machine, cable or isolation exercises", () => {
+  it("allows failure on everything except heavy barbell compound lifts (SPEC decision 74)", () => {
     expect(failureAllowed(findExercise("Back squat")!)).toBe(false);
     expect(failureAllowed(findExercise("Deadlift")!)).toBe(false);
-    expect(failureAllowed(findExercise("Pull-up")!)).toBe(false);
+    expect(failureAllowed(findExercise("Bench press")!)).toBe(false);
+    expect(failureAllowed(findExercise("Pull-up")!)).toBe(true);
+    expect(failureAllowed(findExercise("Dumbbell bench press")!)).toBe(true);
     expect(failureAllowed(findExercise("Leg press")!)).toBe(true);
     expect(failureAllowed(findExercise("Lat pulldown")!)).toBe(true);
     expect(failureAllowed(findExercise("Dumbbell lateral raise")!)).toBe(true);

@@ -143,3 +143,16 @@ export function workoutSummary(logged: LoggedSet[], previous: Record<string, Log
   }
   return { sets: logged.length, workingSets: working.length, volume: formatWeight(volumeKg, unit), improvements };
 }
+
+/**
+ * How hard a working set should be, in plain words rather than RPE (SPEC
+ * decision 74). Timed holds get their own words.
+ */
+export function effortWords(targetRpe: number, reps = ""): string {
+  if (/s\s*$/i.test(reps.trim())) return targetRpe >= 9 ? "Hard hold" : "Steady hold";
+  if (targetRpe >= 10) return "To failure";
+  if (targetRpe >= 9) return "1 rep short of failure";
+  if (targetRpe >= 8) return "2 reps short of failure";
+  if (targetRpe >= 7) return "Comfortable: 3 reps short";
+  return "Easy: focus on form";
+}

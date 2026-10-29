@@ -56,11 +56,11 @@ COACHING PRINCIPLES
 - Keep exercise choices to the equipment listed.
 
 STRENGTH VOLUME
-Follow the athlete's strength_volume setting:
-- low: 3-5 exercises per session, exactly 2 working sets each, RPE 8.5-9.5, about 30-45 minutes
-- moderate: 4-6 exercises per session, exactly 3 working sets each, RPE 8-9, about 45-60 minutes
-- high: 5-7 exercises per session, 3-4 working sets each, RPE 7.5-9, about 60-75 minutes
-Warm-up sets are listed separately and are not counted as working sets. Take sets to true failure only on machine, cable or isolation exercises. Never prescribe failure on heavy barbell squats, deadlifts or similar high-risk lifts; keep those at RPE 8.5-9 at most. Sessions must still fit within the minutes available for that day (rule 2), so reduce the number of exercises rather than exceed the time. The beginner adjustments below override these intensity ranges.
+Every exercise has exactly 2 working sets, at every strength_volume; the setting only changes how many exercises a session has:
+- low: 3-4 exercises per session, about 30-40 minutes
+- moderate: 5-6 exercises per session, about 45-50 minutes
+- high: 7-8 exercises per session, about 60-65 minutes
+Working sets are all-out: target_rpe 10 (to failure, failure_allowed true) on machine, cable, dumbbell, bodyweight and isolation exercises; heavy barbell compound lifts (squats, deadlifts, bench press and similar) stop one rep short at target_rpe 9 with failure_allowed false. Core holds are hard but controlled (target_rpe 9). Give one warm-up set before the first exercise for each muscle group, not before every exercise; warm-up sets are listed separately and are not counted as working sets. Recovery and taper weeks, a beginner's first weeks, and lower-body work the day after a hard or long run stay easier, as below. Sessions must still fit within the minutes available for that day (rule 2), so reduce the number of exercises rather than exceed the time. The beginner adjustments below override these intensity ranges.
 
 INJURY AND PAIN HANDLING
 The input may include injury: { area, pain_level (0-10), pain_when (running, walking, resting or lifting only) }.

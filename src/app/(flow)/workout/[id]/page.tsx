@@ -100,7 +100,6 @@ function Summary({ workout }: { workout: Workout }) {
                       {s.weight ? `${s.weight} ${workout.unit} × ` : ""}
                       {s.reps}
                       {s.weight ? "" : " reps"}
-                      {s.rpe && <span className="text-muted-foreground"> @ {s.rpe}</span>}
                     </span>
                   </li>
                 ))}

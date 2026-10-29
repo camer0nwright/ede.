@@ -128,7 +128,8 @@ export const OUTLINE_CONFIG = {
   /** Easy share targets (the checker's minimum is 80%). */
   easyShare: { default: 0.8, ultra: 0.9 },
   minEasyRunMinutes: 20,
-  strengthMinutes: { low: 40, moderate: 55, high: 70 },
+  /** Gym session length by volume (3-4, 5-6 or 7-8 exercises of 2 working sets; SPEC decision 74). */
+  strengthMinutes: { low: 35, moderate: 50, high: 65 },
   /** Light lifting sessions in recovery and taper weeks are shorter... */
   lightStrengthMinutes: 30,
   /** ...and can be trimmed to this to fit a recovery or taper week's load cap. */

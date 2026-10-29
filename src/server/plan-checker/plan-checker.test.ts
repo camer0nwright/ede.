@@ -400,19 +400,15 @@ describe("working-sets", () => {
     expect(workingSets(week(), { ...ctx, strengthVolume: undefined })).toEqual([]);
   });
 
-  it("needs exactly 3 working sets on moderate", () => {
-    const v = workingSets(week(), { ...ctx, strengthVolume: "moderate" });
-    expect(v).toHaveLength(8); // every exercise in the two demo sessions
-    expect(v[0].message).toMatch(/has 2 working sets; moderate strength volume needs exactly 3/);
-  });
-
-  it("allows 3 or 4 working sets on high", () => {
+  it("needs exactly 2 working sets at every volume (SPEC decision 74)", () => {
     const w = week({
-      sessions: [lift("2026-10-13", "upper", [exercise("Bench", 9, 3), exercise("Row", 9, 4), exercise("Curl", 9, 2)])],
+      sessions: [lift("2026-10-13", "upper", [exercise("Bench", 9, 3), exercise("Row", 9, 2), exercise("Curl", 9, 2)])],
     });
-    const v = workingSets(w, { ...ctx, strengthVolume: "high" });
-    expect(v).toHaveLength(1);
-    expect(v[0].message).toMatch(/Curl/);
+    for (const strengthVolume of ["low", "moderate", "high"] as const) {
+      const v = workingSets(w, { ...ctx, strengthVolume });
+      expect(v).toHaveLength(1);
+      expect(v[0].message).toMatch(/Bench .* has 3 working sets; .* needs exactly 2/);
+    }
   });
 });
 
@@ -447,15 +443,16 @@ describe("strength-effort (most lifts are hard)", () => {
     expect(strengthEffort(session([9, 9, 7]), ctx)).toEqual([]);
   });
 
-  it("fails when half or fewer are hard", () => {
-    const v = strengthEffort(session([9, 7, 7, 9]), ctx);
-    expect(v[0].message).toMatch(/Only 2 of 4 exercises .* RPE 8.5\+/);
+  it("fails when half or fewer are hard (one rep short of failure or more)", () => {
+    const v = strengthEffort(session([10, 8, 8, 9]), ctx);
+    expect(v[0].message).toMatch(/Only 2 of 4 exercises .* RPE 9\+/);
   });
 
-  it("uses each strength volume setting's range", () => {
-    expect(strengthEffort(session([8, 8, 8]), ctx)).toHaveLength(1); // low: 8.5+
-    expect(strengthEffort(session([8, 8, 8]), { ...ctx, strengthVolume: "moderate" })).toEqual([]);
-    expect(strengthEffort(session([7.5, 7.5]), { ...ctx, strengthVolume: "high" })).toEqual([]);
+  it("asks for all-out sets at every volume", () => {
+    for (const strengthVolume of ["low", "moderate", "high"] as const) {
+      expect(strengthEffort(session([8.5, 8.5, 8.5]), { ...ctx, strengthVolume })).toHaveLength(1);
+      expect(strengthEffort(session([10, 9, 10]), { ...ctx, strengthVolume })).toEqual([]);
+    }
   });
 
   it("skips beginners, recovery and taper weeks", () => {

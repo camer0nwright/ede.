@@ -359,8 +359,8 @@ export const workingSets: Rule = (week, { strengthVolume = "low" }) => {
 };
 
 /**
- * Failure (failure_allowed) only on machine, cable or isolation exercises from
- * the library, and heavy barbell lifts never above RPE 9.
+ * Failure (failure_allowed) on any library exercise except heavy barbell
+ * compound lifts, which stay at RPE 9 or less: one rep short (SPEC decision 74).
  */
 export const failureAllowedRule: Rule = (week) => {
   const out: Violation[] = [];
@@ -369,7 +369,7 @@ export const failureAllowedRule: Rule = (week) => {
     for (const e of s.exercises) {
       const info = findExercise(e.name);
       if (e.failureAllowed && (!info || !failureAllowed(info))) {
-        out.push({ rule: "failure-allowed", date: s.date, message: info ? `${e.name} on ${label(s.date)} can't be taken to failure; only machine, cable or isolation exercises can. Set failure_allowed to false.` : `${e.name} on ${label(s.date)} isn't in ede.'s exercise library, so it can't be taken to failure. Use a library exercise or set failure_allowed to false.` });
+        out.push({ rule: "failure-allowed", date: s.date, message: info ? `${e.name} on ${label(s.date)} can't be taken to failure; heavy barbell lifts stop one rep short. Set failure_allowed to false.` : `${e.name} on ${label(s.date)} isn't in ede.'s exercise library, so it can't be taken to failure. Use a library exercise or set failure_allowed to false.` });
       }
       if (info?.equipment === "barbell" && info.category === "compound" && e.targetRpe > C.maxBarbellRpe) {
         out.push({ rule: "failure-allowed", date: s.date, message: `${e.name} on ${label(s.date)} is at RPE ${e.targetRpe}; keep heavy barbell lifts at RPE ${C.maxBarbellRpe} or less.` });

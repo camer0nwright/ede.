@@ -40,12 +40,45 @@ describe("strength builder", () => {
     });
   });
 
-  it("uses the SPEC's exercise counts: Low 3-5, Moderate 4-6, Higher 5-7", () => {
+  it("uses the exercise counts: Low 3-4, Moderate 5-6, Higher 7-8 (SPEC decision 74)", () => {
+    const ranges = { low: [3, 4], moderate: [5, 6], high: [7, 8] } as const;
     for (const focus of FOCUSES) {
-      expect(names({ ...base, focus, volume: "low" }).length).toBeGreaterThanOrEqual(3);
-      expect(names({ ...base, focus, volume: "low" }).length).toBeLessThanOrEqual(5);
-      expect(names({ ...base, focus, volume: "moderate" }).length).toBeGreaterThanOrEqual(4);
-      expect(names({ ...base, focus, volume: "high" }).length).toBeGreaterThanOrEqual(5);
+      for (const volume of VOLUMES) {
+        const n = names({ ...base, focus, volume }).length;
+        expect(n, `${volume} ${focus}`).toBeGreaterThanOrEqual(ranges[volume][0]);
+        expect(n, `${volume} ${focus}`).toBeLessThanOrEqual(ranges[volume][1]);
+      }
+    }
+  });
+
+  it("gives every exercise 2 working sets at every volume", () => {
+    for (const focus of FOCUSES) for (const volume of VOLUMES) for (const e of buildStrengthSession({ ...base, focus, volume }).exercises) expect(e.workingSets).toBe(2);
+  });
+
+  it("takes sets to failure except heavy barbell lifts, which stop one rep short", () => {
+    const s = buildStrengthSession({ ...base, focus: "full", volume: "high" }).exercises;
+    for (const e of s) {
+      const info = findExercise(e.name)!;
+      const core = ["Pallof press", "Dead bug", "Plank", "Hanging knee raise"].includes(e.name);
+      if (core) expect(e.targetRpe).toBe(9);
+      else if (info.equipment === "barbell" && info.category === "compound") expect([e.targetRpe, e.failureAllowed]).toEqual([9, false]);
+      else expect([e.targetRpe, e.failureAllowed]).toEqual([10, true]);
+    }
+  });
+
+  it("warms up once per muscle group, before its first exercise", () => {
+    for (const focus of FOCUSES) {
+      const s = buildStrengthSession({ ...base, focus, volume: "high" }).exercises;
+      const seen = new Set<string>();
+      for (const e of s) {
+        const info = findExercise(e.name)!;
+        expect(e.warmupSets).toBeLessThanOrEqual(1);
+        if (e.warmupSets === 1) {
+          expect(seen.has(info.muscleGroup), `${e.name} warms up ${info.muscleGroup} twice`).toBe(false);
+        }
+        seen.add(info.muscleGroup);
+      }
+      expect(s[0].warmupSets).toBe(1);
     }
   });
 
@@ -85,7 +118,8 @@ describe("strength builder", () => {
 
   it("caps lower-body effort the day after a hard or long run", () => {
     const s = buildStrengthSession({ ...base, maxLowerRpe: 8 });
-    for (const e of s.exercises) if (findExercise(e.name)!.isLowerBody) expect(e.targetRpe).toBeLessThanOrEqual(8);
+    // Legs and core both stay easier that day.
+    for (const e of s.exercises) if (findExercise(e.name)!.isLowerBody || e.name === "Pallof press" || e.name === "Plank") expect(e.targetRpe).toBeLessThanOrEqual(8);
   });
 
   it("makes light weeks lighter but keeps the same working sets", () => {
