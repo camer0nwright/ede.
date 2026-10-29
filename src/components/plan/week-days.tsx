@@ -259,7 +259,7 @@ function LiftSheet({ lift, day }: { lift: LiftView; day: DayView }) {
             <p className="mt-0.5 text-xs text-muted-foreground">
               {e.isMainLift && <span className="font-medium text-foreground">Main lift · </span>}
               {e.warmupSets > 0 && `${e.warmupSets === 1 ? "1 warm-up set" : `${e.warmupSets} warm-up sets`} · `}
-              {effortWords(e.targetRpe, e.reps)} · rest {rest(e.restSeconds)}
+              {effortWords(e.targetRpe, e.reps, e.name)} · rest {rest(e.restSeconds)}
             </p>
           </li>
         ))}

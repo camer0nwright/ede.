@@ -54,6 +54,7 @@ COACHING PRINCIPLES
 - Explain each session's purpose briefly in its title or the day's notes, and keep the coach_note encouraging, specific and short.
 - The athlete sees paces and plain effort words ("easy", "tempo", "5K effort"), never RPE numbers: target_rpe in steps is for ede.'s checks only, so don't mention RPE in titles or notes.
 - Keep exercise choices to the equipment listed.
+- Leg days are running-specific: single-leg work (split squats, step-ups, single-leg Romanian deadlifts), calves and soleus, alongside the main squat and hinge. Leg and full-body days may open with one plyometric (pogo hops, low box jumps, box jumps, skater bounds, single-leg hops, bounding): 2 sets of a few springy contacts at target_rpe 7, failure_allowed false. Never add or keep plyometrics on the day of, the day before or the day after a hard or long run, while the athlete is injured, or for beginners beyond pogo hops and low box jumps. If you ease a leg session, take its plyometric out.
 - Keep each strength session's body_focus and title as in baseline_week: they follow the athlete's chosen gym_split (upper_lower, ppl for push/pull/legs, arnold for chest and back / shoulders and arms / legs, or full_body), which rotates across weeks. "lower" sessions are leg days; push, pull, chest_back and shoulders_arms have no leg work.
 
 STRENGTH VOLUME

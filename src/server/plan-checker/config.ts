@@ -8,6 +8,8 @@ export const CHECKER_CONFIG = {
   // A run counts as a long run from 60 minutes: LONG_RUN_MIN_MINUTES in src/lib/key-runs.ts.
   /** Lower-body lifting the day after a hard or long run is capped at this RPE. */
   maxLowerRpeAfterKeyRun: 8,
+  /** Plyometrics stay springy: at most this RPE, never to failure (SPEC decision 76). */
+  maxPlyoRpe: 8,
 
   /** Run minutes may grow by this share over the last build week... */
   maxRunIncreaseShare: 0.1,

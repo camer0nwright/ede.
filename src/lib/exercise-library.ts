@@ -19,6 +19,8 @@ export type ExerciseInfo = {
   loads: BodyArea[];
   /** Exercises to swap to, e.g. for different equipment or an injury. */
   alternatives: string[];
+  /** Jumps and hops for running economy (SPEC decision 76): gentle ones suit beginners. */
+  plyo?: "gentle" | "standard";
 };
 
 const ex = (e: ExerciseInfo) => e;
@@ -51,6 +53,7 @@ export const EXERCISES: ExerciseInfo[] = [
   ex({ name: "Wall sit", muscleGroup: "Quads", equipment: "bodyweight", category: "isolation", isLowerBody: true, loads: ["knee"], alternatives: ["Spanish squat"] }),
   ex({ name: "Standing calf raise", aliases: ["Calf raise"], muscleGroup: "Calves", equipment: "machine", category: "isolation", isLowerBody: true, loads: ["ankle"], alternatives: ["Seated calf raise", "Single-leg calf raise"] }),
   ex({ name: "Seated calf raise", muscleGroup: "Calves", equipment: "machine", category: "isolation", isLowerBody: true, loads: ["ankle"], alternatives: ["Standing calf raise"] }),
+  ex({ name: "Bent-knee calf raise", aliases: ["Soleus raise", "Bent-knee soleus raise"], muscleGroup: "Calves", equipment: "bodyweight", category: "isolation", isLowerBody: true, loads: ["ankle"], alternatives: ["Seated calf raise", "Single-leg calf raise"] }),
   ex({ name: "Single-leg calf raise", muscleGroup: "Calves", equipment: "bodyweight", category: "isolation", isLowerBody: true, loads: ["ankle"], alternatives: ["Standing calf raise"] }),
   ex({ name: "Hip abduction", aliases: ["Abductor machine"], muscleGroup: "Glutes", equipment: "machine", category: "isolation", isLowerBody: true, loads: ["hip"], alternatives: ["Banded lateral walk"] }),
   ex({ name: "Banded lateral walk", muscleGroup: "Glutes", equipment: "band", category: "isolation", isLowerBody: true, loads: ["hip"], alternatives: ["Hip abduction"] }),
@@ -96,6 +99,14 @@ export const EXERCISES: ExerciseInfo[] = [
   ex({ name: "Band curl", muscleGroup: "Biceps", equipment: "band", category: "isolation", isLowerBody: false, loads: ["elbow"], alternatives: ["Dumbbell curl"] }),
   ex({ name: "Band triceps extension", muscleGroup: "Triceps", equipment: "band", category: "isolation", isLowerBody: false, loads: ["elbow"], alternatives: ["Triceps pushdown"] }),
 
+  // ----- Plyometrics: short, springy and never to failure (SPEC decision 76) -----
+  ex({ name: "Pogo hops", aliases: ["Pogo jumps", "Ankle hops"], muscleGroup: "Plyometrics", equipment: "bodyweight", category: "compound", isLowerBody: true, loads: ["ankle"], alternatives: ["Low box jump"], plyo: "gentle" }),
+  ex({ name: "Low box jump", aliases: ["Step-down box jump"], muscleGroup: "Plyometrics", equipment: "bodyweight", category: "compound", isLowerBody: true, loads: ["knee", "ankle"], alternatives: ["Pogo hops"], plyo: "gentle" }),
+  ex({ name: "Box jump", muscleGroup: "Plyometrics", equipment: "bodyweight", category: "compound", isLowerBody: true, loads: ["knee", "ankle"], alternatives: ["Low box jump", "Skater bound"], plyo: "standard" }),
+  ex({ name: "Skater bound", aliases: ["Skater jump", "Lateral bound"], muscleGroup: "Plyometrics", equipment: "bodyweight", category: "compound", isLowerBody: true, loads: ["knee", "ankle", "hip"], alternatives: ["Box jump", "Pogo hops"], plyo: "standard" }),
+  ex({ name: "Single-leg hop", aliases: ["Single-leg pogo"], muscleGroup: "Plyometrics", equipment: "bodyweight", category: "compound", isLowerBody: true, loads: ["ankle", "knee"], alternatives: ["Pogo hops"], plyo: "standard" }),
+  ex({ name: "Bounding", aliases: ["Bounds"], muscleGroup: "Plyometrics", equipment: "bodyweight", category: "compound", isLowerBody: true, loads: ["knee", "ankle", "hip"], alternatives: ["Skater bound", "Box jump"], plyo: "standard" }),
+
   // ----- Core -----
   ex({ name: "Plank", muscleGroup: "Core", equipment: "bodyweight", category: "isolation", isLowerBody: false, loads: [], alternatives: ["Dead bug"] }),
   ex({ name: "Dead bug", muscleGroup: "Core", equipment: "bodyweight", category: "isolation", isLowerBody: false, loads: [], alternatives: ["Plank"] }),
@@ -112,11 +123,14 @@ export const EXERCISES: ExerciseInfo[] = [
  * except heavy barbell compound lifts (squats, deadlifts, bench and similar),
  * which stop one rep short. Isolation work with a barbell (curls) is fine.
  */
-export const failureAllowed = (e: ExerciseInfo) => e.equipment !== "barbell" || e.category === "isolation";
+export const failureAllowed = (e: ExerciseInfo) => !e.plyo && (e.equipment !== "barbell" || e.category === "isolation");
+
+/** Whether a planned exercise is a plyometric (jumps and hops). */
+export const isPlyo = (name: string) => !!findExercise(name)?.plyo;
 
 /** Seconds of rest between sets, by type of exercise (SPEC: Gym sessions and logging). */
 export const defaultRestSeconds = (e: ExerciseInfo) =>
-  e.category === "isolation" ? 75 : e.equipment === "barbell" ? 180 : 120;
+  e.plyo ? 90 : e.category === "isolation" ? 75 : e.equipment === "barbell" ? 180 : 120;
 
 /** Smallest weight step in kg (barbell plates, dumbbell jumps, machine stack). */
 export const weightStepKg = (e: ExerciseInfo) =>

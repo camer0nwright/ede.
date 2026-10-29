@@ -18,15 +18,18 @@ const CORE: Slot = { role: "core", candidates: ["Pallof press", "Dead bug", "Pla
 
 /** Exercise slots for each focus, most important first. */
 const TEMPLATES: Record<BodyFocus, Slot[]> = {
+  // Leg days lean on running-specific work (SPEC decision 76): single-leg
+  // squats and hinges, calves and soleus, after the two main lifts.
   lower: [
     { role: "main", candidates: ["Back squat", "Front squat", "Hack squat", "Leg press", "Goblet squat", "Bulgarian split squat", "Bodyweight squat"] },
     { role: "main", candidates: ["Romanian deadlift", "Trap bar deadlift", "Deadlift", "Hip thrust", "Dumbbell Romanian deadlift", "Single-leg Romanian deadlift", "Glute bridge"] },
     { role: "accessory", candidates: ["Bulgarian split squat", "Reverse lunge", "Step-up", "Split squat"] },
-    { role: "isolation", candidates: ["Seated leg curl", "Lying leg curl", "Nordic curl", "Single-leg Romanian deadlift"] },
-    { role: "isolation", candidates: ["Standing calf raise", "Seated calf raise", "Single-leg calf raise", "Hip abduction", "Banded lateral walk"] },
+    { role: "isolation", candidates: ["Single-leg calf raise", "Standing calf raise"] },
+    { role: "accessory", candidates: ["Single-leg Romanian deadlift", "Dumbbell Romanian deadlift"] },
+    { role: "isolation", candidates: ["Seated leg curl", "Lying leg curl", "Nordic curl"] },
+    { role: "isolation", candidates: ["Seated calf raise", "Bent-knee calf raise"] },
     CORE,
-    { role: "isolation", candidates: ["Leg extension", "Spanish squat", "Wall sit"] },
-    { role: "accessory", candidates: ["Hip thrust", "Glute bridge", "Single-leg Romanian deadlift"] },
+    { role: "isolation", candidates: ["Hip abduction", "Banded lateral walk"] },
   ],
   upper: [
     { role: "main", candidates: ["Bench press", "Dumbbell bench press", "Machine chest press", "Push-up"] },
@@ -97,6 +100,18 @@ export function focusTitle(focus: BodyFocus, split?: GymSplit): string {
 }
 
 /**
+ * Plyometrics open leg and full-body days (SPEC decision 76), on top of the
+ * volume's exercise count: short, springy sets, never to failure. Gentle ones
+ * for beginners; they rotate between blocks and weeks.
+ */
+const PLYOS: Record<"gentle" | "standard", string[]> = {
+  gentle: ["Pogo hops", "Low box jump"],
+  standard: ["Box jump", "Skater bound", "Single-leg hop", "Bounding"],
+};
+/** Plyos stay well short of failure: quality contacts, not fatigue. */
+export const PLYO_RPE = 7;
+
+/**
  * Exercises per session for each strength volume (SPEC decision 74): Low 3-4,
  * Moderate 5-6, Higher 7-8. Every exercise has 2 working sets, so the volume
  * setting only changes how many exercises there are. Sessions start at the top
@@ -146,6 +161,8 @@ export type StrengthRequest = {
   maxMinutes?: number;
   /** Fewest exercises to keep when trimming for time (default 2; light weeks may go to 1). */
   minExercises?: number;
+  /** Plyometrics for this athlete (gentle for beginners); only in hard leg or full-body sessions, never with an injury or after a key run. */
+  plyos?: "gentle" | "standard";
 };
 
 export type BuiltExercise = StrengthExercise & { restSeconds: number; isMainLift: boolean };
@@ -155,7 +172,16 @@ export type BuiltSession = { exercises: BuiltExercise[]; minutes: number };
 const isCoreHold = (name: string) => name === "Plank" || name === "Dead bug";
 
 /** Reps that make sense for the exercise itself, before the usual rules. */
-const SPECIAL_REPS: Record<string, string> = { "Nordic curl": "4-6", "Wall sit": "30-45s" };
+const SPECIAL_REPS: Record<string, string> = {
+  "Nordic curl": "4-6",
+  "Wall sit": "30-45s",
+  "Pogo hops": "10",
+  "Low box jump": "5",
+  "Box jump": "5",
+  "Skater bound": "6 each side",
+  "Single-leg hop": "8 each side",
+  Bounding: "6",
+};
 
 function reps(info: ExerciseInfo, role: SlotRole, volume: StrengthVolume): string {
   if (SPECIAL_REPS[info.name]) return SPECIAL_REPS[info.name];
@@ -185,6 +211,14 @@ function targetRpe(info: ExerciseInfo, role: SlotRole, req: StrengthRequest): nu
   return rpe;
 }
 
+/** This session's plyo, if it has one: hard leg or full-body days only, never with an injury or the day after a key run. */
+function plyoFor(req: StrengthRequest): ExerciseInfo | undefined {
+  if (!req.plyos || req.effort !== "hard" || req.avoid || req.maxLowerRpe !== undefined) return undefined;
+  if (req.focus !== "lower" && req.focus !== "full") return undefined;
+  const options = PLYOS[req.plyos].map((n) => usable(n, req)).filter((e): e is ExerciseInfo => !!e);
+  return options[(req.block - 1 + (req.variant === "B" ? 1 : 0)) % options.length];
+}
+
 const usable = (name: string, req: StrengthRequest): ExerciseInfo | undefined => {
   const info = findExercise(name);
   if (!info) return undefined;
@@ -204,8 +238,14 @@ export function buildStrengthSession(req: StrengthRequest): BuiltSession {
   const used = new Set<string>();
   const warmedUp = new Set<string>();
   const exercises: BuiltExercise[] = [];
+  const plyo = plyoFor(req);
+  if (plyo) {
+    used.add(plyo.name);
+    exercises.push({ name: plyo.name, warmupSets: 0, workingSets: WORKING_SETS, reps: SPECIAL_REPS[plyo.name] ?? "5", targetRpe: PLYO_RPE, failureAllowed: false, restSeconds: defaultRestSeconds(plyo), isMainLift: false });
+  }
+  const counted = () => exercises.filter((e) => e.name !== plyo?.name).length;
   for (const slot of TEMPLATES[req.focus]) {
-    if (exercises.length >= EXERCISE_COUNT[req.volume].max) break;
+    if (counted() >= EXERCISE_COUNT[req.volume].max) break;
     const options = slot.candidates.map((n) => usable(n, req)).filter((e): e is ExerciseInfo => !!e && !used.has(e.name));
     if (options.length === 0) continue;
     // Main lifts change only between blocks; accessories alternate A/B.
@@ -233,6 +273,9 @@ export function buildStrengthSession(req: StrengthRequest): BuiltSession {
   // Fit the time available by dropping the least important exercises: down to
   // the bottom of the volume's range, or further (to 2) if the day is short.
   const keep = req.minExercises ?? 2;
-  while (req.maxMinutes !== undefined && exercises.length > keep && sessionMinutes(exercises) > req.maxMinutes) exercises.pop();
+  const over = () => req.maxMinutes !== undefined && sessionMinutes(exercises) > req.maxMinutes;
+  while (over() && counted() > keep) exercises.pop();
+  // Still too long: the plyos go before the lifts do.
+  if (over() && plyo) exercises.shift();
   return { exercises, minutes: sessionMinutes(exercises) };
 }

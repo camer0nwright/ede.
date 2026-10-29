@@ -27,6 +27,7 @@ export type RuleId =
   | "consecutive-hard-runs"
   | "lower-body-after-key-run"
   | "upper-body-only"
+  | "plyometrics"
   | "easy-running"
   | "beginner-easy-running"
   | "working-sets"
@@ -299,6 +300,28 @@ export const upperBodyOnly: Rule = (week) => {
 };
 
 /**
+ * Plyometrics (SPEC decision 76): springy, never to failure (RPE 8 at most),
+ * never on the day of, the day before or the day after a hard or long run,
+ * and only the gentle ones for beginners.
+ */
+export const plyometrics: Rule = (week, { experienceLevel }) => {
+  const out: Violation[] = [];
+  const near = new Set(keyRuns(week).flatMap((r) => [addDays(r.date, -1), r.date, addDays(r.date, 1)]));
+  for (const s of week.sessions) {
+    if (s.type !== "strength") continue;
+    for (const e of s.exercises) {
+      const info = findExercise(e.name);
+      if (!info?.plyo) continue;
+      const where = `${e.name} in "${s.title}" on ${label(s.date)}`;
+      if (e.failureAllowed || e.targetRpe > C.maxPlyoRpe) out.push({ rule: "plyometrics", date: s.date, message: `${where} must stay springy: RPE ${C.maxPlyoRpe} or less, never to failure.` });
+      if (near.has(s.date)) out.push({ rule: "plyometrics", date: s.date, message: `${where} is next to a hard or long run; jumps go on days away from them.` });
+      if (experienceLevel === "beginner" && info.plyo !== "gentle") out.push({ rule: "plyometrics", date: s.date, message: `${where} is too much for a beginner; use gentle jumps such as pogo hops or low box jumps.` });
+    }
+  }
+  return out;
+};
+
+/**
  * At least 80% of running minutes are at easy effort (SPEC decision 17):
  * counted step by step, so warm-ups, cool-downs and the easy part of a
  * fast-finish long run count as easy.
@@ -356,7 +379,9 @@ export const strengthEffort: Rule = (week, { strengthVolume = "low", experienceL
     // A full-body session kept light on legs (to stay clear of hard and long
     // runs, SPEC decision 75) is judged on its upper-body work.
     const lightLegs = s.bodyFocus === "full" && !isHeavyLowerBody(s);
-    const judged = lightLegs ? s.exercises.filter((e) => !mayBeLowerBody(e.name) && findExercise(e.name)?.muscleGroup !== "Core") : s.exercises;
+    // Plyos are meant to stay springy, so they're not counted.
+    const lifts = s.exercises.filter((e) => !findExercise(e.name)?.plyo);
+    const judged = lightLegs ? lifts.filter((e) => !mayBeLowerBody(e.name) && findExercise(e.name)?.muscleGroup !== "Core") : lifts;
     if (judged.length === 0) continue;
     const hard = judged.filter((e) => e.targetRpe >= minRpe).length;
     if (hard / judged.length <= C.minHardExerciseShare) {
@@ -442,6 +467,10 @@ export const injuryRule: Rule = (week, ctx) => {
     }
     for (const e of s.exercises) {
       const info = findExercise(e.name);
+      if (info?.plyo) {
+        out.push({ rule: "injury", date: s.date, message: `With ${where}, no jumping: take ${e.name} out of "${s.title}" on ${label(s.date)}.` });
+        continue;
+      }
       if (info?.loads.includes(injury.area)) {
         const swap = info.alternatives.map(findExercise).find((a) => a && !a.loads.includes(injury.area));
         out.push({ rule: "injury", date: s.date, message: `${e.name} on ${label(s.date)} loads the injured ${injury.area}; swap it${swap ? ` (for example ${swap.name})` : ""}.` });
@@ -633,6 +662,7 @@ export const ALL_RULES: Rule[] = [
   consecutiveHardRuns,
   lowerBodyAfterKeyRun,
   upperBodyOnly,
+  plyometrics,
   easyRunning,
   beginnerEasyRunning,
   workingSets,

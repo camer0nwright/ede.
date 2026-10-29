@@ -308,6 +308,7 @@ export function buildWeek(o: OutlineWeek, input: WeekBuildInput): BuiltWeek {
       variant: lift.variant,
       avoid: input.avoid,
       avoidBarbell: input.experienceLevel === "beginner" && o.weekNumber <= BEGINNER_MACHINE_WEEKS,
+      plyos: input.experienceLevel === "beginner" ? "gentle" : "standard",
       maxLowerRpe: lightLegs ? LIGHT_LEGS_RPE : keyDays.has(day - 1) ? LOWER_RPE_AFTER_KEY_RUN : undefined,
       // Light weeks keep to the outline's shorter time; hard sessions get a little leeway.
       maxMinutes: Math.min(cap, lift.effort === "hard" ? lift.minutes + 15 : lift.minutes),
