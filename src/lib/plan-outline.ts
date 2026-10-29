@@ -94,6 +94,8 @@ export const PLAN_VERSION = 2;
 export type PlanOutline = {
   /** The coaching this outline was built with; missing on plans from before version 2. */
   version?: number;
+  /** Set when a saved plan was moved to newer coaching: the Monday the new coaching starts. */
+  refreshedFrom?: string;
   weeks: OutlineWeek[];
   taperWeeks: number;
   /** Gentle notes for the user, such as a plan shorter than recommended. */

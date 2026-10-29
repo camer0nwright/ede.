@@ -24,6 +24,8 @@ export async function saveRebuiltPlan(
     returning?: boolean;
     /** Where the rebuilt plan starts (default: next Monday, or the plan's start if it hasn't begun). */
     start?: string;
+    /** Moving the plan to newer coaching (SPEC decision 79): Today explains the change. */
+    coachingRefresh?: boolean;
     /** Other changes saved in the same transaction. */
     alsoSave?: (tx: Prisma.TransactionClient) => Promise<unknown>;
   },
@@ -35,6 +37,9 @@ export async function saveRebuiltPlan(
   let outline: PlanOutline;
   try {
     outline = rebuildOutline(ctx.outline, fresh, start);
+    // Today keeps explaining a coaching refresh through later rebuilds of its first week.
+    const refreshedFrom = opts.coachingRefresh ? start : ctx.outline.refreshedFrom;
+    if (refreshedFrom) outline = { ...outline, refreshedFrom };
   } catch (e) {
     return { ok: false, errors: [e instanceof Error ? e.message : "Couldn't build a plan from those settings."] };
   }

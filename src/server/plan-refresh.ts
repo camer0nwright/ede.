@@ -23,6 +23,7 @@ export async function refreshPlan(ctx: PlanContext & { athleteId: string; outlin
   await saveRebuiltPlan(ctx, {
     athleteId: ctx.athleteId,
     input: ctx.input,
+    coachingRefresh: true,
     // Two pages opening at once: only the first rebuilds.
     alsoSave: async (tx) => {
       if ((await tx.planOutline.count({ where: { id: ctx.outlineId, active: true } })) === 0) throw new Error("Plan already refreshed");

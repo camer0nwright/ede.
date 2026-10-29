@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { PROFILES } from "@/test/profiles";
 import { addDays } from "./dates";
 import { buildPlanOutline, PLAN_VERSION, type PlanOutline } from "./plan-outline";
-import { isOutdated, rebuildOutline, rebuildStart } from "./plan-rebuild";
+import { coachingUpdateNote, isOutdated, rebuildOutline, rebuildStart } from "./plan-rebuild";
 
 // Refreshing saved plans when the coaching changes (SPEC decision 79).
 
@@ -48,5 +48,20 @@ describe("refreshing an old plan", () => {
   it("carries on the week numbers and the race date", () => {
     expect(refreshed.weeks.map((w) => w.weekNumber)).toEqual(refreshed.weeks.map((_, i) => i + 1));
     expect(refreshed.weeks.at(-1)!.weekStart).toBe(current.weeks.at(-1)!.weekStart);
+  });
+});
+
+describe("the note on Today", () => {
+  const outline = { ...current, refreshedFrom: "2026-11-02" };
+
+  it("explains the change before it starts and through its first week", () => {
+    expect(coachingUpdateNote(outline, "2026-10-29")).toMatch(/From Monday.*This week stays as it is/);
+    expect(coachingUpdateNote(outline, "2026-11-02")).toMatch(/now follows ede.'s updated coaching/);
+    expect(coachingUpdateNote(outline, "2026-11-08")).toMatch(/now follows/);
+  });
+
+  it("goes away after the first week, and never shows for a plan that wasn't refreshed", () => {
+    expect(coachingUpdateNote(outline, "2026-11-09")).toBeNull();
+    expect(coachingUpdateNote(current, "2026-10-29")).toBeNull();
   });
 });
