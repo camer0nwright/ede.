@@ -267,18 +267,36 @@ function recommendedWeeks(input: OutlineInput): number {
   return { "5k": 6, "10k": 8, half: 10, marathon: 12, general: 0, strength: 0 }[k];
 }
 
+/**
+ * The usual week (SPEC decision 72): ede. is for people building muscle while
+ * they run, so running and lifting are close to even. Beginners start on two
+ * of each. Near a race, build and peak weeks swap one lift for a run (see
+ * RACE_SWAP below).
+ */
+const USUAL_WEEK: Record<DistanceKey, { runs: number; lifts: number }> = {
+  "5k": { runs: 3, lifts: 3 },
+  "10k": { runs: 3, lifts: 3 },
+  half: { runs: 3, lifts: 3 },
+  marathon: { runs: 4, lifts: 3 },
+  ultra: { runs: 4, lifts: 3 },
+  general: { runs: 3, lifts: 3 },
+  strength: { runs: 2, lifts: 4 },
+};
+
 function desiredRuns(input: OutlineInput): number {
-  if (input.experienceLevel === "beginner") return 3;
-  const k = distanceKey(input);
-  const base = { "5k": 4, "10k": 4, half: 4, marathon: 5, ultra: 5, general: 3, strength: 2 }[k];
-  // Just-finish 5K and 10K plans typically use three runs a week.
-  if (input.justFinish && (k === "5k" || k === "10k")) return 3;
-  return input.experienceLevel === "advanced" ? Math.min(base + 1, 6) : base;
+  return input.experienceLevel === "beginner" ? 2 : USUAL_WEEK[distanceKey(input)].runs;
 }
 
 function desiredStrength(input: OutlineInput): number {
-  if (input.goalType === "strength") return input.strengthVolume === "high" ? 4 : 3;
-  return 2;
+  return input.experienceLevel === "beginner" ? 2 : USUAL_WEEK[distanceKey(input)].lifts;
+}
+
+/** Build and peak weeks before a race swap one lift for a run, keeping at least this many lifts. */
+const RACE_SWAP_MIN_LIFTS = 2;
+
+/** Whether this week swaps a lift for a run: build or peak weeks of a race plan, with lifts to spare. */
+export function raceSwap(input: Pick<OutlineInput, "goalType" | "targetDate">, phase: Phase, lifts: number): boolean {
+  return input.goalType === "race" && !!input.targetDate && (phase === "build" || phase === "peak") && lifts > RACE_SWAP_MIN_LIFTS;
 }
 
 const FOCUS_PATTERNS: Record<number, BodyFocus[]> = {
@@ -738,6 +756,9 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
     } else {
       while (runMinutes + sum(strength) > totalCap && strength.length > 0) strength = strength.slice(0, -1);
     }
+    // Near race day, one lift becomes an easy run.
+    ({ runs: weekRuns, strength } = swapLiftForRun(phase, weekRuns, strength, input, avail.dayCaps));
+    runMinutes = sum(weekRuns);
     const strengthMinutes = sum(strength);
 
     // ----- bookkeeping for rotation and progression -----
@@ -778,6 +799,41 @@ export function buildPlanOutline(input: OutlineInput): PlanOutline {
     notes.push(`While your running builds up, ${fewerRunsWeeks.length === 1 ? `week ${fewerRunsWeeks[0]} has` : `${fewerRunsWeeks.length} weeks have`} fewer than the ${input.runsPerWeek} runs you chose, so each run is long enough to be worthwhile.`);
   }
   return { weeks, taperWeeks: taper, notes };
+}
+
+/**
+ * Near a race, build and peak weeks turn one lift into an easy run (SPEC
+ * decision 72): the week's longest easy run is split in two. Running time,
+ * the long run, the hard sessions and the easy share all stay the same, so
+ * the running is exactly as safe as before; there's just one more, shorter run
+ * in place of a lift. Skipped when no easy run is long enough to split, or the
+ * runs wouldn't all fit the athlete's days.
+ */
+export function swapLiftForRun(
+  phase: Phase,
+  runs: OutlineRun[],
+  strength: OutlineStrength[],
+  input: Pick<OutlineInput, "goalType" | "targetDate">,
+  dayCaps: number[],
+): { runs: OutlineRun[]; strength: OutlineStrength[] } {
+  const unchanged = { runs, strength };
+  if (!raceSwap(input, phase, strength.length) || runs.length + 1 > dayCaps.length) return unchanged;
+  const easy = runs
+    .map((run, index) => ({ run, index }))
+    .filter(({ run }) => run.role === "easy" && run.minutes >= 2 * O.minEasyRunMinutes)
+    .sort((a, b) => b.run.minutes - a.run.minutes)[0];
+  if (!easy) return unchanged;
+  const first = Math.ceil(easy.run.minutes / 2 / 5) * 5;
+  const second = easy.run.minutes - first;
+  if (second < O.minEasyRunMinutes) return unchanged;
+  const next = [...runs];
+  next.splice(easy.index, 1, { ...easy.run, minutes: first }, { role: "easy", kind: "easy", level: 1, minutes: second });
+  // Every run still needs a day long enough: longest runs on the longest days.
+  const lengths = next.map((x) => x.minutes).sort((a, b) => b - a);
+  if (lengths.some((m, i) => m > dayCaps[i])) return unchanged;
+  // Drop the most general lift: a full-body session if there is one, otherwise the last.
+  const drop = strength.findLastIndex((x) => x.focus === "full");
+  return { runs: next, strength: strength.filter((_, i) => i !== (drop === -1 ? strength.length - 1 : drop)) };
 }
 
 const sum = (items: { minutes: number }[]) => items.reduce((s, r) => s + r.minutes, 0);

@@ -310,7 +310,11 @@ export function buildWeek(o: OutlineWeek, input: WeekBuildInput): BuiltWeek {
         failureAllowed: e.failureAllowed,
       })),
     });
-    if (keyDays.has(day) && runPlaces.some((p) => p.day === day)) dayNotes[date(day)] = "Run first, then lift at least 6 hours later.";
+    // Run first on a double day with a hard or long run, or any hour-plus session that isn't an easy run.
+    const sameDayRun = runPlaces.find((p) => p.day === day);
+    if (sameDayRun && (keyDays.has(day) || (sameDayRun.run.role !== "easy" && sameDayRun.run.minutes >= 60))) {
+      dayNotes[date(day)] = "Run first, then lift at least 6 hours later.";
+    }
   }
 
   sessions.sort((a, b) => (a.date === b.date ? a.slot - b.slot : a.date < b.date ? -1 : 1));

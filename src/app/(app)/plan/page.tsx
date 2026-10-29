@@ -1,5 +1,6 @@
 import { Suspense } from "react";
-import { Info } from "lucide-react";
+import Link from "next/link";
+import { ChevronRight, Info } from "lucide-react";
 import { DemoBanner } from "@/components/demo-banner";
 import { InjuryBanner } from "@/components/injury-banner";
 import { PageSkeleton } from "@/components/page-skeleton";
@@ -7,6 +8,7 @@ import { PhaseStrip } from "@/components/plan/phase-strip";
 import { WeekCard } from "@/components/plan/week-card";
 import { MedicalNotice } from "@/components/medical-notice";
 import { daysBetween } from "@/lib/dates";
+import { recommendedSessions } from "@/lib/plan-outline";
 import { builtWeeks, getPlanContext } from "@/server/athlete";
 import { blockHeadline, formatDate, plural } from "@/lib/format";
 
@@ -25,6 +27,7 @@ async function Plan() {
   const { weeks, notes } = ctx.outline;
   const currentWeek = Math.max(1, Math.floor(daysBetween(ctx.input.startDate, ctx.today) / 7) + 1);
   const weeksToGo = weeks.length - currentWeek;
+  const usual = recommendedSessions(ctx.input);
   const block = blockHeadline(
     weeks.map((w) => w.phase),
     currentWeek,
@@ -55,6 +58,18 @@ async function Plan() {
           <PhaseStrip weeks={weeks} currentWeek={currentWeek} ringOffset="ring-offset-meadow" />
         </div>
       </section>
+
+      {!ctx.isDemo && (
+        <Link href="/you/edit/training" className="-mt-2 flex items-center justify-between border bg-card px-5 py-4 text-sm hover:bg-accent">
+          <span>
+            <span className="block font-medium">Change runs and gym days</span>
+            <span className="block text-xs text-muted-foreground">
+              Now {plural(ctx.input.runsPerWeek ?? usual.runs, "run")} and {plural(ctx.input.liftsPerWeek ?? usual.lifts, "gym session")} a week. Changes start next Monday; this week stays.
+            </span>
+          </span>
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        </Link>
+      )}
 
       {notes.length > 0 && (
         <ul className="flex flex-col gap-2 text-sm text-muted-foreground">

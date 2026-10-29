@@ -24,7 +24,8 @@ describe("plan rebuild", () => {
     expect(rebuilt.weeks[3].weekStart).toBe("2026-11-02");
     expect(rebuilt.weeks.map((w) => w.weekNumber)).toEqual(rebuilt.weeks.map((_, i) => i + 1));
     expect(rebuilt.weeks.at(-1)!.phase).toBe("taper"); // still builds to the same race
-    expect(rebuilt.weeks.slice(3).every((w) => w.strength.length === 3)).toBe(true);
+    // The chosen 3 lifts, except near the race where one becomes a run.
+    expect(rebuilt.weeks.slice(3).every((w) => w.strength.length === 3 || (w.strength.length === 2 && (w.phase === "build" || w.phase === "peak")))).toBe(true);
   });
 
   it("continues block numbering so main lifts don't change mid-block", () => {
