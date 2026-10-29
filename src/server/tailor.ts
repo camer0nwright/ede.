@@ -36,6 +36,7 @@ export function tailorInput(ctx: PlanContext, index: number) {
     ...(ctx.input.targetDate && { target_date: ctx.input.targetDate }),
     ...(ctx.input.justFinish && { just_finish: true }),
     ...(ctx.paces.fiveKSeconds && { recent_5k_time_seconds: ctx.paces.fiveKSeconds }),
+    ...(ctx.paces.estimated && { paces_estimated: true }),
     // This week's counts, as built: near a race one lift may have become a run.
     runs_per_week: outline.runs.length,
     strength_sessions_per_week: outline.strength.length,

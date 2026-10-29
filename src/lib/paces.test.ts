@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { desiredVsPredicted, formatDistance, formatPace, formatPaceBand, paceForRpe, predictRaceSeconds, RACE_KM } from "./paces";
+import { desiredVsPredicted, ESTIMATED_5K_SECONDS, estimatedKm, fiveKFromRace, formatDistance, formatEstimate, formatPace, formatPaceBand, paceForRpe, predictRaceSeconds, RACE_KM } from "./paces";
 
 describe("paces from a 5K", () => {
   it("predicts other races with Riegel's formula", () => {
@@ -35,5 +35,46 @@ describe("paces from a 5K", () => {
     expect(formatPace(300, "mi")).toBe("8:03/mi");
     expect(formatDistance(8.2, "km")).toBe("8.2 km");
     expect(formatDistance(8.2, "mi")).toBe("5.1 mi");
+  });
+});
+
+describe("paces from any recent race (SPEC decision 73)", () => {
+  it("turns a recent race into the 5K time it implies", () => {
+    expect(fiveKFromRace("5k", 1500)).toBe(1500);
+    // A 50-minute 10K implies about a 24-minute 5K.
+    expect(fiveKFromRace("10k", 50 * 60)).toBeGreaterThan(23 * 60);
+    expect(fiveKFromRace("10k", 50 * 60)).toBeLessThan(25 * 60);
+    // Round trip with the race prediction.
+    const five = 25 * 60;
+    expect(fiveKFromRace("half", predictRaceSeconds(five, RACE_KM.half))).toBeCloseTo(five, -1);
+    expect(fiveKFromRace("marathon", predictRaceSeconds(five, RACE_KM.marathon))).toBeCloseTo(five, -1);
+  });
+
+  it("has a sensible estimate for each experience level, fastest for advanced", () => {
+    expect(ESTIMATED_5K_SECONDS.beginner).toBeGreaterThan(ESTIMATED_5K_SECONDS.intermediate);
+    expect(ESTIMATED_5K_SECONDS.intermediate).toBeGreaterThan(ESTIMATED_5K_SECONDS.advanced);
+  });
+});
+
+describe("estimated run distance (SPEC decision 73)", () => {
+  const fiveK = 25 * 60; // 5:00/km
+
+  it("adds up each step at the middle of its pace band", () => {
+    // 50 easy minutes at 6:00-6:54/km (middle about 6:27) is about 7.75 km.
+    const km = estimatedKm([{ minutes: 50, targetRpe: 3 }], fiveK);
+    expect(km).toBeGreaterThan(7.5);
+    expect(km).toBeLessThan(8);
+  });
+
+  it("counts faster steps as covering more ground", () => {
+    const easy = estimatedKm([{ minutes: 30, targetRpe: 3 }], fiveK);
+    const tempo = estimatedKm([{ minutes: 30, targetRpe: 7 }], fiveK);
+    expect(tempo).toBeGreaterThan(easy);
+  });
+
+  it("shows the estimate to the nearest half, in the athlete's unit", () => {
+    expect(formatEstimate(7.74, "km")).toBe("≈ 7.5 km");
+    expect(formatEstimate(8, "km")).toBe("≈ 8 km");
+    expect(formatEstimate(8.1, "mi")).toBe("≈ 5 mi");
   });
 });

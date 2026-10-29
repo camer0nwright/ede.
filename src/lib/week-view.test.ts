@@ -51,6 +51,18 @@ describe("week view", () => {
     expect(days.flatMap((d) => d.sessions).flatMap((s) => (s.type === "run" ? s.steps : [])).every((st) => st.pace === undefined)).toBe(true);
   });
 
+  it("gives every run an estimated distance and every step an effort name (SPEC decision 73)", () => {
+    const runs = weekDays(built[4].week, { fiveKSeconds: 1500, unit: "km" }).flatMap((d) => d.sessions).filter((s) => s.type === "run");
+    expect(runs.length).toBeGreaterThan(0);
+    for (const r of runs) {
+      expect(r.distance).toMatch(/^≈ \d+(\.5)? km$/);
+      for (const st of r.steps) expect(["Very easy", "Easy", "Steady", "Tempo", "10K effort", "5K effort"]).toContain(st.paceName);
+    }
+    // In miles too, and marked when the paces are an estimate.
+    const estimated = weekDays(built[4].week, { fiveKSeconds: 1620, unit: "mi", estimated: true }).flatMap((d) => d.sessions).filter((s) => s.type === "run");
+    expect(estimated.every((r) => r.type === "run" && /mi$/.test(r.distance ?? "") && r.pacesEstimated)).toBe(true);
+  });
+
   it("colours effort: RPE 4 or less easy, 5-6 moderate, 7+ hard", () => {
     expect([3, 4, 5, 6, 7, 9].map(effortOf)).toEqual(["easy", "easy", "moderate", "moderate", "hard", "hard"]);
   });

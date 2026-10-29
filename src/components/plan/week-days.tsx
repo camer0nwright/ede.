@@ -112,9 +112,12 @@ export function TodaySessions({ day, options }: { day: DayView; options: CheckIn
           </p>
           <div className="mt-3 flex items-baseline justify-between gap-3">
             <h2 className="text-[28px] leading-tight font-medium">{s.title}</h2>
-            <span className="shrink-0 font-display text-4xl font-semibold tabular-nums">
-              {s.minutes}
-              <span className="text-sm font-medium"> min</span>
+            <span className="shrink-0 text-right">
+              <span className="block font-display text-4xl font-semibold tabular-nums">
+                {s.minutes}
+                <span className="text-sm font-medium"> min</span>
+              </span>
+              {s.type === "run" && s.distance && <span className="block text-xs text-muted-foreground tabular-nums">{s.distance}</span>}
             </span>
           </div>
           <p className="mt-1 flex-1 text-muted-foreground">
@@ -171,7 +174,10 @@ export function WeekDays({ days, options, showRest = false }: { days: DayView[];
                     {i === 0 && d.note && <> · {d.note}</>}
                   </span>
                 </span>
-                <span className="shrink-0 text-sm text-muted-foreground tabular-nums">{formatMinutes(s.minutes)}</span>
+                <span className="shrink-0 text-right text-sm text-muted-foreground tabular-nums">
+                  {formatMinutes(s.minutes)}
+                  {s.type === "run" && s.distance && <span className="block text-xs">{s.distance}</span>}
+                </span>
               </button>
             </li>
           ));
@@ -182,15 +188,18 @@ export function WeekDays({ days, options, showRest = false }: { days: DayView[];
   );
 }
 
-function SheetHeader({ kicker, title, minutes }: { kicker: string; title: string; minutes: number }) {
+function SheetHeader({ kicker, title, minutes, distance }: { kicker: string; title: string; minutes: number; distance?: string }) {
   return (
     <DrawerHeader className="px-0 text-left! md:text-left">
       <p className="text-xs text-muted-foreground">{kicker}</p>
       <div className="flex items-baseline justify-between gap-3">
         <DrawerTitle className="text-[28px] leading-tight font-medium tracking-tight">{title}</DrawerTitle>
-        <span className="shrink-0 font-display text-2xl tabular-nums">
-          {minutes}
-          <span className="text-sm"> min</span>
+        <span className="shrink-0 text-right">
+          <span className="block font-display text-2xl tabular-nums">
+            {minutes}
+            <span className="text-sm"> min</span>
+          </span>
+          {distance && <span className="block text-xs text-muted-foreground tabular-nums">{distance}</span>}
         </span>
       </div>
       <DrawerDescription className="sr-only">Session details</DrawerDescription>
@@ -201,7 +210,7 @@ function SheetHeader({ kicker, title, minutes }: { kicker: string; title: string
 function RunSheet({ run }: { run: RunView }) {
   return (
     <>
-      <SheetHeader kicker={`${run.roleLabel}${run.level ? ` · Level ${run.level} of ${run.maxLevel}` : ""}`} title={run.title} minutes={run.minutes} />
+      <SheetHeader kicker={`${run.roleLabel}${run.level ? ` · Level ${run.level} of ${run.maxLevel}` : ""}`} title={run.title} minutes={run.minutes} distance={run.distance} />
       <p className="text-sm text-muted-foreground">{run.purpose}</p>
       <EffortBar steps={run.steps} className="mt-4 h-1.5" />
       <ol className="mt-2 divide-y">
@@ -211,12 +220,17 @@ function RunSheet({ run }: { run: RunView }) {
             <span className="flex-1 text-sm">{step.name}</span>
             <span className="text-right text-xs">
               <span className="block font-medium tabular-nums">{formatMinutes(step.minutes)}</span>
-              <span className={cn("font-medium", EFFORT_TEXT[step.effort])}>RPE {step.targetRpe}</span>
-              {step.pace && <span className="block text-muted-foreground">{step.pace}</span>}
+              {step.pace && <span className="block font-medium tabular-nums">{step.pace}</span>}
+              <span className={cn("font-medium", EFFORT_TEXT[step.effort])}>{step.paceName}</span>
             </span>
           </li>
         ))}
       </ol>
+      {run.pacesEstimated && (
+        <p className="mt-3 border-l-2 border-primary-strong bg-secondary px-3 py-2 text-xs text-muted-foreground">
+          Paces are estimated from your experience. Add a recent race time in You → Training for paces that fit you.
+        </p>
+      )}
       <p className="mt-3 text-sm text-muted-foreground">
         <span className="font-medium text-foreground">Tip: </span>
         {run.tip}

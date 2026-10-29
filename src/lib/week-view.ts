@@ -4,11 +4,11 @@ import { sessionKey, type CheckIn } from "./checkin";
 import { addDays, dayOfWeek } from "./dates";
 import { DAY_NAMES, EASY_MAX_RPE, type BodyFocus, type Intensity, type PlannedSession, type RunStep, type WeekPlan } from "./domain";
 import { defaultRestSeconds, findExercise } from "./exercise-library";
-import { formatPaceBand, paceForRpe } from "./paces";
+import { estimatedKm, formatEstimate, formatPaceBand, paceForRpe } from "./paces";
 import { maxLevel, RUN_LIBRARY, RUN_PURPOSE, RUN_TIP } from "./session-library";
 
-/** Optional pace guides: from a recent 5K, shown in the athlete's distance unit. */
-export type PaceOptions = { fiveKSeconds?: number; unit: "km" | "mi" };
+/** Pace guides from a recent race time (or an estimate, when `estimated`), in the athlete's distance unit. */
+export type PaceOptions = { fiveKSeconds?: number; unit: "km" | "mi"; estimated?: boolean };
 
 export type Effort = "easy" | "moderate" | "hard";
 
@@ -28,7 +28,11 @@ export type RunView = SessionBase & {
   maxLevel?: number;
   purpose: string;
   tip: string;
-  steps: (RunStep & { effort: Effort; pace?: string })[];
+  steps: (RunStep & { effort: Effort; paceName: string; pace?: string })[];
+  /** "≈ 8.5 km": how far the run goes at its paces. */
+  distance?: string;
+  /** Paces come from an estimate, not a recent race time. */
+  pacesEstimated?: boolean;
 };
 
 export type LiftView = SessionBase & {
@@ -82,8 +86,12 @@ function runView(s: Extract<PlannedSession, { type: "run" }>, dayName: string, p
     steps: s.steps.map((st) => ({
       ...st,
       effort: effortOf(st.targetRpe),
+      paceName: paceForRpe(paces?.fiveKSeconds ?? 1500, st.targetRpe).name,
       ...(paces?.fiveKSeconds && { pace: formatPaceBand(paceForRpe(paces.fiveKSeconds, st.targetRpe), paces.unit) }),
     })),
+    // About how far it goes, for planning a route (SPEC decision 73).
+    ...(paces?.fiveKSeconds && s.steps.length > 0 && { distance: formatEstimate(estimatedKm(s.steps, paces.fiveKSeconds), paces.unit) }),
+    ...(paces?.estimated && { pacesEstimated: true }),
   };
 }
 
