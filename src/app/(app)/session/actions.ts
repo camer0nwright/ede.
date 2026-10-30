@@ -2,12 +2,13 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { CheckInInput, checkInCaution, sessionKey } from "@/lib/checkin";
+import { CheckInInput, checkInCaution, RecordedRunInput, sessionKey } from "@/lib/checkin";
 import { addDays } from "@/lib/dates";
 import { db } from "@/lib/db";
 import { sessionToRow, toDbDate, weekToRow } from "@/lib/db-mapping";
 import { IsoDate } from "@/lib/domain";
 import { planMove } from "@/lib/move";
+import { routeToSave, summarise } from "@/lib/run-track";
 import { builtWeeks, easeBack } from "@/server/athlete";
 import { moveWarnings } from "@/server/plan-checker/move-warnings";
 import { claudeAsk, tailorWeek, type TailorResult } from "@/server/plan-ai";
@@ -40,7 +41,8 @@ export async function checkIn(raw: unknown): Promise<CheckInResult> {
       });
       if (session.type === "run") {
         const distanceKm = c.distance === undefined ? null : ctx.paces.unit === "mi" ? c.distance * KM_PER_MILE : c.distance;
-        const log = { distanceKm, durationSeconds: c.actualMinutes * 60 };
+        // Typed in, so any recorded route no longer matches it.
+        const log = { distanceKm, durationSeconds: c.actualMinutes * 60, recorded: false, route: null };
         await db.runLog.upsert({ where: { sessionId: id }, create: { sessionId: id, ...log }, update: log });
       }
     } else {
@@ -55,6 +57,43 @@ export async function checkIn(raw: unknown): Promise<CheckInResult> {
     return { ok: false, errors: ["That couldn't be saved just now. Try again in a moment."] };
   }
   return { ok: true, caution: checkInCaution(c.notes) };
+}
+
+/** Saves a run recorded with GPS in the iPhone app as done, with its distance and route (SPEC decision 82). */
+export async function saveRecordedRun(raw: unknown): Promise<CheckInResult> {
+  const parsed = RecordedRunInput.safeParse(raw);
+  if (!parsed.success) return { ok: false, errors: parsed.error.issues.map((i) => i.message) };
+  const r = parsed.data;
+  const ctx = await signedInContext();
+  if (!ctx) return { ok: false, errors: ["Set up your own plan to record runs."] };
+  if (r.date > ctx.today) return { ok: false, errors: ["You can record a run on the day."] };
+
+  // Worked out here from the points, not taken from the phone.
+  const run = summarise(r.points, r.startedAt, r.endedAt, r.pauses);
+  if (run.movingSeconds < 60) return { ok: false, errors: ["That run was under a minute, so it wasn't saved."] };
+  try {
+    const id = await storedSessionId(ctx, r.date, r.slot);
+    if (!id) return { ok: false, errors: ["That session isn't in your plan any more. Refresh and try again."] };
+    const session = await db.session.findUniqueOrThrow({ where: { id }, select: { type: true } });
+    if (session.type !== "run") return { ok: false, errors: ["Only runs can be recorded."] };
+    const log = {
+      distanceKm: run.distanceKm > 0 ? Math.round(run.distanceKm * 1000) / 1000 : null,
+      durationSeconds: run.movingSeconds,
+      recorded: true,
+      route: JSON.stringify(routeToSave(r.points, r.pauses)),
+    };
+    await db.$transaction([
+      db.session.update({
+        where: { id },
+        data: { status: "completed", completedAt: new Date(r.endedAt), actualMinutes: Math.max(1, Math.round(run.movingSeconds / 60)), effort: r.effort, notes: r.notes || null, skipReason: null },
+      }),
+      db.runLog.upsert({ where: { sessionId: id }, create: { sessionId: id, ...log }, update: log }),
+    ]);
+  } catch (e) {
+    console.error("Saving a recorded run failed", e);
+    return { ok: false, errors: ["Your run couldn't be saved just now. It's kept on this phone, so try again in a moment."] };
+  }
+  return { ok: true, caution: checkInCaution(r.notes) };
 }
 
 const Where = z.object({ date: IsoDate, slot: z.union([z.literal(1), z.literal(2)]) });

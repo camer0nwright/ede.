@@ -23,7 +23,7 @@ export type RecentSession = {
 export async function loadHistory(athleteId: string) {
   const sessions = await db.session.findMany({
     where: { week: { athleteId }, status: { in: ["completed", "skipped"] } },
-    include: { runLog: true, setLogs: { include: { exercise: { select: { name: true } } } } },
+    include: { runLog: { select: { distanceKm: true } }, setLogs: { include: { exercise: { select: { name: true } } } } },
     orderBy: [{ date: "desc" }, { slot: "desc" }],
   });
 

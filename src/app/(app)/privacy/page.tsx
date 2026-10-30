@@ -29,6 +29,11 @@ export default function PrivacyPage() {
             reps you log, and the exercise swaps you choose to keep.
           </li>
           <li>
+            <strong>Runs you record in the iPhone app:</strong> the route (GPS points with times) along with the distance and time. ede. only uses your
+            location while you&apos;re recording a run, never in the background otherwise. Routes are shown only to you, are never sent to the AI coach, and
+            are deleted with the run or your data.
+          </li>
+          <li>
             <strong>Injury details, only if you add them:</strong> where it hurts, how much, when, your notes, and past injuries. These count as health data, so
             ede. only keeps them with your clear agreement (see below).
           </li>
