@@ -178,6 +178,22 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
+    /* Clear of the notch and status bar in the iPhone app and home-screen app (0 in a browser). */
+    padding-top: env(safe-area-inset-top);
+  }
+  /* Content scrolls under the status bar, not through it. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset-inline: 0;
+    top: 0;
+    z-index: 50;
+    height: env(safe-area-inset-top);
+    background: var(--background);
+  }
+  /* The app's welcome photo runs up behind the status bar. */
+  body:has(.app-welcome)::before {
+    display: none;
   }
   /* Headings are Manrope, medium weight, tightly spaced. */
   h1,
