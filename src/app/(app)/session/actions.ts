@@ -1,6 +1,7 @@
 "use server";
 
 import Anthropic from "@anthropic-ai/sdk";
+import { after } from "next/server";
 import { z } from "zod";
 import { CheckInInput, checkInCaution, RecordedRunInput, sessionKey } from "@/lib/checkin";
 import { addDays } from "@/lib/dates";
@@ -15,6 +16,8 @@ import { claudeAsk, tailorWeek, type TailorResult } from "@/server/plan-ai";
 import { saveRebuiltPlan } from "@/server/plan-save";
 import { tailorCheckContext, tailorInput, tailorOffer } from "@/server/tailor";
 import { signedInContext, storedSessionId } from "@/server/sessions";
+import { checkStravaUpload, sendRunToStrava } from "@/server/strava-upload";
+import { stravaConnected } from "@/server/strava";
 
 export type CheckInResult = { ok: true; caution: string | null } | { ok: false; errors: string[] };
 
@@ -42,7 +45,7 @@ export async function checkIn(raw: unknown): Promise<CheckInResult> {
       if (session.type === "run") {
         const distanceKm = c.distance === undefined ? null : ctx.paces.unit === "mi" ? c.distance * KM_PER_MILE : c.distance;
         // Typed in, so any recorded route no longer matches it.
-        const log = { distanceKm, durationSeconds: c.actualMinutes * 60, recorded: false, route: null };
+        const log = { distanceKm, durationSeconds: c.actualMinutes * 60, recorded: false, route: null, pauses: null };
         await db.runLog.upsert({ where: { sessionId: id }, create: { sessionId: id, ...log }, update: log });
       }
     } else {
@@ -71,9 +74,11 @@ export async function saveRecordedRun(raw: unknown): Promise<CheckInResult> {
   // Worked out here from the points, not taken from the phone.
   const run = summarise(r.points, r.startedAt, r.endedAt, r.pauses);
   if (run.movingSeconds < 60) return { ok: false, errors: ["That run was under a minute, so it wasn't saved."] };
+  let sessionId: string;
   try {
     const id = await storedSessionId(ctx, r.date, r.slot);
     if (!id) return { ok: false, errors: ["That session isn't in your plan any more. Refresh and try again."] };
+    sessionId = id;
     const session = await db.session.findUniqueOrThrow({ where: { id }, select: { type: true } });
     if (session.type !== "run") return { ok: false, errors: ["Only runs can be recorded."] };
     const log = {
@@ -81,6 +86,7 @@ export async function saveRecordedRun(raw: unknown): Promise<CheckInResult> {
       durationSeconds: run.movingSeconds,
       recorded: true,
       route: JSON.stringify(routeToSave(r.points, r.pauses)),
+      pauses: JSON.stringify(r.pauses),
     };
     await db.$transaction([
       db.session.update({
@@ -93,10 +99,39 @@ export async function saveRecordedRun(raw: unknown): Promise<CheckInResult> {
     console.error("Saving a recorded run failed", e);
     return { ok: false, errors: ["Your run couldn't be saved just now. It's kept on this phone, so try again in a moment."] };
   }
+  // After the reply, so saving never waits on Strava (SPEC decision 84).
+  if (r.sendToStrava) after(() => sendRunToStrava(ctx.athleteId, sessionId).catch((e) => console.error("Sending a run to Strava failed", e)));
   return { ok: true, caution: checkInCaution(r.notes) };
 }
 
 const Where = z.object({ date: IsoDate, slot: z.union([z.literal(1), z.literal(2)]) });
+
+export type StravaResult = { ok: true; status: "sending" | "sent" | "failed" | null } | { ok: false; errors: string[] };
+
+/** "Send to Strava" on a recorded run that wasn't sent, or didn't go (SPEC decision 84). */
+export async function sendToStrava(raw: unknown): Promise<StravaResult> {
+  const parsed = Where.safeParse(raw);
+  if (!parsed.success) return { ok: false, errors: ["Something went wrong. Try again."] };
+  const ctx = await signedInContext();
+  if (!ctx) return { ok: false, errors: ["Log in to send runs to Strava."] };
+  if (!(await stravaConnected(ctx.athleteId))) return { ok: false, errors: ["Connect Strava on the You page first."] };
+  const id = await storedSessionId(ctx, parsed.data.date, parsed.data.slot);
+  if (!id) return { ok: false, errors: ["That session isn't in your plan any more. Refresh and try again."] };
+  const status = await sendRunToStrava(ctx.athleteId, id);
+  if (status === null) return { ok: false, errors: ["That run couldn't be sent. Try connecting Strava again on the You page."] };
+  return { ok: true, status };
+}
+
+/** Asks Strava again about a run that was still being sent. */
+export async function checkStrava(raw: unknown): Promise<StravaResult> {
+  const parsed = Where.safeParse(raw);
+  if (!parsed.success) return { ok: false, errors: ["Something went wrong. Try again."] };
+  const ctx = await signedInContext();
+  if (!ctx) return { ok: false, errors: ["Log in to send runs to Strava."] };
+  const id = await storedSessionId(ctx, parsed.data.date, parsed.data.slot);
+  if (!id) return { ok: false, errors: ["That session isn't in your plan any more. Refresh and try again."] };
+  return { ok: true, status: await checkStravaUpload(ctx.athleteId, id) };
+}
 
 /** Puts a checked-in session back to planned. */
 export async function undoCheckIn(raw: unknown): Promise<CheckInResult> {

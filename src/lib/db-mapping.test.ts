@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   exerciseToRow,
   fromKg,
+  rowToCheckIn,
   rowToPastWeek,
   rowToSession,
   rowToWeekPlan,
@@ -65,5 +66,24 @@ describe("database mapping", () => {
     expect(toKg(100, "kg")).toBe(100);
     expect(toKg(220.462, "lb")).toBeCloseTo(100);
     expect(fromKg(100, "lb")).toBeCloseTo(220.46, 1);
+  });
+});
+
+describe("a run's check-in and Strava (SPEC decision 84)", () => {
+  const row = { status: "completed", actualMinutes: 30, effort: 4, notes: null, skipReason: null };
+
+  it("shows a recorded run's place with Strava, and the activity once it's there", () => {
+    expect(rowToCheckIn({ ...row, runLog: { distanceKm: 5, recorded: true, stravaStatus: null, stravaActivityId: null } })).toMatchObject({ strava: { status: null } });
+    expect(rowToCheckIn({ ...row, runLog: { distanceKm: 5, recorded: true, stravaStatus: "sent", stravaActivityId: "42" } })).toMatchObject({
+      strava: { status: "sent", activityId: "42" },
+    });
+  });
+
+  it("says nothing about Strava for runs typed in by hand", () => {
+    expect(rowToCheckIn({ ...row, runLog: { distanceKm: 5, recorded: false, stravaStatus: null, stravaActivityId: null } })).not.toHaveProperty("strava");
+  });
+
+  it("ignores a status it doesn't know", () => {
+    expect(rowToCheckIn({ ...row, runLog: { distanceKm: 5, recorded: true, stravaStatus: "odd", stravaActivityId: null } })).toMatchObject({ strava: { status: null } });
   });
 });

@@ -44,13 +44,18 @@ export const RecordedRunInput = z
     pauses: z.array(Pause).max(500),
     effort: z.number().int().min(1).max(10),
     notes,
+    /** Send it to Strava once saved, if Strava is connected (SPEC decision 84). */
+    sendToStrava: z.boolean().default(false),
   })
   .refine((r) => r.endedAt > r.startedAt && r.endedAt - r.startedAt <= 24 * 3600_000, "That run's times don't look right.");
 export type RecordedRunInput = z.infer<typeof RecordedRunInput>;
 
+/** A recorded run and Strava (SPEC decision 84): where it's got to, and the activity once it's there. */
+export type StravaLinkView = { status: "sending" | "sent" | "failed" | null; activityId?: string };
+
 /** A check-in as the screens show it. Distance is in km. */
 export type CheckIn =
-  | { status: "completed"; actualMinutes: number; effort: number; distanceKm?: number; notes?: string }
+  | { status: "completed"; actualMinutes: number; effort: number; distanceKm?: number; notes?: string; strava?: StravaLinkView }
   | { status: "skipped"; skipReason: SkipReason; notes?: string };
 
 export const sessionKey = (date: string, slot: number) => `${date}-${slot}`;
