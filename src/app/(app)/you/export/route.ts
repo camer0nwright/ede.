@@ -1,6 +1,6 @@
 // "Download my data" (SPEC decision 57): everything ede. holds about the
-// signed-in athlete, as one JSON file. Secrets (the password hash and sign-in
-// tokens) are left out; everything else is included as stored.
+// signed-in athlete, as one JSON file. Secrets (the password hash, sign-in
+// tokens and Strava tokens) are left out; everything else is included as stored.
 import { db } from "@/lib/db";
 import { sessionAthleteId } from "@/server/auth";
 
@@ -42,6 +42,8 @@ export async function GET() {
       coachMessages: { orderBy: { createdAt: "asc" }, omit: { athleteId: true } },
       exerciseSwaps: { orderBy: { createdAt: "asc" }, select: { fromName: true, toName: true, keep: true, createdAt: true } },
       authSessions: { select: { createdAt: true, expiresAt: true } },
+      // That Strava is connected, never its tokens.
+      stravaLink: { select: { stravaAthleteId: true, scope: true, createdAt: true } },
     },
   });
   if (!athlete) return new Response("Log in to download your data.", { status: 401 });

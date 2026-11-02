@@ -59,6 +59,22 @@ model Athlete {
   authSessions  AuthSession[]
   passwordResets PasswordReset[]
   exerciseSwaps  ExerciseSwap[]
+  stravaLink     StravaLink?
+}
+
+/// The athlete's Strava connection, for sending recorded runs to Strava (SPEC decision 83).
+/// Only "activity:write" is asked for: ede. never reads Strava data. Both tokens are
+/// encrypted with STRAVA_TOKEN_KEY (src/server/secret-box.ts).
+model StravaLink {
+  athleteId       String   @id
+  stravaAthleteId String
+  scope           String
+  accessToken     String
+  refreshToken    String
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
 }
 
 /// A "forgot password" link. The email holds a random token; only its SHA-256 hash is stored. Works once, for an hour.

@@ -2,7 +2,7 @@
 // to the code that enforces them, so the pages and the app can't drift apart.
 
 /** Shown at the top of both pages. Change when either page's meaning changes. */
-export const LEGAL_UPDATED = "17 October 2026";
+export const LEGAL_UPDATED = "2 November 2026";
 
 /** Youngest age that can use ede. */
 export const MIN_AGE = 16;
