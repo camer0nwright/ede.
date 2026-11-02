@@ -65,6 +65,12 @@ describe("a recorded run", () => {
     expect(s.distanceKm).toBeCloseTo(1.8, 1);
   });
 
+  it("counts nothing during a pause that hasn't ended yet", () => {
+    const s = summarise(run(600), START, START + 600_000, [{ from: START + 300_000, to: Infinity }]);
+    expect(s.movingSeconds).toBe(300);
+    expect(s.distanceKm).toBeCloseTo(0.9, 1);
+  });
+
   it("has no pace until it has gone somewhere", () => {
     expect(summarise([], START, START + 10_000).paceSecondsPerKm).toBeNull();
   });

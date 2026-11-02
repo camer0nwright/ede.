@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useSyncExternalStore, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Loader2, MapPin } from "lucide-react";
@@ -16,6 +16,7 @@ import { formatMinutes } from "@/lib/format";
 import { canRecordRuns } from "@/lib/native-gps";
 import { cn } from "@/lib/utils";
 import type { DayView, SessionView } from "@/lib/week-view";
+import { getRun, runHref, subscribe } from "@/components/run/active-run";
 import { MovePanel } from "./move-sheet";
 import { safely } from "@/lib/safely";
 
@@ -68,24 +69,18 @@ export function WorkoutButton({ session, className }: { session: SessionView; cl
 
 /** "Record run" for a run, in the iPhone app only: a browser can't keep GPS going with the screen locked (SPEC decision 82). */
 function useCanRecord() {
-  const [can, setCan] = useState(false);
-  useEffect(() => setCan(canRecordRuns()), []);
-  return can;
+  return useSyncExternalStore(noChange, canRecordRuns, () => false);
 }
 
+/** For values that never change after the page loads. */
+const noChange = () => () => {};
+
 function RecordRunButton({ session, className }: { session: SessionView; className?: string }) {
-  const [going, setGoing] = useState(false);
-  useEffect(() => {
-    try {
-      setGoing(!!localStorage.getItem(`ede-run:${session.id}`));
-    } catch {
-      // No storage: nothing to resume.
-    }
-  }, [session.id]);
+  const going = useSyncExternalStore(subscribe, () => !!getRun(session.id), () => false);
   if (session.type !== "run") return null;
   return (
     <Link
-      href={`/run/${session.date}-${session.slot}`}
+      href={runHref(session.id)}
       className={cn("flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground active:scale-[0.99]", className)}
     >
       <MapPin className="size-4" aria-hidden /> {going ? "Back to your run" : "Record run"}

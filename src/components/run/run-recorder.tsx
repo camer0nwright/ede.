@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useState, useSyncExternalStore, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Loader2, MapPin, Pause as PauseIcon, Play, Square } from "lucide-react";
@@ -8,123 +8,65 @@ import { toast } from "sonner";
 import { saveRecordedRun } from "@/app/(app)/session/actions";
 import { Note } from "@/components/onboarding/choices";
 import { EffortPicker } from "@/components/plan/check-in-sheet";
+import { getRun, gpsState, setRun, startGps, stopGps, subscribe, type GpsState, type Recording } from "@/components/run/active-run";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { canRecordRuns, openLocationSettings, watchGps, type GpsError } from "@/lib/native-gps";
-import { currentStep, formatClock, formatPace, summarise, TRACK_CONFIG, type Pause, type TrackPoint } from "@/lib/run-track";
+import { canRecordRuns, openLocationSettings } from "@/lib/native-gps";
+import { currentStep, formatClock, formatPace, summarise, type Pause } from "@/lib/run-track";
 import { safely } from "@/lib/safely";
 import { cn } from "@/lib/utils";
 import type { RunView } from "@/lib/week-view";
 
 const KM_PER_MILE = 1.609344;
 
-/** A run in progress, kept on the phone so closing the app doesn't lose it. */
-type Recording = { startedAt: number; points: TrackPoint[]; pauses: Pause[]; pausedAt?: number; endedAt?: number };
-
-const storageKey = (session: RunView) => `ede-run:${session.id}`;
-
-function load(session: RunView): Recording | null {
-  try {
-    const raw = localStorage.getItem(storageKey(session));
-    return raw ? (JSON.parse(raw) as Recording) : null;
-  } catch {
-    return null;
-  }
-}
-
-function store(session: RunView, r: Recording | null) {
-  try {
-    if (r) localStorage.setItem(storageKey(session), JSON.stringify(r));
-    else localStorage.removeItem(storageKey(session));
-  } catch {
-    // Private mode or full storage: the run still records, it just won't survive closing the app.
-  }
-}
+/** For values that never change after the page loads. */
+const noChange = () => () => {};
 
 /** Pauses so far, with the one going now ending at `now`. */
 const pausesTo = (r: Recording, now: number): Pause[] => (r.pausedAt ? [...r.pauses, { from: r.pausedAt, to: now }] : r.pauses);
 
 /** Recording a planned run with GPS in the iPhone app (SPEC decision 82). */
 export function RunRecorder({ session, unit }: { session: RunView; unit: "km" | "mi" }) {
-  const [native, setNative] = useState<boolean | null>(null);
-  const [rec, setRec] = useState<Recording | null>(null);
-  const [gps, setGps] = useState<"off" | "searching" | "ok" | GpsError>("off");
+  const id = session.id;
+  const native = useSyncExternalStore(noChange, canRecordRuns, () => null);
+  const rec = useSyncExternalStore(subscribe, () => getRun(id), () => null);
+  const gps = useSyncExternalStore(subscribe, () => gpsState(id), () => "off" as const);
   const [now, setNow] = useState(() => Date.now());
-  const stopGps = useRef<(() => Promise<void>) | null>(null);
-  const recRef = useRef<Recording | null>(null);
 
-  const update = useCallback(
-    (next: Recording | null) => {
-      recRef.current = next;
-      setRec(next);
-      store(session, next);
-    },
-    [session],
-  );
-
-  const startGps = useCallback(async () => {
-    if (stopGps.current) return;
-    setGps("searching");
-    try {
-      stopGps.current = await watchGps(
-        (p) => {
-          const r = recRef.current;
-          if (!r || r.endedAt) return;
-          if (p.acc <= TRACK_CONFIG.maxAccuracyM) setGps("ok");
-          update({ ...r, points: [...r.points, p] });
-        },
-        (e) => setGps(e),
-      );
-    } catch {
-      setGps("unavailable");
-    }
-  }, [update]);
-
-  const endGps = useCallback(async () => {
-    const stop = stopGps.current;
-    stopGps.current = null;
-    await stop?.().catch(() => {});
-  }, []);
-
-  // In the app, pick up a run that was going when the app closed.
+  // Picks up a run that was going when the app closed. Leaving this screen
+  // doesn't stop GPS: only finishing or discarding the run does.
   useEffect(() => {
-    const ok = canRecordRuns();
-    setNative(ok);
-    const saved = load(session);
-    if (saved) {
-      recRef.current = saved;
-      setRec(saved);
-      if (ok && !saved.endedAt) void startGps();
-    }
-    return () => void endGps();
-  }, [session, startGps, endGps]);
+    const saved = getRun(id);
+    if (canRecordRuns() && saved && !saved.endedAt) startGps(id);
+  }, [id]);
 
+  // Ticks the clock. Keyed on whether the run is going, not on the run itself,
+  // which changes with every GPS point and would keep restarting the timer.
+  const going = !!rec && !rec.endedAt;
   useEffect(() => {
-    if (!rec || rec.endedAt) return;
+    if (!going) return;
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
-  }, [rec]);
+  }, [going]);
 
   if (native === null) return null;
 
   const start = () => {
-    const t = Date.now();
-    setNow(t);
-    update({ startedAt: t, points: [], pauses: [] });
-    void startGps();
+    setNow(Date.now());
+    setRun(id, { startedAt: Date.now(), points: [], pauses: [] });
+    startGps(id);
   };
-  const pause = () => rec && update({ ...rec, pausedAt: Date.now() });
-  const resume = () => rec?.pausedAt && update({ ...rec, pauses: pausesTo(rec, Date.now()), pausedAt: undefined });
+  const pause = () => rec && setRun(id, { ...rec, pausedAt: Date.now() });
+  const resume = () => rec?.pausedAt && setRun(id, { ...rec, pauses: pausesTo(rec, Date.now()), pausedAt: undefined });
   const finish = () => {
     if (!rec) return;
     const t = Date.now();
-    void endGps();
-    update({ ...rec, pauses: pausesTo(rec, t), pausedAt: undefined, endedAt: t });
+    void stopGps();
+    setRun(id, { ...rec, pauses: pausesTo(rec, t), pausedAt: undefined, endedAt: t });
   };
   const discard = () => {
-    void endGps();
-    update(null);
-    setGps("off");
+    void stopGps();
+    setRun(id, null);
   };
 
   const header = (
@@ -136,10 +78,10 @@ export function RunRecorder({ session, unit }: { session: RunView; unit: "km" | 
     </header>
   );
 
-  if (rec?.endedAt) return <FinishRun session={session} unit={unit} rec={rec} header={header} onDiscard={discard} onSaved={() => update(null)} />;
+  if (rec?.endedAt) return <FinishRun session={session} unit={unit} rec={rec} header={header} onDiscard={discard} onSaved={() => setRun(id, null)} />;
 
-  const end = rec?.pausedAt ?? now;
-  const live = rec ? summarise(rec.points, rec.startedAt, end, rec.pauses) : null;
+  // While paused, the pause runs on with no end yet, so no GPS that comes in now counts.
+  const live = rec ? summarise(rec.points, rec.startedAt, now, pausesTo(rec, Infinity)) : null;
   const step = live ? currentStep(session.steps, live.movingSeconds) : null;
   const shown = step ?? (live ? null : { index: 0, secondsLeft: session.steps[0] ? session.steps[0].minutes * 60 : 0 });
 
@@ -234,7 +176,7 @@ function Stat({ label, value, wide = false }: { label: string; value: string; wi
   );
 }
 
-function GpsStatus({ gps }: { gps: "off" | "searching" | "ok" | GpsError }) {
+function GpsStatus({ gps }: { gps: GpsState }) {
   const text = gps === "ok" ? "GPS" : gps === "searching" ? "Finding GPS…" : gps === "denied" ? "No location" : gps === "unavailable" ? "GPS lost" : "";
   return (
     <span className={cn("flex items-center gap-1 text-xs font-medium", gps === "ok" ? "text-easy" : "text-muted-foreground")}>
