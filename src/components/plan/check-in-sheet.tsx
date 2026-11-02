@@ -5,13 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Loader2, MapPin } from "lucide-react";
 import { toast } from "sonner";
-import { checkIn, undoCheckIn } from "@/app/(app)/session/actions";
+import { checkIn, checkStrava, sendToStrava, undoCheckIn } from "@/app/(app)/session/actions";
 import { startWorkout } from "@/app/(flow)/workout/actions";
 import { Chip, Note } from "@/components/onboarding/choices";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { EFFORT_LABEL, SKIP_LABEL, SKIP_REASONS, type CheckIn, type SkipReason } from "@/lib/checkin";
+import { EFFORT_LABEL, SKIP_LABEL, SKIP_REASONS, type CheckIn, type SkipReason, type StravaLinkView } from "@/lib/checkin";
+import { stravaActivityUrl } from "@/lib/strava-upload";
 import { formatMinutes } from "@/lib/format";
 import { canRecordRuns } from "@/lib/native-gps";
 import { cn } from "@/lib/utils";
@@ -331,6 +332,7 @@ function CheckedIn({ session, unit, onClose }: { session: SessionView; unit: "km
         {checkInSummary(c, unit)}
       </p>
       {c.notes && <p className="text-sm text-muted-foreground">{c.notes}</p>}
+      {c.status === "completed" && c.strava && <StravaLine session={session} strava={c.strava} />}
       {session.type === "strength" && session.workout && (
         <Link href={`/workout/${session.workout.id}`} className="grid h-12 place-items-center rounded-xl border font-medium hover:bg-accent">
           View workout
@@ -341,5 +343,41 @@ function CheckedIn({ session, unit, onClose }: { session: SessionView; unit: "km
         {pending ? <Loader2 className="animate-spin" /> : c.status === "completed" ? "Undo, not done yet" : "Undo skip"}
       </Button>
     </div>
+  );
+}
+
+/** A recorded run and Strava (SPEC decision 84): a link once it's there, or a way to send it. */
+function StravaLine({ session, strava }: { session: SessionView; strava: StravaLinkView }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const run = (action: typeof sendToStrava, done: string) =>
+    startTransition(async () => {
+      const r = await safely(() => action({ date: session.date, slot: session.slot }));
+      if (!r.ok) return void toast(r.errors[0]);
+      toast(r.status === "sent" ? done : r.status === "sending" ? "Strava is still working on it. Check again in a minute." : "It didn't reach Strava. Try again in a moment.");
+      router.refresh();
+    });
+
+  if (strava.status === "sent" && strava.activityId) {
+    // Strava's brand rules: the link reads "View on Strava", in bold or Strava orange.
+    return (
+      <a href={stravaActivityUrl(strava.activityId)} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-[#FC5200] underline-offset-4 hover:underline">
+        View on Strava
+      </a>
+    );
+  }
+  const sending = strava.status === "sending";
+  return (
+    <p className="flex items-center justify-between gap-3 text-sm">
+      <span className="text-muted-foreground">{sending ? "Sending to Strava…" : strava.status === "failed" ? "Didn't reach Strava." : "Not on Strava."}</span>
+      <button
+        type="button"
+        className="font-medium text-primary-strong disabled:opacity-50"
+        disabled={pending}
+        onClick={() => (sending ? run(checkStrava, "It's on Strava.") : run(sendToStrava, "Sent to Strava."))}
+      >
+        {pending ? <Loader2 className="size-4 animate-spin" aria-label="Working" /> : sending ? "Check again" : "Send to Strava"}
+      </button>
+    </p>
   );
 }

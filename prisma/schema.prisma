@@ -51,12 +51,12 @@ model Athlete {
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 
-  availability  AvailabilityDay[]
-  injuries      Injury[]
-  outlines      PlanOutline[]
-  weeks         PlanWeek[]
-  coachMessages CoachMessage[]
-  authSessions  AuthSession[]
+  availability   AvailabilityDay[]
+  injuries       Injury[]
+  outlines       PlanOutline[]
+  weeks          PlanWeek[]
+  coachMessages  CoachMessage[]
+  authSessions   AuthSession[]
   passwordResets PasswordReset[]
   exerciseSwaps  ExerciseSwap[]
   stravaLink     StravaLink?
@@ -250,16 +250,22 @@ model SetLog {
 
 // A logged run (entered manually in v1).
 model RunLog {
-  id              String  @id @default(cuid())
-  sessionId       String  @unique
-  distanceKm      Float? // always stored in km
-  durationSeconds Int?
-  avgHeartRate    Int?
-  notes           String?
+  id               String  @id @default(cuid())
+  sessionId        String  @unique
+  distanceKm       Float? // always stored in km
+  durationSeconds  Int?
+  avgHeartRate     Int?
+  notes            String?
   /// Recorded with GPS in the iPhone app (SPEC decision 82), not typed in.
-  recorded        Boolean @default(false)
+  recorded         Boolean @default(false)
   /// JSON: TrackPoint[] (src/lib/run-track.ts), only for recorded runs. Shown to the athlete only.
-  route           String?
+  route            String?
+  /// JSON: Pause[] for recorded runs, so the route can be sent to Strava split where it was paused.
+  pauses           String?
+  /// Sending to Strava (SPEC decision 84): "sending" | "sent" | "failed", or null if never sent.
+  stravaStatus     String?
+  stravaUploadId   String?
+  stravaActivityId String?
 
   session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 }

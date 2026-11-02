@@ -1,7 +1,7 @@
 // Converts between ede.'s own types and database rows. JSON columns are
 // validated with Zod when read back, so bad data never reaches the plan checker.
 import { z } from "zod";
-import { SKIP_REASONS, type CheckIn } from "./checkin";
+import { SKIP_REASONS, type CheckIn, type StravaLinkView } from "./checkin";
 import { toUtc } from "./dates";
 import {
   Phase,
@@ -118,6 +118,14 @@ export function rowToWeekPlan(row: {
   };
 }
 
+const STRAVA_STATUSES = ["sending", "sent", "failed"] as const;
+
+/** A recorded run's place with Strava (SPEC decision 84). */
+function stravaView(status: string | null | undefined, activityId: string | null | undefined): StravaLinkView {
+  const known = STRAVA_STATUSES.find((s) => s === status) ?? null;
+  return { status: known, ...(activityId && { activityId }) };
+}
+
 /** A stored session's check-in, or undefined while it's still planned. */
 export function rowToCheckIn(row: {
   status: string;
@@ -125,11 +133,19 @@ export function rowToCheckIn(row: {
   effort: number | null;
   notes: string | null;
   skipReason: string | null;
-  runLog?: { distanceKm: number | null } | null;
+  runLog?: { distanceKm: number | null; recorded?: boolean; stravaStatus?: string | null; stravaActivityId?: string | null } | null;
 }): CheckIn | undefined {
   const notes = row.notes ?? undefined;
   if (row.status === "completed") {
-    return { status: "completed", actualMinutes: row.actualMinutes ?? 0, effort: row.effort ?? 0, ...(row.runLog?.distanceKm && { distanceKm: row.runLog.distanceKm }), ...(notes && { notes }) };
+    const log = row.runLog;
+    return {
+      status: "completed",
+      actualMinutes: row.actualMinutes ?? 0,
+      effort: row.effort ?? 0,
+      ...(log?.distanceKm && { distanceKm: log.distanceKm }),
+      ...(notes && { notes }),
+      ...((log?.recorded || log?.stravaActivityId) && { strava: stravaView(log.stravaStatus, log.stravaActivityId) }),
+    };
   }
   if (row.status === "skipped") {
     const reason = SKIP_REASONS.find((r) => r === row.skipReason) ?? "other";

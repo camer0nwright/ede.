@@ -5,6 +5,7 @@ import { RunRecorder } from "@/components/run/run-recorder";
 import { weekDays, type RunView } from "@/lib/week-view";
 import { builtWeeks } from "@/server/athlete";
 import { signedInContext } from "@/server/sessions";
+import { stravaAvailable, stravaConnected } from "@/server/strava";
 
 export const metadata = { title: "Record run · ede." };
 
@@ -31,5 +32,6 @@ async function RunContent({ params }: { params: PageProps<"/run/[key]">["params"
   const session = week && weekDays(week, ctx.paces, ctx.checkIns, ctx.workouts).flatMap((d) => d.sessions).find((s) => s.id === key);
   if (!session || session.type !== "run") notFound();
   if (session.checkIn) redirect("/");
-  return <RunRecorder session={session as RunView} unit={ctx.paces.unit} />;
+  const strava = stravaAvailable() && (await stravaConnected(ctx.athleteId));
+  return <RunRecorder session={session as RunView} unit={ctx.paces.unit} strava={strava} />;
 }

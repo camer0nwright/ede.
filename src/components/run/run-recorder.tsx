@@ -26,7 +26,7 @@ const noChange = () => () => {};
 const pausesTo = (r: Recording, now: number): Pause[] => (r.pausedAt ? [...r.pauses, { from: r.pausedAt, to: now }] : r.pauses);
 
 /** Recording a planned run with GPS in the iPhone app (SPEC decision 82). */
-export function RunRecorder({ session, unit }: { session: RunView; unit: "km" | "mi" }) {
+export function RunRecorder({ session, unit, strava }: { session: RunView; unit: "km" | "mi"; strava: boolean }) {
   const id = session.id;
   const native = useSyncExternalStore(noChange, canRecordRuns, () => null);
   const rec = useSyncExternalStore(subscribe, () => getRun(id), () => null);
@@ -78,7 +78,7 @@ export function RunRecorder({ session, unit }: { session: RunView; unit: "km" | 
     </header>
   );
 
-  if (rec?.endedAt) return <FinishRun session={session} unit={unit} rec={rec} header={header} onDiscard={discard} onSaved={() => setRun(id, null)} />;
+  if (rec?.endedAt) return <FinishRun session={session} unit={unit} strava={strava} rec={rec} header={header} onDiscard={discard} onSaved={() => setRun(id, null)} />;
 
   // While paused, the pause runs on with no end yet, so no GPS that comes in now counts.
   const live = rec ? summarise(rec.points, rec.startedAt, now, pausesTo(rec, Infinity)) : null;
@@ -188,6 +188,7 @@ function GpsStatus({ gps }: { gps: GpsState }) {
 function FinishRun({
   session,
   unit,
+  strava,
   rec,
   header,
   onDiscard,
@@ -195,6 +196,8 @@ function FinishRun({
 }: {
   session: RunView;
   unit: "km" | "mi";
+  /** Strava is connected: offer to send the run there (SPEC decision 84). */
+  strava: boolean;
   rec: Recording;
   header: React.ReactNode;
   onDiscard: () => void;
@@ -203,6 +206,7 @@ function FinishRun({
   const router = useRouter();
   const [effort, setEffort] = useState<number | undefined>();
   const [notes, setNotes] = useState("");
+  const [sendToStrava, setSendToStrava] = useState(strava);
   const [errors, setErrors] = useState<string[]>([]);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -212,7 +216,7 @@ function FinishRun({
     startTransition(async () => {
       setErrors([]);
       const result = await safely(() =>
-        saveRecordedRun({ date: session.date, slot: session.slot, startedAt: rec.startedAt, endedAt: rec.endedAt, points: rec.points, pauses: rec.pauses, effort, notes: notes.trim() || undefined }),
+        saveRecordedRun({ date: session.date, slot: session.slot, startedAt: rec.startedAt, endedAt: rec.endedAt, points: rec.points, pauses: rec.pauses, effort, notes: notes.trim() || undefined, sendToStrava: strava && sendToStrava }),
       );
       if (!result.ok) return setErrors(result.errors);
       onSaved();
@@ -237,6 +241,12 @@ function FinishRun({
         Notes (optional)
         <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={1000} placeholder="Legs felt heavy on the hills" className="mt-1.5" />
       </label>
+      {strava && (
+        <label className="flex items-center gap-3 text-sm">
+          <input type="checkbox" checked={sendToStrava} onChange={(e) => setSendToStrava(e.target.checked)} className="size-5 shrink-0 accent-primary-strong" />
+          Send to Strava (your notes and effort stay in ede.)
+        </label>
+      )}
       {errors.length > 0 && <Note tone="caution">{errors.join(" ")}</Note>}
       <div className="mt-auto flex flex-col gap-2">
         <Button className="h-14 rounded-md text-base font-semibold" onClick={save} disabled={pending || !effort}>

@@ -83,8 +83,9 @@ export default function PrivacyPage() {
             <strong>Email:</strong> password reset emails are sent through Resend, which sees your email address and the email itself, only to deliver it.
           </li>
           <li>
-            <strong>Strava, only if you connect it:</strong> runs you choose to send go to Strava, which then holds them under its own privacy policy. Nothing
-            from Strava is sent to the AI coach.
+            <strong>Strava, only if you connect it:</strong> when you save a run recorded in the app with &quot;Send to Strava&quot; ticked, its route and times go
+            to Strava as a new activity, which Strava then holds under its own privacy policy. Your notes and effort stay in ede. Nothing from Strava is sent to
+            the AI coach.
           </li>
           <li>
             <strong>Form videos:</strong> exercise videos come from YouTube, using its privacy-enhanced mode. Nothing loads from YouTube until you tap Watch form;
