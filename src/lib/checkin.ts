@@ -4,6 +4,7 @@
 import { z } from "zod";
 import { IsoDate } from "./domain";
 import { warningWords } from "./onboarding";
+import { Pause, TrackPoint } from "./run-track";
 
 export const SKIP_REASONS = ["injury", "illness", "holiday", "work_life", "fatigue", "other"] as const;
 export type SkipReason = (typeof SKIP_REASONS)[number];
@@ -32,6 +33,20 @@ export const CheckInInput = z.discriminatedUnion("status", [
   z.object({ ...where, status: z.literal("skipped"), skipReason: z.enum(SKIP_REASONS), notes }),
 ]);
 export type CheckInInput = z.infer<typeof CheckInInput>;
+
+/** A run recorded with GPS in the iPhone app (SPEC decision 82): the server works out distance and time. */
+export const RecordedRunInput = z
+  .object({
+    ...where,
+    startedAt: z.number().int().positive(),
+    endedAt: z.number().int().positive(),
+    points: z.array(TrackPoint).max(20_000),
+    pauses: z.array(Pause).max(500),
+    effort: z.number().int().min(1).max(10),
+    notes,
+  })
+  .refine((r) => r.endedAt > r.startedAt && r.endedAt - r.startedAt <= 24 * 3600_000, "That run's times don't look right.");
+export type RecordedRunInput = z.infer<typeof RecordedRunInput>;
 
 /** A check-in as the screens show it. Distance is in km. */
 export type CheckIn =

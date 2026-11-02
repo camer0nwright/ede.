@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useSyncExternalStore, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Loader2, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { checkIn, undoCheckIn } from "@/app/(app)/session/actions";
 import { startWorkout } from "@/app/(flow)/workout/actions";
@@ -13,8 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { EFFORT_LABEL, SKIP_LABEL, SKIP_REASONS, type CheckIn, type SkipReason } from "@/lib/checkin";
 import { formatMinutes } from "@/lib/format";
+import { canRecordRuns } from "@/lib/native-gps";
 import { cn } from "@/lib/utils";
 import type { DayView, SessionView } from "@/lib/week-view";
+import { getRun, runHref, subscribe } from "@/components/run/active-run";
 import { MovePanel } from "./move-sheet";
 import { safely } from "@/lib/safely";
 
@@ -65,8 +67,30 @@ export function WorkoutButton({ session, className }: { session: SessionView; cl
   );
 }
 
+/** "Record run" for a run, in the iPhone app only: a browser can't keep GPS going with the screen locked (SPEC decision 82). */
+function useCanRecord() {
+  return useSyncExternalStore(noChange, canRecordRuns, () => false);
+}
+
+/** For values that never change after the page loads. */
+const noChange = () => () => {};
+
+function RecordRunButton({ session, className }: { session: SessionView; className?: string }) {
+  const going = useSyncExternalStore(subscribe, () => !!getRun(session.id), () => false);
+  if (session.type !== "run") return null;
+  return (
+    <Link
+      href={runHref(session.id)}
+      className={cn("flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground active:scale-[0.99]", className)}
+    >
+      <MapPin className="size-4" aria-hidden /> {going ? "Back to your run" : "Record run"}
+    </Link>
+  );
+}
+
 /** The buttons at the bottom of a session sheet, and the done/skip forms they open. */
 export function CheckInPanel({ session, options, onClose }: { session: SessionView; options: CheckInOptions; onClose: () => void }) {
+  const canRecord = useCanRecord();
   const [mode, setMode] = useState<"buttons" | "done" | "skip" | "move" | "today">("buttons");
 
   if (!options.canCheckIn) {
@@ -89,6 +113,7 @@ export function CheckInPanel({ session, options, onClose }: { session: SessionVi
   return (
     <div className="mt-6 grid grid-cols-2 gap-2">
       {lift && canComplete && <WorkoutButton session={session} className="col-span-2" />}
+      {!lift && canComplete && canRecord && <RecordRunButton session={session} className="col-span-2" />}
       <button type="button" className="h-12 rounded-xl border font-medium hover:bg-accent" onClick={() => setMode("skip")}>
         Skip
       </button>
@@ -98,7 +123,7 @@ export function CheckInPanel({ session, options, onClose }: { session: SessionVi
         title={canComplete ? undefined : "You can mark it done on the day"}
         className={cn(
           "h-12 rounded-xl font-semibold disabled:opacity-40",
-          lift ? "border font-medium hover:bg-accent" : "bg-primary text-primary-foreground",
+          lift || (canComplete && canRecord) ? "border font-medium hover:bg-accent" : "bg-primary text-primary-foreground",
         )}
         onClick={() => setMode("done")}
       >
@@ -164,6 +189,34 @@ function CautionStep({ caution, onClose }: { caution: string; onClose: () => voi
   );
 }
 
+/** Effort from 1 (easy) to 10 (all out), as ten buttons. */
+export function EffortPicker({ effort, onChange }: { effort: number | undefined; onChange: (effort: number) => void }) {
+  return (
+    <fieldset>
+      <legend className="text-sm text-muted-foreground">
+        Effort {effort ? <span className="font-medium text-foreground">· {effort}/10, {EFFORT_LABEL[effort].toLowerCase()}</span> : "(1 easy, 10 all out)"}
+      </legend>
+      <div className="mt-2 grid grid-cols-10 gap-1">
+        {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+          <button
+            key={n}
+            type="button"
+            aria-pressed={effort === n}
+            aria-label={`Effort ${n}, ${EFFORT_LABEL[n]}`}
+            onClick={() => onChange(n)}
+            className={cn(
+              "h-10 rounded-lg border text-sm font-medium tabular-nums transition-colors",
+              effort === n ? "border-foreground bg-foreground text-background" : "bg-card hover:bg-accent",
+            )}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 function DoneForm({ session, unit, onBack, onClose }: { session: SessionView; unit: "km" | "mi"; onBack: () => void; onClose: () => void }) {
   const [minutes, setMinutes] = useState(String(session.minutes));
   const [distance, setDistance] = useState("");
@@ -204,28 +257,7 @@ function DoneForm({ session, unit, onBack, onClose }: { session: SessionView; un
           </label>
         )}
       </div>
-      <fieldset>
-        <legend className="text-sm text-muted-foreground">
-          Effort {effort ? <span className="font-medium text-foreground">· {effort}/10, {EFFORT_LABEL[effort].toLowerCase()}</span> : "(1 easy, 10 all out)"}
-        </legend>
-        <div className="mt-2 grid grid-cols-10 gap-1">
-          {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-            <button
-              key={n}
-              type="button"
-              aria-pressed={effort === n}
-              aria-label={`Effort ${n}, ${EFFORT_LABEL[n]}`}
-              onClick={() => setEffort(n)}
-              className={cn(
-                "h-10 rounded-lg border text-sm font-medium tabular-nums transition-colors",
-                effort === n ? "border-foreground bg-foreground text-background" : "bg-card hover:bg-accent",
-              )}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
-      </fieldset>
+      <EffortPicker effort={effort} onChange={setEffort} />
       <label className="text-sm text-muted-foreground">
         Notes (optional)
         <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={1000} placeholder="Legs felt heavy on the hills" className="mt-1.5" />

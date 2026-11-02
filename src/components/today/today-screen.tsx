@@ -9,6 +9,7 @@ import { MedicalNotice } from "@/components/medical-notice";
 import { Note } from "@/components/onboarding/choices";
 import { EaseBackCard } from "@/components/plan/ease-back-card";
 import { TailorCard } from "@/components/plan/tailor-card";
+import { RunInProgress } from "@/components/run/run-in-progress";
 import { TodaySessions, WeekDays, WeekStrip } from "@/components/plan/week-days";
 import { daysBetween } from "@/lib/dates";
 import { formatLongDate, formatMinutes, PHASE_LABEL, plural } from "@/lib/format";
@@ -64,6 +65,7 @@ export async function TodayScreen({ demo = false, query = {} }: { demo?: boolean
 
       {query.reset && !ctx.isDemo && <Note>Password changed. Any other devices have been logged out.</Note>}
       {ctx.isDemo && <DemoBanner />}
+      {!ctx.isDemo && <RunInProgress />}
       {ctx.injury && <InjuryBanner injury={ctx.injury} />}
       {coachingNote && <Note>{coachingNote}</Note>}
       <div className={cn("grid gap-4", offer && "md:grid-cols-2")}>

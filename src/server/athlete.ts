@@ -197,7 +197,7 @@ async function readPlanContext(id: string): Promise<PlanContext> {
     include: {
       outlines: { where: { active: true }, orderBy: { createdAt: "desc" }, take: 1 },
       injuries: { where: { resolvedAt: null }, orderBy: { startedAt: "desc" }, take: 1 },
-      weeks: { include: { sessions: { include: { runLog: true } } }, orderBy: { weekStart: "asc" } },
+      weeks: { include: { sessions: { include: { runLog: { select: { distanceKm: true } } } } }, orderBy: { weekStart: "asc" } },
       exerciseSwaps: { where: { keep: true }, orderBy: { createdAt: "asc" } },
     },
   });
