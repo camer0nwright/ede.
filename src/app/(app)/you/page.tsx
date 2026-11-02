@@ -23,6 +23,8 @@ import { HealthConsentCard } from "@/components/you/health-consent-card";
 import { KeptSwaps } from "@/components/you/kept-swaps";
 import { SignInSecurity } from "@/components/you/sign-in-security";
 import { accountSessions } from "@/server/auth";
+import { stravaAvailable, stravaConnected } from "@/server/strava";
+import { StravaCard } from "@/components/you/strava-card";
 import { LegalLinks } from "@/components/legal-page";
 
 export const metadata = { title: "You · ede." };
@@ -44,9 +46,15 @@ export default function YouPage({ searchParams }: PageProps<"/you">) {
 
 async function You({ searchParams }: { searchParams: PageProps<"/you">["searchParams"] }) {
   const [ctx, loaded, query] = await Promise.all([getPlanContext(), getSavedAthlete(), searchParams]);
-  const [pastInjuries, devices] = ctx.athleteId
-    ? await Promise.all([getInjuryHistory(ctx.athleteId), ctx.email ? accountSessions(ctx.athleteId) : null])
-    : [[], null];
+  // Strava needs an account, and is offered only once it's set up on the server (SPEC decision 83).
+  const offerStrava = !!ctx.athleteId && !!ctx.email && stravaAvailable();
+  const [pastInjuries, devices, strava] = ctx.athleteId
+    ? await Promise.all([
+        getInjuryHistory(ctx.athleteId),
+        ctx.email ? accountSessions(ctx.athleteId) : null,
+        offerStrava ? stravaConnected(ctx.athleteId) : null,
+      ])
+    : [[], null, null];
   const { input, outline } = ctx;
   const saved = loaded?.saved;
   const ultra = input.raceDistance === "ultra";
@@ -243,6 +251,8 @@ async function You({ searchParams }: { searchParams: PageProps<"/you">["searchPa
       </Section>
 
       {!ctx.isDemo && Object.keys(ctx.swaps).length > 0 && <KeptSwaps swaps={Object.entries(ctx.swaps)} />}
+
+      {strava !== null && <StravaCard connected={strava} result={typeof query.strava === "string" ? query.strava : undefined} />}
 
       {saved && (
         <section aria-label="Settings" className="border bg-card p-6">

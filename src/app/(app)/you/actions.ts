@@ -13,7 +13,8 @@ import { HEALTH_CONSENT_NEEDED, OnboardingAnswers, targetDateProblem, toOutlineI
 import { continuityFromWeeks, returnFromInjury } from "@/lib/plan-rebuild";
 import { mergeSection } from "@/lib/plan-settings";
 import { ATHLETE_COOKIE, builtWeeks, getPlanContext, getSavedAthlete } from "@/server/athlete";
-import { SESSION_COOKIE } from "@/server/auth";
+import { SESSION_COOKIE, sessionAthleteId } from "@/server/auth";
+import { disconnectStrava } from "@/server/strava";
 import { saveRebuiltPlan } from "@/server/plan-save";
 
 export type ActionResult = { ok: false; errors: string[] };
@@ -143,6 +144,8 @@ export async function deleteMyData(): Promise<ActionResult> {
   const ctx = await getPlanContext();
   if (ctx.isDemo || !ctx.athleteId) return NOT_SET_UP;
   try {
+    // Strava is told to cancel ede.'s access first; the tokens go with everything else.
+    await disconnectStrava(ctx.athleteId);
     await db.athlete.delete({ where: { id: ctx.athleteId } });
   } catch (e) {
     console.error("Deleting athlete data failed", e);
@@ -179,5 +182,13 @@ export async function withdrawHealthConsent(): Promise<ActionResult | { ok: true
     console.error("Withdrawing health consent failed", e);
     return { ok: false, errors: ["That couldn't be done just now. Try again in a moment."] };
   }
+  return { ok: true };
+}
+
+/** Disconnects Strava (SPEC decision 83): Strava is told to cancel ede.'s access, and the tokens are deleted. */
+export async function disconnectStravaAction(): Promise<ActionResult | { ok: true }> {
+  const athleteId = await sessionAthleteId();
+  if (!athleteId) return { ok: false, errors: ["Log in first."] };
+  await disconnectStrava(athleteId);
   return { ok: true };
 }

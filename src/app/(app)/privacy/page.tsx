@@ -34,6 +34,10 @@ export default function PrivacyPage() {
             are deleted with the run or your data.
           </li>
           <li>
+            <strong>Strava, only if you connect it:</strong> your Strava athlete number and the codes that let ede. upload to your account, kept encrypted. ede.
+            only asks to upload activities and never reads anything from Strava. Disconnecting, or deleting your data, cancels ede.&apos;s access and deletes them.
+          </li>
+          <li>
             <strong>Injury details, only if you add them:</strong> where it hurts, how much, when, your notes, and past injuries. These count as health data, so
             ede. only keeps them with your clear agreement (see below).
           </li>
@@ -62,7 +66,7 @@ export default function PrivacyPage() {
       <LegalSection title="Cookies">
         <p>
           ede. uses two cookies, both needed for it to work: one keeps you signed in (for up to {SESSION_DAYS} days), and one holds a plan you&apos;ve set up but
-          not yet saved. There are no analytics, tracking or advertising cookies.
+          not yet saved. While you connect Strava, a third holds a random check for up to 10 minutes. There are no analytics, tracking or advertising cookies.
         </p>
       </LegalSection>
 
@@ -77,6 +81,10 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Email:</strong> password reset emails are sent through Resend, which sees your email address and the email itself, only to deliver it.
+          </li>
+          <li>
+            <strong>Strava, only if you connect it:</strong> runs you choose to send go to Strava, which then holds them under its own privacy policy. Nothing
+            from Strava is sent to the AI coach.
           </li>
           <li>
             <strong>Form videos:</strong> exercise videos come from YouTube, using its privacy-enhanced mode. Nothing loads from YouTube until you tap Watch form;

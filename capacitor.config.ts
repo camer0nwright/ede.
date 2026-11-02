@@ -16,6 +16,9 @@ const config: CapacitorConfig = {
   server: {
     url: devServer ?? "https://trainwithede.com",
     ...(devServer?.startsWith("http://") && { cleartext: true }),
+    // Connecting Strava happens on Strava's own page, in the app rather than in Safari,
+    // so it comes back to the signed-in app (SPEC decision 83).
+    allowNavigation: ["www.strava.com", "strava.com"],
   },
   ios: {
     contentInset: "never",
